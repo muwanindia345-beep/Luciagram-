@@ -2,13 +2,6 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Post, Like } = require("../models");
 const { v4: uuidv4 } = require("uuid");
-const cloudinary = require("cloudinary").v2;
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 router.get("/feed", auth, async (req, res) => {
   try {
@@ -20,13 +13,26 @@ router.get("/feed", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType, caption, location } = req.body;
-    let mediaUrl = "";
-    if (mediaBase64) {
-      const result = await cloudinary.uploader.upload(mediaBase64, { folder: "luciagram", resource_type: "auto" });
-      mediaUrl = result.secure_url;
-    }
-    const post = await Post.create({ id: uuidv4(), userId: req.user.id, username: req.user.username, mediaUrl, mediaType: mediaType || "image", caption, location });
+    const post = await Post.create({
+      id: uuidv4(),
+      userId: req.user.id,
+      username: req.user.username,
+      mediaUrl: mediaBase64 || "",
+      mediaType: mediaType || "image",
+      caption,
+      location
+    });
     res.status(201).json(post);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const post = await Post.findOne({ id: req.params.id });
+    if (!post) return res.status(404).json({ message: "Not found" });
+    if (post.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+    await post.deleteOne();
+    res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

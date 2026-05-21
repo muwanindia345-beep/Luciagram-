@@ -1,22 +1,24 @@
-const loki = require('lokijs');
-const path = require('path');
+const mongoose = require("mongoose");
+require("dotenv").config();
 
-const db = new loki(path.join(__dirname, '../luciagram.db.json'), {
-  autoload: true,
-  autosave: true,
-  autosaveInterval: 4000,
-});
+mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch(err => console.error("❌ MongoDB error:", err));
 
-const getCollection = (name) => {
-  return db.getCollection(name) || db.addCollection(name, { indices: ['id'] });
+const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, isPrivate: Boolean, isVerified: Boolean }, { timestamps: true });
+const PostSchema = new mongoose.Schema({ id: String, userId: String, username: String, mediaUrl: { type: String, maxlength: 10000000 }, mediaType: String, caption: String, location: String }, { timestamps: true });
+const StorySchema = new mongoose.Schema({ id: String, userId: String, username: String, mediaUrl: { type: String, maxlength: 10000000 }, mediaType: String, expiresAt: Date }, { timestamps: true });
+const CommentSchema = new mongoose.Schema({ id: String, postId: String, userId: String, username: String, text: String }, { timestamps: true });
+const LikeSchema = new mongoose.Schema({ postId: String, userId: String }, { timestamps: true });
+const FollowSchema = new mongoose.Schema({ followerId: String, followingId: String }, { timestamps: true });
+const MessageSchema = new mongoose.Schema({ id: String, senderId: String, receiverId: String, text: String, isRead: Boolean }, { timestamps: true });
+
+module.exports = {
+  User: mongoose.model("User", UserSchema),
+  Post: mongoose.model("Post", PostSchema),
+  Story: mongoose.model("Story", StorySchema),
+  Comment: mongoose.model("Comment", CommentSchema),
+  Like: mongoose.model("Like", LikeSchema),
+  Follow: mongoose.model("Follow", FollowSchema),
+  Message: mongoose.model("Message", MessageSchema),
 };
-
-const Users = () => getCollection('users');
-const Posts = () => getCollection('posts');
-const Stories = () => getCollection('stories');
-const Comments = () => getCollection('comments');
-const Likes = () => getCollection('likes');
-const Follows = () => getCollection('follows');
-const Messages = () => getCollection('messages');
-
-module.exports = { db, Users, Posts, Stories, Comments, Likes, Follows, Messages };
