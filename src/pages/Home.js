@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useNavigate as useNav } from "react-router-dom";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
@@ -88,7 +88,7 @@ export default function Home() {
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🏠</span>
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
-        <div style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
+        <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🤍</span>
         <div onClick={handleLogout} style={{width:"28px",height:"28px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",cursor:"pointer"}}>{avatar(user?.username)}</div>
       </div>
