@@ -90,7 +90,7 @@ export default function Home() {
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
         <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🤍</span>
-        <div onClick={handleLogout} style={{width:"28px",height:"28px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",cursor:"pointer"}}>{avatar(user?.username)}</div>
+        <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",cursor:"pointer"}}>{avatar(user?.username)}</div>
       </div>
 
       {/* Story Viewer */}
