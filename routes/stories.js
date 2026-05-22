@@ -2,17 +2,18 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Story } = require("../models");
 const { v4: uuidv4 } = require("uuid");
-const cloudinary = require("cloudinary").v2;
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// Auto delete expired stories every hour
+setInterval(async () => {
+  try {
+    const result = await Story.deleteMany({ expiresAt: { $lt: new Date() } });
+    if (result.deletedCount > 0) console.log("🗑️ Deleted " + result.deletedCount + " expired stories");
+  } catch (err) { console.error("Story cleanup error:", err); }
+}, 60 * 60 * 1000);
 
 router.get("/", auth, async (req, res) => {
   try {
-    const stories = await Story.find({ expiresAt: { $gt: new Date() } });
+    const stories = await Story.find({ expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 });
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -20,13 +21,26 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType } = req.body;
-    let mediaUrl = "";
-    if (mediaBase64) {
-      const result = await cloudinary.uploader.upload(mediaBase64, { folder: "luciagram/stories", resource_type: "auto" });
-      mediaUrl = result.secure_url;
-    }
-    const story = await Story.create({ id: uuidv4(), userId: req.user.id, username: req.user.username, mediaUrl, mediaType: mediaType || "image", expiresAt: new Date(Date.now() + 86400000) });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const story = await Story.create({
+      id: uuidv4(),
+      userId: req.user.id,
+      username: req.user.username,
+      mediaUrl: mediaBase64 || "",
+      mediaType: mediaType || "image",
+      expiresAt,
+    });
     res.status(201).json(story);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const story = await Story.findOne({ id: req.params.id });
+    if (!story) return res.status(404).json({ message: "Not found" });
+    if (story.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+    await story.deleteOne();
+    res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
