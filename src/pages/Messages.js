@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 export default function Messages() {
   const [conversations, setConversations] = useState([]);
+  const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const { user } = useAuth();
@@ -30,9 +31,14 @@ export default function Messages() {
     <div style={{background:"#0a0a0f",minHeight:"100vh",color:"white",paddingBottom:"70px"}}>
       <div style={{background:"#0a0a0f",borderBottom:"1px solid #1e1e2e",padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100}}>
         <span style={{fontWeight:"bold",fontSize:"1.1rem"}}>@{user?.username}</span>
-        <span style={{color:"#c084fc",cursor:"pointer",fontSize:"1.3rem"}}>✏️</span>
+        <span onClick={()=>setShowNew(!showNew)} style={{color:"#c084fc",cursor:"pointer",fontSize:"1.3rem"}}>✏️</span>
       </div>
 
+      {showNew && (
+        <div style={{padding:"0.75rem 1rem",background:"#13131a",borderBottom:"1px solid #1e1e2e"}}>
+          <p style={{color:"#888",fontSize:"0.85rem",margin:"0 0 0.5rem"}}>Search to start a new chat:</p>
+        </div>
+      )}
       <div style={{padding:"0.75rem 1rem"}}>
         <input
           placeholder="🔍 Search people..."
