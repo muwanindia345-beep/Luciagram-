@@ -45,7 +45,7 @@ export default function Home() {
           <img src="https://i.ibb.co/WWjtyhvX/file-00000000a5f0720bb84b412a53d8b399.png" alt="L" style={{width:"32px",height:"32px",borderRadius:"8px"}} />
           <span style={{color:"white",fontSize:"1.4rem",fontFamily:"serif",fontWeight:"bold"}}>Luciagram</span>
         </div>
-        <span style={{fontSize:"1.3rem",cursor:"pointer"}}>💬</span>
+        <span onClick={()=>navigate("/messages")} style={{fontSize:"1.3rem",cursor:"pointer"}}>💬</span>
       </div>
 
       {/* Stories */}
