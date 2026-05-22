@@ -18,6 +18,15 @@ export default function Home() {
   const handleLogout = () => { logout(); navigate("/login"); };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
+  const AvatarImg = ({ username, size=36, style={} }) => {
+    const u = username || user?.username;
+    if (user?.avatar && u === user?.username) {
+      return <img src={user.avatar} alt={u} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",...style}} />;
+    }
+    const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
+    const g = gradients[(u||"").charCodeAt(0)%4];
+    return <div style={{width:size,height:size,borderRadius:"50%",background:g,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:size*0.35,...style}}>{avatar(u)}</div>;
+  };
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
   return (

@@ -30,6 +30,15 @@ export default function Reels() {
   };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
+  const AvatarImg = ({ username, size=36 }) => {
+    const u = username || user?.username;
+    if (user?.avatar && u === user?.username) {
+      return <img src={user.avatar} alt={u} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover"}} />;
+    }
+    const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
+    const g = gradients[(u||"").charCodeAt(0)%3];
+    return <div style={{width:size,height:size,borderRadius:"50%",background:g,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:size*0.35}}>{avatar(u)}</div>;
+  };
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
 
   return (
@@ -107,7 +116,7 @@ export default function Reels() {
         <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
         <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
         <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>🎬</span>
-        <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",cursor:"pointer"}}>{avatar(user?.username)}</div>
+        <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",cursor:"pointer",border:"2px solid #7c3aed"}}>{user?.avatar ? <img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="p"/> : <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold"}}>{avatar(user?.username)}</div>}</div>
       </div>
     </div>
   );
