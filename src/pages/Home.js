@@ -95,14 +95,22 @@ export default function Home() {
                   <div style={{fontSize:"0.75rem",color:"#888"}}>{p.location||""}</div>
                 </div>
               </div>
-              <span style={{color:"#888",cursor:"pointer"}}>•••</span>
+              <span onClick={()=>{
+                  if(p.userId===user?.id && window.confirm("Delete this post?")) {
+                    API.delete("/posts/"+p.id).then(()=>setPosts(prev=>prev.filter(x=>x.id!==p.id))).catch(()=>{});
+                  }
+                }} style={{color:"#888",cursor:"pointer"}}>•••</span>
             </div>
-            {p.mediaUrl && <img src={p.mediaUrl} alt="post" style={{width:"100%",maxHeight:"500px",objectFit:"cover"}} />}
+            {p.mediaUrl && (p.mediaType === "video" ? (
+              <video src={p.mediaUrl} controls style={{width:"100%",maxHeight:"500px",objectFit:"cover"}} playsInline />
+            ) : (
+              <img src={p.mediaUrl} alt="post" style={{width:"100%",maxHeight:"500px",objectFit:"cover"}} />
+            ))}
             <div style={{padding:"0.6rem 1rem"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.5rem"}}>
                 <div style={{display:"flex",gap:"1rem",fontSize:"1.4rem"}}>
-                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>{liked[p.id] ? "❤️" : "🤍"}</span>
-                  <span style={{cursor:"pointer"}}>💬</span>
+                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.5rem",transition:"transform 0.1s",transform:liked[p.id]?"scale(1.2)":"scale(1)"}}>{liked[p.id] ? "❤️" : "🤍"}</span>
+                  <span onClick={()=>navigate("/comments/"+p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>💬</span>
                   <span style={{cursor:"pointer"}}>➤</span>
                 </div>
                 <span style={{fontSize:"1.4rem",cursor:"pointer"}}>🔖</span>

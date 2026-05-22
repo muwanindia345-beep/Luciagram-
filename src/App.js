@@ -10,6 +10,7 @@ import Reels from "./pages/Reels";
 import EditProfile from "./pages/EditProfile";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
+import Comments from "./pages/Comments";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -30,6 +31,7 @@ function App() {
           <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/chat/:userId" element={<PrivateRoute><Chat /></PrivateRoute>} />
+          <Route path="/comments/:postId" element={<PrivateRoute><Comments /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
