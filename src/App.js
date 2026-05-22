@@ -7,6 +7,7 @@ import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
 import Reels from "./pages/Reels";
+import EditProfile from "./pages/EditProfile";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -24,6 +25,7 @@ function App() {
           <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
+          <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
