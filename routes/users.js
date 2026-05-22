@@ -2,6 +2,19 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { User, Follow } = require("../models");
 
+router.get("/search", auth, async (req, res) => {
+  try {
+    const q = req.query.q;
+    const users = await User.find({
+      $or: [
+        { username: { $regex: q, $options: "i" } },
+        { fullName: { $regex: q, $options: "i" } }
+      ]
+    }).select("-password").limit(10);
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.get("/:username", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username }).select("-password");
@@ -28,7 +41,7 @@ router.post("/:id/follow", auth, async (req, res) => {
   try {
     const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
-    await Follow.create({ followerId: req.user.id, followingId: req.params.id });
+    await Follow.create({ followerId: req.user.id, followerUsername: req.user.username, followingId: req.params.id });
     res.json({ message: "Followed", following: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
