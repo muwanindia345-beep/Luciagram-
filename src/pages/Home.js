@@ -7,6 +7,8 @@ export default function Home() {
   const [posts, setPosts] = useState([]);
   const [stories, setStories] = useState([]);
   const [activeStory, setActiveStory] = useState(null);
+  const [liked, setLiked] = useState({});
+  const [likeCounts, setLikeCounts] = useState({});
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -16,6 +18,14 @@ export default function Home() {
   }, []);
 
   const handleLogout = () => { logout(); navigate("/login"); };
+
+  const handleLike = async (postId) => {
+    try {
+      const res = await API.post("/posts/" + postId + "/like");
+      setLiked(p => ({...p, [postId]: res.data.liked}));
+      setLikeCounts(p => ({...p, [postId]: (p[postId]||0) + (res.data.liked ? 1 : -1)}));
+    } catch {}
+  };
 
   const getTimeLeft = (expiresAt) => {
     const diff = new Date(expiresAt) - new Date();
@@ -91,13 +101,13 @@ export default function Home() {
             <div style={{padding:"0.6rem 1rem"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.5rem"}}>
                 <div style={{display:"flex",gap:"1rem",fontSize:"1.4rem"}}>
-                  <span style={{cursor:"pointer"}}>🤍</span>
+                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>{liked[p.id] ? "❤️" : "🤍"}</span>
                   <span style={{cursor:"pointer"}}>💬</span>
                   <span style={{cursor:"pointer"}}>➤</span>
                 </div>
                 <span style={{fontSize:"1.4rem",cursor:"pointer"}}>🔖</span>
               </div>
-              <div style={{fontSize:"0.85rem",fontWeight:"bold"}}>0 likes</div>
+              <div style={{fontSize:"0.85rem",fontWeight:"bold"}}>{likeCounts[p.id]||0} likes</div>
               {p.caption && <div style={{fontSize:"0.85rem",marginTop:"0.2rem"}}><span style={{fontWeight:"bold"}}>@{p.username||"user"}</span> {p.caption}</div>}
               <div style={{fontSize:"0.75rem",color:"#555",marginTop:"0.3rem"}}>{new Date(p.createdAt).toLocaleDateString()}</div>
             </div>
