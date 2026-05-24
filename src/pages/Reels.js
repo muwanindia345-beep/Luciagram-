@@ -47,6 +47,38 @@ export default function Reels() {
     } catch {}
   };
 
+  const shareToStory = async (post) => {
+    try {
+      await API.post("/stories", {
+        mediaBase64: post.mediaUrl,
+        mediaType: post.mediaType || "video",
+      });
+      alert("✅ Reel shared to your story for 24h!");
+    } catch { alert("Failed to share to story"); }
+  };
+
+  const handleShare = async (post) => {
+    const choice = window.confirm(
+      "Share options:\n\nOK = Share to Story (24h)\nCancel = Copy Link"
+    );
+    if (choice) {
+      await shareToStory(post);
+    } else {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Luciagram Reel by @" + post.username,
+            text: post.caption || "Check this reel!",
+            url: window.location.origin,
+          });
+        } catch {}
+      } else {
+        navigator.clipboard?.writeText(window.location.origin);
+        alert("🔗 Link copied!");
+      }
+    }
+  };
+
   const loadComments = async (postId) => {
     setShowComments(postId);
     try {
@@ -131,11 +163,8 @@ export default function Reels() {
               </div>
 
               {/* Share */}
-              <div onClick={()=>{
-                if(navigator.share) navigator.share({title:"Luciagram Reel",text:p.caption||"Check this reel!",url:window.location.href});
-                else alert("Share: " + window.location.href);
-              }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
-                <span style={{fontSize:"1.8rem"}}>➤</span>
+              <div onClick={()=>handleShare(p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
+                <span style={{fontSize:"1.8rem"}}>📤</span>
                 <span style={{color:"white",fontSize:"0.75rem"}}>Share</span>
               </div>
 
