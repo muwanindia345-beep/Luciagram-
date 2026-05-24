@@ -11,6 +11,8 @@ import EditProfile from "./pages/EditProfile";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
 import Comments from "./pages/Comments";
+import Search from "./pages/Search";
+import Channel from "./pages/Channel";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -32,6 +34,8 @@ function App() {
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/chat/:userId" element={<PrivateRoute><Chat /></PrivateRoute>} />
           <Route path="/comments/:postId" element={<PrivateRoute><Comments /></PrivateRoute>} />
+          <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
+          <Route path="/channels" element={<PrivateRoute><Channel /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
