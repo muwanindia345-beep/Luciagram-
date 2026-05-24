@@ -7,6 +7,7 @@ export default function Reels() {
   const [posts, setPosts] = useState([]);
   const [current, setCurrent] = useState(0);
   const [liked, setLiked] = useState({});
+  const [muted, setMuted] = useState(true);
   const [likes, setLikes] = useState({});
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -62,8 +63,14 @@ export default function Reels() {
 
             {/* Media */}
             {p.mediaUrl ? (
-              p.mediaUrl.startsWith("data:video") ? (
-                <video src={p.mediaUrl} style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} autoPlay loop muted playsInline />
+              p.mediaType === "video" || p.mediaUrl.startsWith("data:video") ? (
+                <video
+                  src={p.mediaUrl}
+                  style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
+                  autoPlay={i===current}
+                  loop muted={muted} playsInline
+                  ref={el=>{if(el&&i===current){el.play().catch(()=>{})}else if(el){el.pause();el.currentTime=0;}}}
+                />
               ) : (
                 <img src={p.mediaUrl} alt="reel" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} />
               )

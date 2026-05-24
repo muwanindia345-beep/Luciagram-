@@ -102,7 +102,19 @@ export default function Home() {
                 }} style={{color:"#888",cursor:"pointer"}}>•••</span>
             </div>
             {p.mediaUrl && (p.mediaType === "video" ? (
-              <video src={p.mediaUrl} controls style={{width:"100%",maxHeight:"500px",objectFit:"cover"}} playsInline />
+              <div onClick={()=>navigate("/reels")} style={{position:"relative",width:"100%",height:"400px",background:"#000",cursor:"pointer",overflow:"hidden"}}>
+                <video src={p.mediaUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} playsInline muted loop
+                  onMouseEnter={e=>e.target.play()} onMouseLeave={e=>e.target.pause()}
+                  ref={el=>{if(el){const obs=new IntersectionObserver(([e])=>e.isIntersecting?el.play():el.pause(),{threshold:0.5});obs.observe(el);}}}
+                />
+                <div style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.6)",borderRadius:"20px",padding:"0.2rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
+                  <span style={{fontSize:"0.8rem"}}>🎬</span>
+                  <span style={{color:"white",fontSize:"0.8rem"}}>Reel</span>
+                </div>
+                <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",opacity:0,transition:"opacity 0.2s"}} className="play-overlay">
+                  <div style={{width:"50px",height:"50px",borderRadius:"50%",background:"rgba(255,255,255,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.5rem"}}>▶</div>
+                </div>
+              </div>
             ) : (
               <img src={p.mediaUrl} alt="post" style={{width:"100%",maxHeight:"500px",objectFit:"cover"}} />
             ))}
