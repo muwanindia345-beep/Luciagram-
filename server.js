@@ -14,6 +14,10 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+const LuciagramUptimeBot = require('./uptimebot');
+const bot = new LuciagramUptimeBot();
+bot.start();
+
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
@@ -27,6 +31,14 @@ app.use('/api/posts', postRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/comments', commentRoutes);
+
+app.get('/status', (req, res) => {
+  res.json({
+    app: 'Luciagram',
+    version: '1.0.0',
+    ...bot.getReport(),
+  });
+});
 
 app.get('/', (req, res) => {
   res.json({ message: '✨ Luciagram API is running!' });
