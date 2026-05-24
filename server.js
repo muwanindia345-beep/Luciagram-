@@ -32,6 +32,9 @@ app.get('/', (req, res) => {
   res.json({ message: '✨ Luciagram API is running!' });
 });
 
+// Smart Keep-Alive Bot
+require('./keepalive');
+
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   console.log('🚀 Luciagram server running on port ' + PORT);
