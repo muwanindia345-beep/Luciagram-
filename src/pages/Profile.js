@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import MediaLoader from "../components/MediaLoader";
 
 export default function Profile() {
   const { user, logout } = useAuth();

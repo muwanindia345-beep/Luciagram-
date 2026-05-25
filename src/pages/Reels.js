@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import MediaLoader from "../components/MediaLoader";
 
 export default function Reels() {
   const [posts, setPosts] = useState([]);
@@ -123,24 +124,21 @@ export default function Reels() {
           <div key={p.id||i} style={{height:"100vh",scrollSnapAlign:"start",position:"relative",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
 
             {/* Media */}
-            {p.mediaUrl ? (
-              p.mediaType === "video" ? (
-                <video
-                  ref={el => videoRefs.current[i] = el}
-                  src={p.mediaUrl}
-                  style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
-                  autoPlay={i===0}
-                  loop
-                  muted={muted}
-                  playsInline
-                  onClick={()=>{
-                    const v = videoRefs.current[i];
-                    if(v) v.paused ? v.play() : v.pause();
-                  }}
-                />
-              ) : (
-                <img src={p.mediaUrl} alt="reel" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} />
-              )
+            {p.mediaId ? (
+              <MediaLoader
+                mediaId={p.mediaId}
+                mediaType={p.mediaType}
+                style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
+                autoPlay={i===current}
+                loop={true}
+                muted={muted}
+                playsInline={true}
+                controls={false}
+                onClick={()=>{
+                  const v = videoRefs.current[i];
+                  if(v) v.paused ? v.play() : v.pause();
+                }}
+              />
             ) : (
               <div style={{width:"100%",height:"100%",background:gradients[i%3],position:"absolute",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"4rem"}}>🦋</div>
             )}

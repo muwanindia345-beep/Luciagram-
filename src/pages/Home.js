@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import MediaLoader from "../components/MediaLoader";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
@@ -135,12 +136,13 @@ export default function Home() {
           <div key={group.userId||i} onClick={()=>{setActiveStory(group);setStoryIndex(0);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
             <div style={{padding:"2px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#f59e0b)"}}>
               <div style={{width:"56px",height:"56px",borderRadius:"50%",overflow:"hidden",border:"2px solid #0a0a0f"}}>
-                {group.items[0]?.mediaUrl ? (
-                  group.items[0]?.mediaType === "video" ? (
-                    <video src={group.items[0].mediaUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} muted />
-                  ) : (
-                    <img src={group.items[0].mediaUrl} alt={group.username} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                  )
+                {group.items[0]?.mediaId ? (
+                  <MediaLoader
+                    mediaId={group.items[0].mediaId}
+                    mediaType={group.items[0].mediaType}
+                    style={{width:"100%",height:"100%",objectFit:"cover"}}
+                    muted={true}
+                  />
                 ) : (
                   <AvatarImg username={group.username} size={56} />
                 )}
@@ -180,25 +182,25 @@ export default function Home() {
             </div>
 
             {/* Post Media */}
-            {p.mediaUrl && (
-              p.mediaType === "video" ? (
-                <div style={{position:"relative",background:"#000"}} onClick={()=>navigate("/reels")}>
-                  <video
-                    ref={el=>videoRefs.current[p.id]=el}
-                    src={p.mediaUrl}
-                    style={{width:"100%",maxHeight:"500px",objectFit:"cover",display:"block"}}
-                    playsInline loop muted
-                    onMouseEnter={e=>{e.target.muted=false;e.target.play();}}
-                    onMouseLeave={e=>{e.target.muted=true;e.target.pause();}}
-                  />
+            {p.mediaId && (
+              <div style={{position:"relative",background:"#000"}}>
+                <MediaLoader
+                  mediaId={p.mediaId}
+                  mediaType={p.mediaType}
+                  style={{width:"100%",maxHeight:"500px",objectFit:"cover",display:"block"}}
+                  controls={p.mediaType==="video"}
+                  loop={p.mediaType==="video"}
+                  muted={p.mediaType==="video"}
+                  playsInline={p.mediaType==="video"}
+                  onClick={p.mediaType==="video"?()=>navigate("/reels"):undefined}
+                />
+                {p.mediaType==="video" && (
                   <div style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.6)",borderRadius:"20px",padding:"0.2rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                     <span style={{fontSize:"0.8rem"}}>🎬</span>
                     <span style={{color:"white",fontSize:"0.8rem",fontWeight:"bold"}}>Reel</span>
                   </div>
-                </div>
-              ) : (
-                <img src={p.mediaUrl} alt="post" style={{width:"100%",maxHeight:"500px",objectFit:"cover",display:"block"}} />
-              )
+                )}
+              </div>
             )}
 
             {/* Actions */}
@@ -271,10 +273,15 @@ export default function Home() {
               else { setActiveStory(null); setStoryIndex(0); }
             }
           }}>
-            {currentStoryItem.mediaType === "video" ? (
-              <video src={currentStoryItem.mediaUrl} autoPlay loop style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} playsInline />
-            ) : currentStoryItem.mediaUrl ? (
-              <img src={currentStoryItem.mediaUrl} alt="story" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} />
+            {currentStoryItem.mediaId ? (
+              <MediaLoader
+                mediaId={currentStoryItem.mediaId}
+                mediaType={currentStoryItem.mediaType}
+                style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
+                autoPlay={currentStoryItem.mediaType==="video"}
+                loop={currentStoryItem.mediaType==="video"}
+                playsInline={currentStoryItem.mediaType==="video"}
+              />
             ) : (
               <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",display:"flex",alignItems:"center",justifyContent:"center",position:"absolute"}}>
                 <div style={{fontSize:"4rem"}}>🦋</div>
