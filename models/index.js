@@ -6,8 +6,21 @@ mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
   .catch(err => console.error("❌ MongoDB error:", err));
 
 const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean }, { timestamps: true });
-const PostSchema = new mongoose.Schema({ id: String, userId: String, username: String, mediaUrl: { type: String, maxlength: 50000000 }, mediaType: String, caption: String, location: String, tags: [String] }, { timestamps: true });
-const StorySchema = new mongoose.Schema({ id: String, userId: String, username: String, mediaUrl: { type: String, maxlength: 50000000 }, mediaType: String, expiresAt: Date }, { timestamps: true });
+
+const PostSchema = new mongoose.Schema({ 
+  id: String, userId: String, username: String, 
+  mediaUrl: String,
+  mediaType: { type: String, default: "image" }, 
+  caption: String, location: String, tags: [String] 
+}, { timestamps: true });
+
+const StorySchema = new mongoose.Schema({ 
+  id: String, userId: String, username: String, 
+  mediaUrl: String,
+  mediaType: { type: String, default: "image" }, 
+  expiresAt: Date 
+}, { timestamps: true });
+
 const CommentSchema = new mongoose.Schema({ id: String, postId: String, userId: String, username: String, text: String }, { timestamps: true });
 const LikeSchema = new mongoose.Schema({ postId: String, userId: String, username: String }, { timestamps: true });
 const FollowSchema = new mongoose.Schema({ followerId: String, followerUsername: String, followingId: String, followingUsername: String }, { timestamps: true });

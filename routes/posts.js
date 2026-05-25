@@ -5,9 +5,12 @@ const { v4: uuidv4 } = require("uuid");
 
 router.get("/feed", auth, async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 });
+    const posts = await Post.find().sort({ createdAt: -1 }).limit(50).lean();
     res.json(posts);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { 
+    console.error("Feed error:", err);
+    res.status(500).json({ message: err.message }); 
+  }
 });
 
 router.post("/", auth, async (req, res) => {
