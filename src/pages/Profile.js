@@ -15,7 +15,7 @@ export default function Profile() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    API.get("/posts/feed").then(r => setPosts(r.data.filter(p => p.userId === user?.id))).catch(()=>{});
+    API.get("/posts/user/" + user.id).then(r => setPosts(r.data)).catch(()=>{});
     API.get("/stories").then(r => setStories(r.data.filter(s => s.userId === user?.id))).catch(()=>{});
     if (user?.id) API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
   }, [user]);
@@ -175,7 +175,7 @@ export default function Profile() {
       {/* Bottom Nav */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
         <span onClick={()=>navigate("/")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🏠</span>
-        <span style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
+        <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
         <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
         <span onClick={()=>navigate("/reels")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🎬</span>
         <div style={{width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",border:"2px solid #7c3aed"}}>

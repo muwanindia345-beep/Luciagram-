@@ -218,7 +218,7 @@ export default function Home() {
                   <span onClick={()=>navigate("/comments/"+p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>💬</span>
                   <span onClick={()=>handleShare(p)} style={{cursor:"pointer",fontSize:"1.5rem"}}>➤</span>
                 </div>
-                <span onClick={()=>handleSave(p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>{saved[p.id]?"🔖":"🔖"}</span>
+                <span onClick={()=>handleSave(p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>{saved[p.id]?"🔖":"🏷️"}</span>
               </div>
               <div style={{fontSize:"0.9rem",fontWeight:"bold",marginBottom:"0.2rem"}}>{likeCounts[p.id]||0} likes</div>
               {p.caption && <div style={{fontSize:"0.9rem"}}><span style={{fontWeight:"bold"}}>@{p.username||"user"}</span> {p.caption}</div>}
