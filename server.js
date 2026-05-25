@@ -39,12 +39,8 @@ app.get('/media/:mediaId', async (req, res) => {
   try {
     const media = await LuciaStore.retrieve(req.params.mediaId);
     if (!media) return res.status(404).json({ message: 'Media not found' });
-    
-    // Send as data URL
-    res.json({ 
-      url: 'data:' + (media.mediaType === 'video' ? 'video/mp4' : 'image/jpeg') + ';base64,' + media.data,
-      mediaType: media.mediaType
-    });
+    const prefix = media.mediaType === 'video' ? 'data:video/mp4;base64,' : 'data:image/jpeg;base64,';
+    res.json({ url: prefix + media.data, mediaType: media.mediaType });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

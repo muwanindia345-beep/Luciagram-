@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({ id: String, username: { type: String, u
 const PostSchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 
   mediaId: String,
+  mediaUrl: String,
   mediaType: { type: String, default: "image" }, 
   caption: String, location: String, tags: [String] 
 }, { timestamps: true });
@@ -18,6 +19,7 @@ PostSchema.index({ createdAt: -1 });
 const StorySchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 
   mediaId: String,
+  mediaUrl: String,
   mediaType: { type: String, default: "image" }, 
   expiresAt: Date 
 }, { timestamps: true });
