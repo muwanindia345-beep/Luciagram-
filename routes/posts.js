@@ -1,36 +1,53 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Post, Like } = require("../models");
+const { LuciaStore } = require("../luciastore");
 const { v4: uuidv4 } = require("uuid");
 
+// Feed - only load metadata, no base64!
 router.get("/feed", auth, async (req, res) => {
   try {
     const posts = await Post.find()
+      .select("id userId username mediaId mediaType caption location createdAt")
       .sort({ createdAt: -1 })
       .limit(20)
-      .lean()
-      .allowDiskUse(true);
+      .lean();
     res.json(posts);
-  } catch (err) { 
+  } catch (err) {
     console.error("Feed error:", err);
-    res.status(500).json({ message: err.message }); 
+    res.status(500).json({ message: err.message });
   }
 });
 
+// Upload - store media in LuciaStore
 router.post("/", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType, caption, location } = req.body;
+    let mediaId = null;
+
+    if (mediaBase64) {
+      // Strip data URL prefix
+      const base64Data = mediaBase64.includes(",") 
+        ? mediaBase64.split(",")[1] 
+        : mediaBase64;
+      mediaId = await LuciaStore.store(base64Data, mediaType || "image", req.user.id);
+    }
+
     const post = await Post.create({
       id: uuidv4(),
       userId: req.user.id,
       username: req.user.username,
-      mediaUrl: mediaBase64 || "",
+      mediaId,
       mediaType: mediaType || "image",
       caption,
-      location
+      location,
     });
+
     res.status(201).json(post);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) {
+    console.error("Post create error:", err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
 router.delete("/:id", auth, async (req, res) => {
@@ -38,6 +55,7 @@ router.delete("/:id", auth, async (req, res) => {
     const post = await Post.findOne({ id: req.params.id });
     if (!post) return res.status(404).json({ message: "Not found" });
     if (post.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+    if (post.mediaId) await LuciaStore.delete(post.mediaId);
     await post.deleteOne();
     res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }

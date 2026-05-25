@@ -32,6 +32,29 @@ app.use('/api/stories', storyRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/comments', commentRoutes);
 
+// LuciaStore Media Server
+const { LuciaStore } = require('./luciastore');
+
+app.get('/media/:mediaId', async (req, res) => {
+  try {
+    const media = await LuciaStore.retrieve(req.params.mediaId);
+    if (!media) return res.status(404).json({ message: 'Media not found' });
+    
+    // Send as data URL
+    res.json({ 
+      url: 'data:' + (media.mediaType === 'video' ? 'video/mp4' : 'image/jpeg') + ';base64,' + media.data,
+      mediaType: media.mediaType
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/media/stats', async (req, res) => {
+  const stats = await LuciaStore.stats();
+  res.json({ ...stats, storage: 'LuciaStore v1.0' });
+});
+
 app.get('/status', (req, res) => {
   res.json({
     app: 'Luciagram',
