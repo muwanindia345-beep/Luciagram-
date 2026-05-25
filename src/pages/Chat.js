@@ -46,7 +46,7 @@ export default function Chat() {
         <div style={{width:"36px",height:"36px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{avatar(username)}</div>
         <div>
           <div style={{fontWeight:"bold"}}>@{username}</div>
-          <div style={{color:"#888",fontSize:"0.75rem"}}>Active now</div>
+          <div style={{color:"#888",fontSize:"0.75rem"}}>Luciagram user</div>
         </div>
         <div style={{marginLeft:"auto",display:"flex",gap:"1rem",fontSize:"1.3rem"}}>
           <span style={{cursor:"pointer"}}>📞</span>

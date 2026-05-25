@@ -45,6 +45,8 @@ export default function Profile() {
   const hasStory = stories.length > 0;
 
   return (
+    <>
+    <style>{"@keyframes progress { from { width:0% } to { width:100% } }"}</style>
     <div style={{background:"#0a0a0f",minHeight:"100vh",color:"white",paddingBottom:"70px"}}>
 
       {/* Header */}
@@ -235,5 +237,6 @@ export default function Profile() {
         </div>
       )}
     </div>
+    </>
   );
 }

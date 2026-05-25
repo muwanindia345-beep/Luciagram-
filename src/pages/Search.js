@@ -7,19 +7,23 @@ export default function Search() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const debounceRef = React.useRef(null);
   const [following, setFollowing] = useState({});
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleSearch = async (q) => {
+  const handleSearch = (q) => {
     setQuery(q);
-    if (q.length < 1) return setResults([]);
+    if (q.length < 1) { setResults([]); return; }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
     setLoading(true);
     try {
       const res = await API.get("/users/search?q=" + q);
       setResults(res.data.filter(u => u.id !== user?.id));
     } catch {}
     setLoading(false);
+    }, 400);
   };
 
   const handleFollow = async (userId) => {

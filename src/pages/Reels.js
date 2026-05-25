@@ -50,8 +50,9 @@ export default function Reels() {
 
   const shareToStory = async (post) => {
     try {
-      await API.post("/stories", {
-        mediaBase64: post.mediaUrl,
+      // Share reel URL directly as story mediaUrl
+      await API.post("/stories/share", {
+        mediaUrl: post.mediaUrl,
         mediaType: post.mediaType || "video",
       });
       alert("✅ Reel shared to your story for 24h!");

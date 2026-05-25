@@ -97,9 +97,12 @@ export default function Upload() {
 
         {loading && (
           <div style={{background:"#13131a",borderRadius:"12px",padding:"1rem",marginTop:"1rem",textAlign:"center"}}>
-            <div style={{color:"#c084fc",marginBottom:"0.5rem"}}>⏳ Uploading {mediaType === "video" ? "video" : "photo"}...</div>
-            <div style={{background:"#1e1e2e",borderRadius:"4px",height:"6px"}}><div style={{width:"60%",background:"linear-gradient(135deg,#7c3aed,#db2777)",height:"100%",borderRadius:"4px",animation:"pulse 1s infinite"}}></div></div>
+            <div style={{color:"#c084fc",marginBottom:"0.5rem",fontSize:"1rem"}}>⏳ Uploading {mediaType === "video" ? "video" : "photo"}...</div>
+            <div style={{background:"#1e1e2e",borderRadius:"4px",height:"8px",overflow:"hidden"}}>
+              <div style={{height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",borderRadius:"4px",animation:"uploadProgress 2s ease-in-out infinite alternate",width:"100%"}}></div>
+            </div>
             <div style={{color:"#888",fontSize:"0.8rem",marginTop:"0.5rem"}}>Please wait, don't close the app</div>
+            <style>{"@keyframes uploadProgress { from { transform: translateX(-100%) } to { transform: translateX(100%) } }"}</style>
           </div>
         )}
 
