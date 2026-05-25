@@ -48,6 +48,26 @@ router.post("/", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+router.post("/share", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ message: "No token" });
+    const jwt = require("jsonwebtoken");
+    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+    const { v4: uuidv4 } = require("uuid");
+    const { mediaUrl, mediaType } = req.body;
+    const story = await Story.create({
+      id: uuidv4(),
+      userId: decoded.id,
+      username: decoded.username,
+      mediaUrl: mediaUrl || "",
+      mediaType: mediaType || "video",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+    res.status(201).json(story);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.delete("/:id", auth, async (req, res) => {
   try {
     const story = await Story.findOne({ id: req.params.id });
