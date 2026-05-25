@@ -40,7 +40,7 @@ export default function Chat() {
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
 
   return (
-    <div style={{background:"#0a0a0f",height:"100vh",color:"white",display:"flex",flexDirection:"column"}}>
+    <div style={{background:"#0a0a0f",height:"100dvh",color:"white",display:"flex",flexDirection:"column"}}>
       <div style={{background:"#0a0a0f",borderBottom:"1px solid #1e1e2e",padding:"0.75rem 1rem",display:"flex",alignItems:"center",gap:"0.75rem",position:"sticky",top:0,zIndex:100}}>
         <span onClick={()=>navigate("/messages")} style={{cursor:"pointer",fontSize:"1.3rem"}}>←</span>
         <div style={{width:"36px",height:"36px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{avatar(username)}</div>
