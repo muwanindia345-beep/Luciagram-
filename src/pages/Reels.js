@@ -124,9 +124,10 @@ export default function Reels() {
           <div key={p.id||i} style={{height:"100vh",scrollSnapAlign:"start",position:"relative",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
 
             {/* Media */}
-            {p.mediaId ? (
+            {(p.mediaId || p.mediaUrl) ? (
               <MediaLoader
                 mediaId={p.mediaId}
+                mediaUrl={p.mediaUrl}
                 mediaType={p.mediaType}
                 style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
                 autoPlay={i===current}

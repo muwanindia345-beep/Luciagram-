@@ -136,9 +136,10 @@ export default function Home() {
           <div key={group.userId||i} onClick={()=>{setActiveStory(group);setStoryIndex(0);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
             <div style={{padding:"2px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#f59e0b)"}}>
               <div style={{width:"56px",height:"56px",borderRadius:"50%",overflow:"hidden",border:"2px solid #0a0a0f"}}>
-                {group.items[0]?.mediaId ? (
+                {(group.items[0]?.mediaId || group.items[0]?.mediaUrl) ? (
                   <MediaLoader
                     mediaId={group.items[0].mediaId}
+                    mediaUrl={group.items[0].mediaUrl}
                     mediaType={group.items[0].mediaType}
                     style={{width:"100%",height:"100%",objectFit:"cover"}}
                     muted={true}
@@ -182,10 +183,11 @@ export default function Home() {
             </div>
 
             {/* Post Media */}
-            {p.mediaId && (
+            {(p.mediaId || p.mediaUrl) && (
               <div style={{position:"relative",background:"#000"}}>
                 <MediaLoader
                   mediaId={p.mediaId}
+                  mediaUrl={p.mediaUrl}
                   mediaType={p.mediaType}
                   style={{width:"100%",maxHeight:"500px",objectFit:"cover",display:"block"}}
                   controls={p.mediaType==="video"}
@@ -273,9 +275,10 @@ export default function Home() {
               else { setActiveStory(null); setStoryIndex(0); }
             }
           }}>
-            {currentStoryItem.mediaId ? (
+            {(currentStoryItem.mediaId || currentStoryItem.mediaUrl) ? (
               <MediaLoader
                 mediaId={currentStoryItem.mediaId}
+                mediaUrl={currentStoryItem.mediaUrl}
                 mediaType={currentStoryItem.mediaType}
                 style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
                 autoPlay={currentStoryItem.mediaType==="video"}
