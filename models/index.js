@@ -13,6 +13,7 @@ const PostSchema = new mongoose.Schema({
   mediaType: { type: String, default: "image" }, 
   caption: String, location: String, tags: [String] 
 }, { timestamps: true });
+PostSchema.index({ createdAt: -1 });
 
 const StorySchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 

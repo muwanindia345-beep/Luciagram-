@@ -13,7 +13,7 @@ setInterval(async () => {
 
 router.get("/", auth, async (req, res) => {
   try {
-    const stories = await Story.find({ expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 });
+    const stories = await Story.find({ expiresAt: { $gt: new Date() } }).sort({ createdAt: -1 }).allowDiskUse(true);
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

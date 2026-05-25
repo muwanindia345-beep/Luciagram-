@@ -5,7 +5,11 @@ const { v4: uuidv4 } = require("uuid");
 
 router.get("/feed", auth, async (req, res) => {
   try {
-    const posts = await Post.find().sort({ createdAt: -1 }).limit(50).lean();
+    const posts = await Post.find()
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean()
+      .allowDiskUse(true);
     res.json(posts);
   } catch (err) { 
     console.error("Feed error:", err);
