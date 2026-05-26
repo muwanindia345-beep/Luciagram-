@@ -15,7 +15,6 @@ import Search from "./pages/Search";
 import UserProfile from "./pages/UserProfile";
 import Settings from "./pages/Settings";
 import GroupChat from "./pages/GroupChat";
-import Channel from "./pages/Channel";
 import Notifications from "./pages/Notifications";
 
 function PrivateRoute({ children }) {
@@ -37,12 +36,10 @@ function App() {
           <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
           <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
-          <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/chat/:userId" element={<PrivateRoute><Chat /></PrivateRoute>} />
           <Route path="/comments/:postId" element={<PrivateRoute><Comments /></PrivateRoute>} />
           <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
-          <Route path="/channels" element={<PrivateRoute><Channel /></PrivateRoute>} />
-          <Route path="/groups" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
+          <Route path="/groupchat" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
         </Routes>
