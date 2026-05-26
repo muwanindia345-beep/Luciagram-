@@ -249,7 +249,7 @@ export default function GroupChat() {
                     </div>
                   )}
                   {showEmojiPicker===m.id && (
-                    <div style={{position:"absolute",bottom:"100%",[isMe?"right":"left"]:0,background:"#13131a",borderRadius:"30px",padding:"6px 10px",display:"flex",gap:"8px",boxShadow:"0 2px 12px rgba(0,0,0,0.5)",zIndex:50,marginBottom:"4px",border:"1px solid #2a2a3a"}}>
+                    <div style={{position:"absolute",bottom:"100%",...(isMe ? { right: 0 } : { left: 0 }),background:"#13131a",borderRadius:"30px",padding:"6px 10px",display:"flex",gap:"8px",boxShadow:"0 2px 12px rgba(0,0,0,0.5)",zIndex:50,marginBottom:"4px",border:"1px solid #2a2a3a"}}>
                       {EMOJIS.map(e=>(
                         <span key={e} onClick={()=>reactToMessage(m.id,e)} style={{fontSize:"1.3rem",cursor:"pointer"}}>{e}</span>
                       ))}
