@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
+import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
@@ -22,6 +23,7 @@ export default function Chat() {
   const navigate = useNavigate();
   const bottomRef = useRef();
   const fileRef = useRef();
+  const socketRef = useRef(null);
 
   const themes = {
     purple: "linear-gradient(135deg,#7c3aed,#db2777)",
@@ -34,12 +36,42 @@ export default function Chat() {
 
   useEffect(() => {
     loadMessages();
-    // Load other user profile
     if (username) {
       API.get("/users/" + username).then(r => setOtherUser(r.data)).catch(()=>{});
     }
-    const interval = setInterval(loadMessages, 3000);
-    return () => clearInterval(interval);
+
+    // Socket.io real-time connection
+    const socket = io("https://luciagram-backend.onrender.com", {
+      transports: ["websocket"],
+    });
+
+    socket.on("connect", () => {
+      socket.emit("join", user?.id);
+    });
+
+    socket.on("new_message", (msg) => {
+      if (msg.senderId === userId || msg.receiverId === userId) {
+        setMessages(prev => {
+          const exists = prev.find(m => m.id === msg.id);
+          if (exists) return prev;
+          return [...prev, msg];
+        });
+      }
+    });
+
+    socket.on("typing", (data) => {
+      if (data.senderId === userId) {
+        setIsTyping(true);
+        setTimeout(() => setIsTyping(false), 3000);
+      }
+    });
+
+    socket.on("stop_typing", (data) => {
+      if (data.senderId === userId) setIsTyping(false);
+    });
+
+    socketRef.current = socket;
+    return () => socket.disconnect();
   }, [userId]);
 
   useEffect(() => {
@@ -64,8 +96,16 @@ export default function Chat() {
   };
 
   const handleTyping = () => {
-    clearTimeout(typingTimer);
-    setTypingTimer(setTimeout(() => {}, 1500));
+    if (socketRef.current) {
+      socketRef.current.emit("typing", { senderId: user?.id, receiverId: userId });
+      clearTimeout(typingTimer);
+      const t = setTimeout(() => {
+        if (socketRef.current) {
+          socketRef.current.emit("stop_typing", { senderId: user?.id, receiverId: userId });
+        }
+      }, 2000);
+      setTypingTimer(t);
+    }
   };
 
   const sendMessage = async () => {
@@ -85,6 +125,10 @@ export default function Chat() {
         mediaUrl,
       });
       setMessages(p => [...p, res.data]);
+      // Emit to receiver via socket
+      if (socketRef.current) {
+        socketRef.current.emit("send_message", res.data);
+      }
       setText("");
       setMediaPreview(null);
       setMediaData(null);
