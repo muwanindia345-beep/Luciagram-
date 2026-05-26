@@ -27,6 +27,7 @@ export default function Home() {
   const storyTimer = useRef(null);
   const storyVideoRef = useRef(null);
   const [storyDuration, setStoryDuration] = useState(5000);
+  const [storyViews, setStoryViews] = useState({});
 
   useEffect(() => {
     API.get("/posts/feed").then(r => {
@@ -265,6 +266,14 @@ export default function Home() {
             if(group.items?.[0]?.id) {
               API.post("/stories/"+group.items[0].id+"/view").catch(()=>{});
             }
+            // Load views if my story
+            if(group.userId === user?.id) {
+              group.items.forEach(item => {
+                API.get("/stories/"+item.id+"/views").then(r => {
+                  setStoryViews(prev => ({...prev, [item.id]: r.data}));
+                }).catch(()=>{});
+              });
+            }
           }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
             <div style={{padding:"2px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#f59e0b)"}}>
               <div style={{width:"56px",height:"56px",borderRadius:"50%",overflow:"hidden",border:"2px solid #0a0a0f"}}>
@@ -457,6 +466,11 @@ export default function Home() {
                 <div style={{fontWeight:"bold",fontSize:"0.9rem",color:"white"}}>@{activeStory.username}</div>
                 <div style={{color:"rgba(255,255,255,0.7)",fontSize:"0.75rem"}}>
                   {currentStoryItem.expiresAt ? getTimeLeft(currentStoryItem.expiresAt)+" left" : "24h"} · {storyIndex+1}/{currentStoryItems.length}
+                  {activeStory.userId === user?.id && storyViews[currentStoryItem?.id] && (
+                    <span style={{marginLeft:"0.5rem",color:"rgba(255,255,255,0.9)"}}>
+                      · 👁 {storyViews[currentStoryItem.id].count}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -496,6 +510,21 @@ export default function Home() {
               <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",position:"absolute",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:"4rem"}}>🦋</div></div>
             )}
           </div>
+
+          {/* Views list for owner */}
+          {activeStory.userId === user?.id && storyViews[currentStoryItem?.id]?.viewers?.length > 0 && (
+            <div style={{position:"absolute",bottom:"5rem",left:"1rem",right:"1rem",zIndex:10}} onClick={e=>e.stopPropagation()}>
+              <div style={{background:"rgba(0,0,0,0.6)",borderRadius:"12px",padding:"0.5rem 0.75rem",display:"flex",alignItems:"center",gap:"0.5rem",overflowX:"auto",scrollbarWidth:"none"}}>
+                <span style={{fontSize:"0.75rem",color:"rgba(255,255,255,0.7)",flexShrink:0}}>👁 Seen by:</span>
+                {storyViews[currentStoryItem.id].viewers.slice(0,5).map((v,i) => (
+                  <span key={i} style={{fontSize:"0.75rem",color:"white",background:"rgba(124,58,237,0.4)",borderRadius:"20px",padding:"0.15rem 0.5rem",flexShrink:0}}>@{v.username}</span>
+                ))}
+                {storyViews[currentStoryItem.id].count > 5 && (
+                  <span style={{fontSize:"0.75rem",color:"#a78bfa",flexShrink:0}}>+{storyViews[currentStoryItem.id].count - 5} more</span>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Story Reply — sends real DM */}
           <div style={{padding:"1rem",display:"flex",alignItems:"center",gap:"0.75rem",zIndex:10}} onClick={e=>e.stopPropagation()}>
