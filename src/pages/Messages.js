@@ -9,6 +9,10 @@ export default function Messages() {
   const [searchResults, setSearchResults] = useState([]);
   const [userProfiles, setUserProfiles] = useState({});
   const [totalUnread, setTotalUnread] = useState(0);
+  const [notes, setNotes] = useState([]);
+  const [myNote, setMyNote] = useState("");
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showNoteSheet, setShowNoteSheet] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const pollRef = useRef(null);
@@ -35,6 +39,7 @@ export default function Messages() {
 
   useEffect(() => {
     loadConversations();
+    API.get("/notes").then(r => setNotes(r.data)).catch(()=>{});
     // Poll every 5s for new messages / notifications
     pollRef.current = setInterval(loadConversations, 5000);
     return () => clearInterval(pollRef.current);
@@ -135,6 +140,38 @@ export default function Messages() {
           </div>
         )}
 
+        {/* Notes Bar */}
+        <div style={{padding:"0 1rem 0.75rem",borderBottom:"1px solid #1e1e2e",marginBottom:"0.75rem"}}>
+          <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",paddingBottom:"0.25rem",scrollbarWidth:"none"}}>
+            {/* Your Note */}
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"60px",cursor:"pointer"}} onClick={()=>setShowNoteEditor(true)}>
+              <div style={{position:"relative"}}>
+                <div style={{width:"52px",height:"52px",borderRadius:"50%",overflow:"hidden",border:"2px solid #2a2a3a"}}>
+                  {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="you"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{(user?.username||"U").slice(0,1).toUpperCase()}</div>}
+                </div>
+                <div style={{position:"absolute",bottom:-4,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",border:"1px solid #7c3aed",borderRadius:"8px",padding:"1px 5px",whiteSpace:"nowrap",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis"}}>
+                  {notes.find(n=>n.userId===user?.id) ? <span style={{fontSize:"0.6rem",color:"#c084fc"}}>{notes.find(n=>n.userId===user?.id).text.slice(0,12)}{notes.find(n=>n.userId===user?.id).text.length>12?"...":""}</span> : <span style={{fontSize:"0.65rem",color:"#888"}}>+ Note</span>}
+                </div>
+              </div>
+              <span style={{fontSize:"0.62rem",color:"#888",marginTop:"6px"}}>Your note</span>
+            </div>
+            {/* Others notes */}
+            {notes.filter(n=>n.userId!==user?.id).map((n,i)=>(
+              <div key={n.id||i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"60px",cursor:"pointer"}} onClick={()=>setShowNoteSheet(n)}>
+                <div style={{position:"relative"}}>
+                  <div style={{width:"52px",height:"52px",borderRadius:"50%",overflow:"hidden",border:"2px solid #7c3aed"}}>
+                    {n.avatar?<img src={n.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={n.username}/>:<div style={{width:"100%",height:"100%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{(n.username||"U").slice(0,1).toUpperCase()}</div>}
+                  </div>
+                  <div style={{position:"absolute",bottom:-4,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",border:"1px solid #2a2a3a",borderRadius:"8px",padding:"1px 5px",whiteSpace:"nowrap",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis"}}>
+                    <span style={{fontSize:"0.6rem",color:"#ccc"}}>{n.text.slice(0,12)}{n.text.length>12?"...":""}</span>
+                  </div>
+                </div>
+                <span style={{fontSize:"0.62rem",color:"#888",marginTop:"6px",maxWidth:"60px",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{n.username}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Conversations */}
         <div style={{padding:"0 1rem"}}>
           {!search && <div style={{color:"#888",fontSize:"0.78rem",marginBottom:"0.5rem",fontWeight:"bold",letterSpacing:"0.05em"}}>MESSAGES</div>}
@@ -183,6 +220,47 @@ export default function Messages() {
           {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="p"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold"}}>{avatar(user?.username)}</div>}
         </div>
       </div>
+
+      {/* Note Editor */}
+      {showNoteEditor && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowNoteEditor(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",padding:"1.5rem 1rem"}}>
+            <div style={{width:"40px",height:"4px",background:"#444",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",textAlign:"center",marginBottom:"1rem"}}>Your Note <span style={{color:"#888",fontSize:"0.78rem"}}>(24h)</span></div>
+            <textarea
+              value={myNote}
+              onChange={e=>setMyNote(e.target.value)}
+              maxLength={60}
+              placeholder="Share a thought..."
+              style={{width:"100%",background:"#13131a",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",color:"white",fontSize:"1rem",outline:"none",resize:"none",height:"80px",boxSizing:"border-box",fontFamily:"inherit"}}
+              autoFocus
+            />
+            <div style={{textAlign:"right",color:"#555",fontSize:"0.75rem",marginBottom:"1rem"}}>{myNote.length}/60</div>
+            <div style={{display:"flex",gap:"0.75rem"}}>
+              <button onClick={async()=>{await API.post("/notes",{text:myNote}).catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setShowNoteEditor(false);}} style={{flex:1,background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.75rem",cursor:"pointer",fontWeight:"bold"}}>Share Note</button>
+              {notes.find(n=>n.userId===user?.id) && <button onClick={async()=>{await API.delete("/notes").catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setMyNote("");setShowNoteEditor(false);}} style={{background:"#3a1a1a",border:"none",borderRadius:"12px",color:"#f87171",padding:"0.75rem 1rem",cursor:"pointer",fontWeight:"bold"}}>Delete</button>}
+              <button onClick={()=>setShowNoteEditor(false)} style={{background:"#2a2a3a",border:"none",borderRadius:"12px",color:"#888",padding:"0.75rem 1rem",cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note View Sheet */}
+      {showNoteSheet && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNoteSheet(null)}>
+          <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.7)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px",padding:"1.5rem",maxWidth:"280px",width:"90%",zIndex:10,position:"relative",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
+            <div style={{width:"64px",height:"64px",borderRadius:"50%",overflow:"hidden",margin:"0 auto 0.75rem",border:"3px solid #7c3aed"}}>
+              {showNoteSheet.avatar?<img src={showNoteSheet.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="n"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(showNoteSheet.username||"U").slice(0,1).toUpperCase()}</div>}
+            </div>
+            <div style={{fontWeight:"bold",color:"#c084fc",marginBottom:"0.5rem"}}>@{showNoteSheet.username}</div>
+            <div style={{background:"#13131a",borderRadius:"12px",padding:"1rem",fontSize:"1rem",color:"white",lineHeight:1.5,marginBottom:"1rem"}}>"{showNoteSheet.text}"</div>
+            <div style={{color:"#555",fontSize:"0.75rem",marginBottom:"1rem"}}>Expires in {Math.max(0,Math.floor((new Date(showNoteSheet.expiresAt)-Date.now())/3600000))}h</div>
+            <button onClick={()=>{setShowNoteSheet(null);navigate("/chat/"+showNoteSheet.userId+"?username="+showNoteSheet.username);}} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.6rem 1.5rem",cursor:"pointer",fontWeight:"bold"}}>💬 Reply</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
