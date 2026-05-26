@@ -55,6 +55,12 @@ export default function GroupChatRoom() {
   const [replyTo, setReplyTo] = useState(null);
   const [swipeX, setSwipeX] = useState({});
   const doubleTapRef = useRef({});
+  const [pressTimer, setPressTimer] = useState(null);
+  const [selectedMsg, setSelectedMsg] = useState(null);
+  const [showEmojiInput, setShowEmojiInput] = useState(false);
+  const [customEmoji, setCustomEmoji] = useState("");
+  const [showFontPicker, setShowFontPicker] = useState(false);
+  const [groupFont, setGroupFont] = useState(() => localStorage.getItem("lg_font_" + groupId) || "default");
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("lg_theme_" + groupId);
     return THEMES.find(t => t.id === saved) || THEMES[0];
@@ -82,6 +88,9 @@ export default function GroupChatRoom() {
     socket.on("group_message", (msg) => {
       if (msg.groupId === groupId)
         setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
+    });
+    socket.on("group_unsend", (data) => {
+      setMessages(prev => prev.filter(m => m.id !== data.msgId));
     });
     socket.on("group_reaction", (data) => {
       setMessages(prev => prev.map(m => m.id === data.msgId ? { ...m, reactions: data.reactions } : m));
@@ -283,6 +292,53 @@ export default function GroupChatRoom() {
     return Object.entries(map);
   };
 
+  const FONTS = [
+    { id: "default", name: "Default", style: "inherit" },
+    { id: "mono", name: "Mono", style: "monospace" },
+    { id: "serif", name: "Serif", style: "Georgia, serif" },
+    { id: "rounded", name: "Rounded", style: "'Trebuchet MS', sans-serif" },
+    { id: "cursive", name: "Cursive", style: "cursive" },
+    { id: "fantasy", name: "Fantasy", style: "fantasy" },
+  ];
+
+  const currentFont = FONTS.find(f => f.id === groupFont)?.style || "inherit";
+
+  const applyFont = (fontId) => {
+    setGroupFont(fontId);
+    localStorage.setItem("lg_font_" + groupId, fontId);
+    setShowFontPicker(false);
+  };
+
+  const handleLongPress = (msg) => {
+    if (msg.senderId !== user?.id) return;
+    setSelectedMsg(msg);
+  };
+
+  const handlePressStart = (msg) => {
+    const t = setTimeout(() => handleLongPress(msg), 500);
+    setPressTimer(t);
+  };
+
+  const handlePressEnd = () => {
+    clearTimeout(pressTimer);
+  };
+
+  const unsendMessage = async (msgId) => {
+    setSelectedMsg(null);
+    try {
+      await API.delete("/groups/" + groupId + "/messages/" + msgId);
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      socketRef.current?.emit("group_unsend", { groupId, msgId });
+    } catch {}
+  };
+
+  const sendCustomReaction = async () => {
+    if (!customEmoji.trim()) return;
+    await sendReaction(reactionPicker, customEmoji.trim());
+    setCustomEmoji("");
+    setShowEmojiInput(false);
+  };
+
   const av = (n) => (n || "U").slice(0, 1).toUpperCase();
   const grads = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
@@ -309,13 +365,14 @@ export default function GroupChatRoom() {
           }
         </div>
         <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setShowInfo(true)}>
-          <div style={{fontWeight:"bold",fontSize:"1rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{group?.name || "Group"}</div>
+          <div style={{fontWeight:"bold",fontSize:"1rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontFamily:currentFont}}>{group?.name || "Group"}</div>
           <div style={{fontSize:"0.7rem"}}>
             {typers.length > 0
               ? <span style={{color:"#a78bfa"}}>{typers.map(t=>t.senderUsername).join(", ")} typing...</span>
               : <span style={{color:"#888"}}>{group?.members?.length || 0} members</span>}
           </div>
         </div>
+        <span onClick={()=>setShowFontPicker(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🔤</span>
         <span onClick={()=>setShowTheme(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🎨</span>
         <span onClick={()=>setShowInfo(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>ℹ️</span>
       </div>
@@ -334,8 +391,8 @@ export default function GroupChatRoom() {
                 </div>
               )}
               <div
-                onTouchStart={e=>handleTouchStart(e,m.id)}
-                onTouchEnd={e=>handleTouchEnd(e,m)}
+                onTouchStart={e=>{handleTouchStart(e,m.id);handlePressStart(m);}}
+                onTouchEnd={e=>{handleTouchEnd(e,m);handlePressEnd();}}
                 onClick={()=>handleDoubleTap(m)}
                 style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.35rem"}}>
                 {!mine && (
@@ -360,7 +417,7 @@ export default function GroupChatRoom() {
                     </div>
                   )}
                   {m.text && (
-                    <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4}}>
+                    <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4,fontFamily:currentFont}}>
                       <MessageText text={m.text} />
                     </div>
                   )}
@@ -425,6 +482,19 @@ export default function GroupChatRoom() {
           : <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>}
       </div>
 
+      {selectedMsg && (
+        <div onClick={()=>setSelectedMsg(null)} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#1e1e2e",borderRadius:"16px",padding:"1rem",minWidth:"200px",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+            <div style={{fontSize:"0.75rem",color:"#888",marginBottom:"0.75rem",textOverflow:"ellipsis",overflow:"hidden",whiteSpace:"nowrap"}}>
+              {selectedMsg.text || "Media message"}
+            </div>
+            <button onClick={()=>unsendMessage(selectedMsg.id)}
+              style={{width:"100%",background:"transparent",border:"1px solid #ef4444",borderRadius:"10px",color:"#ef4444",padding:"0.6rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem"}}>
+              🗑 Unsend Message
+            </button>
+          </div>
+        </div>
+      )}
       {reactionPicker && (
         <div onClick={()=>setReactionPicker(null)} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div onClick={e=>e.stopPropagation()} style={{background:"#1e1e2e",borderRadius:"30px",padding:"0.6rem 1rem",display:"flex",gap:"0.5rem",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
@@ -434,6 +504,34 @@ export default function GroupChatRoom() {
                 {emoji}
               </span>
             ))}
+            <span onClick={()=>setShowEmojiInput(true)}
+              style={{fontSize:"1.4rem",cursor:"pointer",padding:"0.2rem",color:"#a78bfa",fontWeight:"bold"}}>+</span>
+          </div>
+          {showEmojiInput && (
+            <div style={{marginTop:"0.5rem",display:"flex",gap:"0.5rem",alignItems:"center"}}>
+              <input value={customEmoji} onChange={e=>setCustomEmoji(e.target.value)} placeholder="Any emoji..."
+                style={{background:"#2a2a3a",border:"none",borderRadius:"12px",padding:"0.4rem 0.75rem",color:"white",fontSize:"1rem",outline:"none",width:"120px"}} />
+              <button onClick={sendCustomReaction}
+                style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",padding:"0.4rem 0.75rem",color:"white",cursor:"pointer",fontSize:"0.85rem"}}>Send</button>
+            </div>
+          )}
+        </div>
+      )}
+      {showFontPicker && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowFontPicker(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",marginBottom:"1rem"}}>🔤 Chat Font</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+              {FONTS.map(f => (
+                <div key={f.id} onClick={()=>applyFont(f.id)}
+                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e1e2e",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",border:groupFont===f.id?"1px solid #7c3aed":"1px solid transparent"}}>
+                  <span style={{fontFamily:f.style,fontSize:"1rem"}}>{group?.name || "Group Chat"}</span>
+                  <span style={{fontSize:"0.75rem",color:groupFont===f.id?"#a78bfa":"#555"}}>{f.name} {groupFont===f.id?"✓":""}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
