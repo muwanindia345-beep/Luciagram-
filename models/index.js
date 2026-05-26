@@ -81,4 +81,7 @@ module.exports = {
   Follow: mongoose.model("Follow", FollowSchema),
   Message: mongoose.model("Message", MessageSchema),
   Notification: mongoose.model("Notification", NotificationSchema),
+  Group: mongoose.model("Group", GroupSchema),
+  GroupMessage: mongoose.model("GroupMessage", GroupMessageSchema),
+  Note: mongoose.model("Note", NoteSchema),
 };
