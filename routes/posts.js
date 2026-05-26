@@ -116,4 +116,31 @@ router.get("/:id/likes", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Explore — recent posts grid
+router.get("/explore", auth, async (req, res) => {
+  try {
+    const posts = await Post.find({ mediaType: { $in: ["image", "video"] } })
+      .select("id userId username mediaUrl mediaType caption createdAt")
+      .limit(30)
+      .lean();
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(posts);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Hashtag search
+router.get("/hashtag/:tag", auth, async (req, res) => {
+  try {
+    const tag = req.params.tag.replace("#", "").toLowerCase();
+    const posts = await Post.find({
+      caption: { $regex: "#" + tag, $options: "i" }
+    })
+      .select("id userId username mediaUrl mediaType caption createdAt")
+      .limit(30)
+      .lean();
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(posts);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
