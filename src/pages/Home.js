@@ -179,7 +179,14 @@ export default function Home() {
                 <MediaLoader
                   mediaUrl={p.mediaUrl}
                   mediaType={p.mediaType}
-                  style={{width:"100%",maxHeight:"500px",objectFit:"cover",display:"block"}}
+                  style={{
+                    width:"100%",
+                    maxHeight:"600px",
+                    minHeight:"200px",
+                    objectFit: p.mediaType==="video" ? "cover" : "contain",
+                    display:"block",
+                    background:"#000"
+                  }}
                   controls={p.mediaType==="video"}
                   loop={p.mediaType==="video"}
                   muted={p.mediaType==="video"}
@@ -262,9 +269,17 @@ export default function Home() {
             else { if(storyIndex<currentStoryItems.length-1) setStoryIndex(i=>i+1); else {setActiveStory(null);setStoryIndex(0);} }
           }}>
             {currentStoryItem.mediaType==="video" ? (
-              <video src={currentStoryItem.mediaUrl} autoPlay loop style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} playsInline />
+              <video src={currentStoryItem.mediaUrl} autoPlay loop style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",background:"#000"}} playsInline />
             ) : currentStoryItem.mediaUrl ? (
-              <img src={currentStoryItem.mediaUrl} alt="story" style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}} />
+              <img src={currentStoryItem.mediaUrl} alt="story" style={{
+                position:"absolute",
+                top:"50%",left:"50%",
+                transform:"translate(-50%,-50%)",
+                maxWidth:"100%",
+                maxHeight:"100%",
+                objectFit:"contain",
+                background:"#000"
+              }} />
             ) : (
               <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",display:"flex",alignItems:"center",justifyContent:"center",position:"absolute"}}><div style={{fontSize:"4rem"}}>🦋</div></div>
             )}
