@@ -15,9 +15,6 @@ import Search from "./pages/Search";
 import UserProfile from "./pages/UserProfile";
 import Settings from "./pages/Settings";
 import GroupChat from "./pages/GroupChat";
-import Settings from "./pages/Settings";
-import GroupChat from "./pages/GroupChat";
-import Settings from "./pages/Settings";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
