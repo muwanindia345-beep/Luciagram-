@@ -8,13 +8,25 @@ router.get("/feed", auth, async (req, res) => {
   try {
     const posts = await Post.find()
       .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
-      .sort({ createdAt: -1 })
+      .hint({ createdAt: -1 })
       .limit(20)
       .lean();
+    
+    // Sort in memory (avoid MongoDB sort memory limit)
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json(posts);
   } catch (err) {
     console.error("Feed error:", err);
-    res.status(500).json({ message: err.message });
+    // Fallback without sort
+    try {
+      const posts = await Post.find()
+        .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
+        .limit(20)
+        .lean();
+      res.json(posts);
+    } catch(err2) {
+      res.status(500).json({ message: err2.message });
+    }
   }
 });
 
