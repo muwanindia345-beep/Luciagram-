@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -12,10 +12,19 @@ export default function Home() {
   const [liked, setLiked] = useState({});
   const [likeCounts, setLikeCounts] = useState({});
   const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem("luciagram_saved") || "{}"));
+  const [userProfiles, setUserProfiles] = useState({});
+  const [followingMap, setFollowingMap] = useState({});
+  const [inlineComments, setInlineComments] = useState({});
+  const [showShareSheet, setShowShareSheet] = useState(null);
+  const [dmSearch, setDmSearch] = useState("");
+  const [dmUsers, setDmUsers] = useState([]);
+  const [sentTo, setSentTo] = useState({});
+  const [storyReplyText, setStoryReplyText] = useState("");
+  const [storySent, setStorySent] = useState(false);
+  const [doubleTapTimer, setDoubleTapTimer] = useState({});
   const { user } = useAuth();
   const navigate = useNavigate();
   const storyTimer = useRef(null);
-  const storyBarRef = useRef(null);
 
   useEffect(() => {
     API.get("/posts/feed").then(r => {
@@ -25,11 +34,32 @@ export default function Home() {
           setLikeCounts(prev => ({...prev, [p.id]: res.data.count}));
           setLiked(prev => ({...prev, [p.id]: res.data.liked}));
         }).catch(()=>{});
+        // Load first 2 comments per post
+        API.get("/comments/" + p.id).then(res => {
+          setInlineComments(prev => ({...prev, [p.id]: res.data.slice(0,2)}));
+        }).catch(()=>{});
       });
     }).catch(()=>{});
     API.get("/stories").then(r => setStories(r.data)).catch(()=>{});
+    API.get("/messages/conversations").then(r => {
+      setDmUsers(r.data.map(c => ({ id: c.userId, username: c.username })));
+    }).catch(()=>{});
   }, []);
 
+  // Fetch real profile for each unique username
+  useEffect(() => {
+    const usernames = [...new Set([
+      ...posts.map(p => p.username),
+      ...stories.map(s => s.username),
+    ])].filter(u => u && !userProfiles[u] && u !== user?.username);
+    usernames.forEach(username => {
+      API.get("/users/" + username).then(res => {
+        setUserProfiles(prev => ({...prev, [username]: res.data}));
+      }).catch(()=>{});
+    });
+  }, [posts, stories]);
+
+  // Story auto-advance
   useEffect(() => {
     if (!activeStory) return;
     clearTimeout(storyTimer.current);
@@ -57,20 +87,81 @@ export default function Home() {
     }
   };
 
-  // Fix 2: Real save with localStorage
+  const handleDoubleTap = (postId) => {
+    const now = Date.now();
+    const last = doubleTapTimer[postId] || 0;
+    if (now - last < 350) {
+      if (!liked[postId]) handleLike(postId);
+      setDoubleTapTimer(p => ({...p, [postId]: 0}));
+    } else {
+      setDoubleTapTimer(p => ({...p, [postId]: now}));
+    }
+  };
+
   const handleSave = (postId) => {
     const newSaved = {...saved, [postId]: !saved[postId]};
     setSaved(newSaved);
     localStorage.setItem("luciagram_saved", JSON.stringify(newSaved));
   };
 
-  const handleShare = async (post) => {
-    if (navigator.share) {
-      try { await navigator.share({ title: "Luciagram", text: post.caption||"", url: window.location.origin }); } catch {}
-    } else {
-      navigator.clipboard?.writeText(window.location.origin);
-      alert("Link copied!");
+  const handleFollow = async (userId, username) => {
+    try {
+      const res = await API.post("/users/" + userId + "/follow");
+      setFollowingMap(p => ({...p, [userId]: res.data.following}));
+    } catch {}
+  };
+
+  const openShareSheet = async (post) => {
+    setShowShareSheet(post);
+    setSentTo({});
+    setDmSearch("");
+    try {
+      const res = await API.get("/messages/conversations");
+      setDmUsers(res.data.map(c => ({ id: c.userId, username: c.username })));
+    } catch {}
+  };
+
+  const searchDMUsers = async (q) => {
+    setDmSearch(q);
+    if (q.length < 1) {
+      API.get("/messages/conversations").then(r => setDmUsers(r.data.map(c => ({ id: c.userId, username: c.username })))).catch(()=>{});
+      return;
     }
+    try {
+      const res = await API.get("/users/search?q=" + q);
+      setDmUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
+    } catch {}
+  };
+
+  const sendPostViaDM = async (post, toUser) => {
+    try {
+      await API.post("/messages", {
+        receiverId: toUser.id,
+        receiverUsername: toUser.username,
+        text: (post.caption ? post.caption + "\n" : "") + "📸 Shared a Post",
+        mediaUrl: post.mediaUrl || "",
+      });
+      setSentTo(p => ({...p, [toUser.id]: true}));
+    } catch {}
+  };
+
+  const sendStoryReply = async () => {
+    if (!storyReplyText.trim() || !activeStory) return;
+    const items = activeStory.items || [];
+    const currentItem = items[storyIndex];
+    if (!currentItem) return;
+    try {
+      const profile = userProfiles[activeStory.username] || {};
+      await API.post("/messages", {
+        receiverId: currentItem.userId || profile.id,
+        receiverUsername: activeStory.username,
+        text: "Replied to your story: " + storyReplyText,
+        mediaUrl: "",
+      });
+      setStoryReplyText("");
+      setStorySent(true);
+      setTimeout(() => setStorySent(false), 2000);
+    } catch {}
   };
 
   const getTimeLeft = (expiresAt) => {
@@ -85,10 +176,11 @@ export default function Home() {
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
   const AvatarImg = ({ username, size=36 }) => {
-    if (user?.avatar && username === user?.username) {
-      return <img src={user.avatar} alt={username} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover"}} />;
+    const profile = username === user?.username ? user : userProfiles[username];
+    if (profile?.avatar) {
+      return <img src={profile.avatar} alt={username} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover"}} />;
     }
-    return <div style={{width:size,height:size,borderRadius:"50%",background:gradients[(username||"").charCodeAt(0)%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:size*0.35,color:"white"}}>{avatar(username)}</div>;
+    return <div style={{width:size,height:size,borderRadius:"50%",background:gradients[(username||"").charCodeAt(0)%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:size*0.35,color:"white",flexShrink:0}}>{avatar(username)}</div>;
   };
 
   const groupedStories = stories.reduce((acc, s) => {
@@ -105,7 +197,8 @@ export default function Home() {
       <style>{`
         @keyframes progress { from { width: 0% } to { width: 100% } }
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
-        @keyframes heartPop { 0% { transform:scale(1) } 50% { transform:scale(1.4) } 100% { transform:scale(1) } }
+        @keyframes heartPop { 0% { transform:scale(1) } 50% { transform:scale(1.5) } 100% { transform:scale(1) } }
+        @keyframes fadeIn { from { opacity:0;transform:scale(0.8) } to { opacity:1;transform:scale(1) } }
       `}</style>
 
       {/* Header */}
@@ -119,6 +212,7 @@ export default function Home() {
 
       {/* Stories */}
       <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",padding:"0.75rem 1rem",borderBottom:"1px solid #1e1e2e",scrollbarWidth:"none"}}>
+        {/* Your story */}
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px"}}>
           <div onClick={()=>navigate("/upload")} style={{position:"relative",cursor:"pointer"}}>
             <div style={{width:"60px",height:"60px",borderRadius:"50%",overflow:"hidden",border:"2px solid #1e1e2e"}}>
@@ -128,25 +222,19 @@ export default function Home() {
           </div>
           <span style={{fontSize:"0.65rem",color:"#888"}}>Your story</span>
         </div>
+
         {storyGroups.map((group, i) => (
-          <div key={group.userId||i} onClick={()=>{setActiveStory(group);setStoryIndex(0);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
+          <div key={group.userId||i} onClick={()=>{setActiveStory(group);setStoryIndex(0);setStorySent(false);setStoryReplyText("");}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
             <div style={{padding:"2px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#f59e0b)"}}>
               <div style={{width:"56px",height:"56px",borderRadius:"50%",overflow:"hidden",border:"2px solid #0a0a0f"}}>
-                {group.items[0]?.mediaUrl ? (
-                  group.items[0]?.mediaType === "video" ? (
-                    <video src={group.items[0].mediaUrl} style={{width:"100%",height:"100%",objectFit:"cover"}} muted />
-                  ) : (
-                    <img src={group.items[0].mediaUrl} alt={group.username} style={{width:"100%",height:"100%",objectFit:"cover"}} />
-                  )
-                ) : <AvatarImg username={group.username} size={56} />}
+                <AvatarImg username={group.username} size={56} />
               </div>
             </div>
             <span style={{fontSize:"0.65rem",color:"#ccc",maxWidth:"64px",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{group.username}</span>
           </div>
         ))}
       </div>
-
-      {/* Feed */}
+{/* Feed */}
       <div style={{maxWidth:"600px",margin:"0 auto"}}>
         {posts.length === 0 ? (
           <div style={{textAlign:"center",color:"#888",marginTop:"4rem"}}>
@@ -156,6 +244,7 @@ export default function Home() {
           </div>
         ) : posts.map((p,i) => (
           <div key={p.id||i} style={{borderBottom:"1px solid #1e1e2e"}}>
+            {/* Post Header */}
             <div style={{padding:"0.6rem 1rem",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div onClick={()=>navigate("/user/"+p.username)} style={{display:"flex",alignItems:"center",gap:"0.6rem",cursor:"pointer"}}>
                 <AvatarImg username={p.username} size={36} />
@@ -164,29 +253,33 @@ export default function Home() {
                   {p.location && <div style={{fontSize:"0.75rem",color:"#888"}}>📍{p.location}</div>}
                 </div>
               </div>
-              {/* Fix 15: Only show delete for own posts */}
-              {p.userId === user?.id && (
-                <span style={{color:"#888",cursor:"pointer",fontSize:"1.2rem"}} onClick={()=>{
-                  if(window.confirm("Delete this post?")) {
-                    API.delete("/posts/"+p.id).then(()=>setPosts(prev=>prev.filter(x=>x.id!==p.id))).catch(()=>{});
-                  }
-                }}>🗑️</span>
-              )}
+              <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
+                {/* Follow button for other users */}
+                {p.userId !== user?.id && (
+                  <button
+                    onClick={()=>{ const profile = userProfiles[p.username]; if(profile?.id) handleFollow(profile.id, p.username); }}
+                    style={{background:followingMap[userProfiles[p.username]?.id]?"transparent":"linear-gradient(135deg,#7c3aed,#db2777)",border:followingMap[userProfiles[p.username]?.id]?"1px solid #444":"none",borderRadius:"6px",color:"white",padding:"0.25rem 0.65rem",fontSize:"0.78rem",cursor:"pointer",fontWeight:"bold"}}
+                  >
+                    {followingMap[userProfiles[p.username]?.id] ? "Following" : "Follow"}
+                  </button>
+                )}
+                {p.userId === user?.id && (
+                  <span style={{color:"#888",cursor:"pointer",fontSize:"1.2rem"}} onClick={()=>{
+                    if(window.confirm("Delete this post?")) {
+                      API.delete("/posts/"+p.id).then(()=>setPosts(prev=>prev.filter(x=>x.id!==p.id))).catch(()=>{});
+                    }
+                  }}>🗑️</span>
+                )}
+              </div>
             </div>
 
+            {/* Media — double tap to like */}
             {(p.mediaUrl || p.mediaId) && (
-              <div style={{position:"relative",background:"#000"}}>
+              <div style={{position:"relative",background:"#000"}} onClick={()=>handleDoubleTap(p.id)}>
                 <MediaLoader
                   mediaUrl={p.mediaUrl}
                   mediaType={p.mediaType}
-                  style={{
-                    width:"100%",
-                    maxHeight:"600px",
-                    minHeight:"200px",
-                    objectFit: p.mediaType==="video" ? "cover" : "contain",
-                    display:"block",
-                    background:"#000"
-                  }}
+                  style={{width:"100%",maxHeight:"600px",minHeight:"200px",objectFit:p.mediaType==="video"?"cover":"contain",display:"block",background:"#000"}}
                   controls={p.mediaType==="video"}
                   loop={p.mediaType==="video"}
                   muted={p.mediaType==="video"}
@@ -201,23 +294,38 @@ export default function Home() {
               </div>
             )}
 
+            {/* Actions */}
             <div style={{padding:"0.6rem 1rem"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.4rem"}}>
                 <div style={{display:"flex",gap:"1rem",alignItems:"center"}}>
-                  {/* Fix 1: Heart animation */}
-                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.6rem",display:"inline-block",animation:liked[p.id]?"heartPop 0.3s ease":"none"}}>
+                  <span
+                    onClick={()=>handleLike(p.id)}
+                    style={{cursor:"pointer",fontSize:"1.6rem",display:"inline-block",animation:liked[p.id]?"heartPop 0.3s ease":"none"}}
+                  >
                     {liked[p.id]?"❤️":"🤍"}
                   </span>
                   <span onClick={()=>navigate("/comments/"+p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>💬</span>
-                  <span onClick={()=>handleShare(p)} style={{cursor:"pointer",fontSize:"1.5rem"}}>➤</span>
+                  <span onClick={()=>openShareSheet(p)} style={{cursor:"pointer",fontSize:"1.5rem"}}>📤</span>
                 </div>
-                {/* Fix 1: Different icons for saved/unsaved */}
                 <span onClick={()=>handleSave(p.id)} style={{cursor:"pointer",fontSize:"1.5rem",color:saved[p.id]?"#7c3aed":"white"}}>
                   {saved[p.id]?"🔖":"🔖"}
                 </span>
               </div>
               <div style={{fontSize:"0.9rem",fontWeight:"bold",marginBottom:"0.2rem"}}>{likeCounts[p.id]||0} likes</div>
               {p.caption && <div style={{fontSize:"0.9rem"}}><span onClick={()=>navigate("/user/"+p.username)} style={{fontWeight:"bold",cursor:"pointer"}}>@{p.username}</span> {p.caption}</div>}
+
+              {/* Inline comments preview with avatars */}
+              {(inlineComments[p.id]||[]).length > 0 && (
+                <div style={{marginTop:"0.4rem"}}>
+                  {(inlineComments[p.id]||[]).map((c,ci) => (
+                    <div key={c.id||ci} style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.2rem"}}>
+                      <AvatarImg username={c.username} size={20} />
+                      <span style={{fontSize:"0.82rem"}}><span style={{fontWeight:"bold",color:"#c084fc"}}>@{c.username}</span> {c.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div onClick={()=>navigate("/comments/"+p.id)} style={{fontSize:"0.8rem",color:"#888",marginTop:"0.3rem",cursor:"pointer"}}>View all comments</div>
               <div style={{fontSize:"0.75rem",color:"#555",marginTop:"0.2rem"}}>{new Date(p.createdAt).toLocaleDateString()}</div>
             </div>
@@ -236,9 +344,56 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Fix 5: Story Viewer with animated progress */}
+      {/* Share DM Sheet */}
+      {showShareSheet && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowShareSheet(null)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",maxHeight:"75vh",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"1rem",borderBottom:"1px solid #2a2a3a"}}>
+              <div style={{width:"40px",height:"4px",borderRadius:"2px",background:"#444",margin:"0 auto 1rem"}} />
+              <div style={{fontWeight:"bold",color:"white",fontSize:"1rem",textAlign:"center",marginBottom:"0.75rem"}}>Send to...</div>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"#13131a",borderRadius:"12px",padding:"0.6rem 1rem"}}>
+                <span style={{color:"#888"}}>🔍</span>
+                <input
+                  value={dmSearch}
+                  onChange={e=>searchDMUsers(e.target.value)}
+                  placeholder="Search people..."
+                  style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem"}}>
+              {dmUsers.length === 0 && (
+                <div style={{textAlign:"center",color:"#888",padding:"2rem"}}>
+                  <div style={{fontSize:"2rem"}}>💬</div>
+                  <p style={{fontSize:"0.9rem"}}>Search for people to send to</p>
+                </div>
+              )}
+              {dmUsers.map((u,i) => (
+                <div key={u.id||i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.75rem 0",borderBottom:"1px solid #1e1e2e"}}>
+                  <AvatarImg username={u.username} size={44} />
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:"bold",color:"white",fontSize:"0.95rem"}}>@{u.username}</div>
+                  </div>
+                  <button
+                    onClick={()=>sendPostViaDM(showShareSheet,u)}
+                    disabled={sentTo[u.id]}
+                    style={{padding:"0.4rem 1rem",background:sentTo[u.id]?"#2a2a3a":"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"20px",color:"white",cursor:sentTo[u.id]?"default":"pointer",fontSize:"0.85rem",fontWeight:"bold",flexShrink:0}}
+                  >
+                    {sentTo[u.id] ? "✓ Sent" : "Send"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Story Viewer */}
       {activeStory && currentStoryItem && (
         <div style={{position:"fixed",inset:0,background:"black",zIndex:200,display:"flex",flexDirection:"column"}}>
+          {/* Per-item progress bars */}
           <div style={{position:"absolute",top:0,left:0,right:0,padding:"0.5rem",display:"flex",gap:"3px",zIndex:10}}>
             {currentStoryItems.map((_,idx) => (
               <div key={idx} style={{flex:1,height:"3px",background:"rgba(255,255,255,0.3)",borderRadius:"2px",overflow:"hidden"}}>
@@ -252,16 +407,22 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Story Header */}
           <div style={{position:"absolute",top:"1.5rem",left:"1rem",right:"1rem",display:"flex",justifyContent:"space-between",alignItems:"center",zIndex:10}}>
             <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
               <AvatarImg username={activeStory.username} size={36} />
               <div>
                 <div style={{fontWeight:"bold",fontSize:"0.9rem",color:"white"}}>@{activeStory.username}</div>
-                <div style={{color:"rgba(255,255,255,0.7)",fontSize:"0.75rem"}}>{currentStoryItem.expiresAt ? getTimeLeft(currentStoryItem.expiresAt)+" left" : "24h"}</div>
+                <div style={{color:"rgba(255,255,255,0.7)",fontSize:"0.75rem"}}>
+                  {currentStoryItem.expiresAt ? getTimeLeft(currentStoryItem.expiresAt)+" left" : "24h"} · {storyIndex+1}/{currentStoryItems.length}
+                </div>
               </div>
             </div>
             <span onClick={()=>{setActiveStory(null);setStoryIndex(0);}} style={{color:"white",cursor:"pointer",fontSize:"1.5rem"}}>✕</span>
           </div>
+
+          {/* Story Media — tap left/right */}
           <div style={{flex:1,position:"relative"}} onClick={(e)=>{
             const x = e.clientX;
             const w = window.innerWidth;
@@ -271,22 +432,32 @@ export default function Home() {
             {currentStoryItem.mediaType==="video" ? (
               <video src={currentStoryItem.mediaUrl} autoPlay loop style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",background:"#000"}} playsInline />
             ) : currentStoryItem.mediaUrl ? (
-              <img src={currentStoryItem.mediaUrl} alt="story" style={{
-                position:"absolute",
-                top:"50%",left:"50%",
-                transform:"translate(-50%,-50%)",
-                maxWidth:"100%",
-                maxHeight:"100%",
-                objectFit:"contain",
-                background:"#000"
-              }} />
+              <img src={currentStoryItem.mediaUrl} alt="story" style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}} />
             ) : (
-              <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",display:"flex",alignItems:"center",justifyContent:"center",position:"absolute"}}><div style={{fontSize:"4rem"}}>🦋</div></div>
+              <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",position:"absolute",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:"4rem"}}>🦋</div></div>
             )}
           </div>
-          <div style={{padding:"1rem",display:"flex",alignItems:"center",gap:"0.75rem",zIndex:10}}>
-            <input placeholder="Reply to story..." style={{flex:1,background:"transparent",border:"1px solid rgba(255,255,255,0.4)",borderRadius:"20px",padding:"0.6rem 1rem",color:"white",fontSize:"0.9rem",outline:"none"}} onClick={e=>e.stopPropagation()} />
-            <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>
+
+          {/* Story Reply — sends real DM */}
+          <div style={{padding:"1rem",display:"flex",alignItems:"center",gap:"0.75rem",zIndex:10}} onClick={e=>e.stopPropagation()}>
+            {storySent ? (
+              <div style={{flex:1,textAlign:"center",color:"#a78bfa",fontWeight:"bold",animation:"fadeIn 0.3s ease"}}>✅ Reply sent!</div>
+            ) : (
+              <>
+                <input
+                  value={storyReplyText}
+                  onChange={e=>setStoryReplyText(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&sendStoryReply()}
+                  placeholder={"Reply to @"+activeStory.username+"..."}
+                  style={{flex:1,background:"transparent",border:"1px solid rgba(255,255,255,0.4)",borderRadius:"20px",padding:"0.6rem 1rem",color:"white",fontSize:"0.9rem",outline:"none"}}
+                />
+                {storyReplyText.trim() ? (
+                  <button onClick={sendStoryReply} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>➤</button>
+                ) : (
+                  <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
