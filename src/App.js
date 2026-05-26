@@ -31,14 +31,13 @@ function App() {
           <Route path="/" element={<PrivateRoute><Home /></PrivateRoute>} />
           <Route path="/upload" element={<PrivateRoute><Upload /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-        <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+          <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
           <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
           <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
           <Route path="/chat/:userId" element={<PrivateRoute><Chat /></PrivateRoute>} />
           <Route path="/comments/:postId" element={<PrivateRoute><Comments /></PrivateRoute>} />
           <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
-          <Route path="/channels" element={<PrivateRoute><Channel /></PrivateRoute>} />
           <Route path="/groupchat" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
           <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
         </Routes>
