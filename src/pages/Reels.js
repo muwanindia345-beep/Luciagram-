@@ -26,6 +26,12 @@ export default function Reels() {
   const navigate = useNavigate();
   const videoRefs = useRef({});
 
+  // When muted toggles, apply to current video immediately
+  React.useEffect(() => {
+    const v = videoRefs.current[current];
+    if (v) v.muted = muted;
+  }, [muted]);
+
   useEffect(() => {
     API.get("/posts/feed").then(r => {
       const all = r.data;
@@ -44,13 +50,29 @@ export default function Reels() {
     }).catch(()=>{});
   }, []);
 
+  const scrollContainerRef = React.useRef(null);
+
+  const pauseAllExcept = (activeIndex) => {
+    Object.entries(videoRefs.current).forEach(([i, v]) => {
+      if (!v) return;
+      const idx = parseInt(i);
+      if (idx === activeIndex) {
+        v.muted = muted;
+        v.play().catch(()=>{});
+      } else {
+        v.pause();
+        v.currentTime = 0;
+        v.muted = true;
+      }
+    });
+  };
+
   const handleScroll = (e) => {
-    const index = Math.round(e.target.scrollTop / window.innerHeight);
+    const container = e.target;
+    const index = Math.round(container.scrollTop / window.innerHeight);
     if (index !== current) {
       setCurrent(index);
-      Object.entries(videoRefs.current).forEach(([i, v]) => {
-        if (v) { if (parseInt(i) === index) { v.play().catch(()=>{}); } else { v.pause(); v.currentTime = 0; } }
-      });
+      pauseAllExcept(index);
     }
   };
 
@@ -199,7 +221,7 @@ export default function Reels() {
       </div>
 
       {/* Scrollable Reels */}
-      <div onScroll={handleScroll} style={{height:"100vh",overflowY:"scroll",scrollSnapType:"y mandatory",scrollbarWidth:"none"}}>
+      <div ref={scrollContainerRef} onScroll={handleScroll} style={{height:"100vh",overflowY:"scroll",scrollSnapType:"y mandatory",scrollbarWidth:"none"}}>
         {posts.length === 0 ? (
           <div style={{height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"white"}}>
             <div style={{fontSize:"3rem",marginBottom:"1rem"}}>🎬</div>

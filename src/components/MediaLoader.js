@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, forwardRef } from "react";
 
-export default function MediaLoader({ mediaUrl, mediaType, style, controls, autoPlay, loop, muted, playsInline, onClick }) {
+const MediaLoader = forwardRef(function MediaLoader(
+  { mediaUrl, mediaType, style, controls, autoPlay, loop, muted, playsInline, onClick },
+  ref
+) {
   const [error, setError] = useState(false);
 
   if (!mediaUrl || error) return (
@@ -13,7 +16,22 @@ export default function MediaLoader({ mediaUrl, mediaType, style, controls, auto
   );
 
   if (mediaType === "video") {
-    return <video src={mediaUrl} style={style} controls={controls} autoPlay={autoPlay} loop={loop} muted={muted} playsInline={playsInline} onClick={onClick} onError={()=>setError(true)} />;
+    return (
+      <video
+        ref={ref}
+        src={mediaUrl}
+        style={style}
+        controls={controls}
+        autoPlay={autoPlay}
+        loop={loop}
+        muted={muted}
+        playsInline={playsInline}
+        onClick={onClick}
+        onError={()=>setError(true)}
+      />
+    );
   }
   return <img src={mediaUrl} alt="media" style={style} onClick={onClick} onError={()=>setError(true)} />;
-}
+});
+
+export default MediaLoader;
