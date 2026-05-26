@@ -15,10 +15,11 @@ export default function Profile() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    API.get("/posts/user/" + user.id).then(r => setPosts(r.data)).catch(()=>{});
+    if (!user?.id) return;
+    API.get("/posts/user/" + user.id).then(r => setPosts(r.data)).catch((e)=>console.log("Posts error:",e));
     API.get("/stories").then(r => setStories(r.data.filter(s => s.username === user?.username || s.userId === user?.id))).catch(()=>{});
-    if (user?.id) API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
-  }, [user]);
+    API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
+  }, [user?.id]);
 
   const handleLogout = () => { logout(); navigate("/login"); };
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
