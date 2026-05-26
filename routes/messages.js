@@ -80,4 +80,29 @@ router.delete("/:id", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// In-memory typing status
+const typingStatus = {};
+
+// POST /messages/typing
+router.post('/typing', auth, (req, res) => {
+  const key = req.user.id + '_' + req.body.receiverId;
+  typingStatus[key] = Date.now();
+  res.json({ ok: true });
+});
+
+// POST /messages/typing/stop
+router.post('/typing/stop', auth, (req, res) => {
+  const key = req.user.id + '_' + req.body.receiverId;
+  delete typingStatus[key];
+  res.json({ ok: true });
+});
+
+// GET /messages/typing/:userId
+router.get('/typing/:userId', auth, (req, res) => {
+  const key = req.params.userId + '_' + req.user.id;
+  const lastTyped = typingStatus[key];
+  const isTyping = lastTyped && (Date.now() - lastTyped < 3000);
+  res.json({ isTyping: !!isTyping });
+});
+
 module.exports = router;
