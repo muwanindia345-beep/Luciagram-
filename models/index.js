@@ -29,6 +29,19 @@ const LikeSchema = new mongoose.Schema({ postId: String, userId: String, usernam
 const FollowSchema = new mongoose.Schema({ followerId: String, followerUsername: String, followingId: String, followingUsername: String }, { timestamps: true });
 const MessageSchema = new mongoose.Schema({ id: String, senderId: String, senderUsername: String, receiverId: String, receiverUsername: String, text: String, mediaUrl: String, isRead: Boolean }, { timestamps: true });
 
+const NotificationSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  fromUserId: String,
+  fromUsername: String,
+  fromAvatar: String,
+  type: { type: String, enum: ["like", "comment", "follow", "mention"] },
+  postId: String,
+  postThumb: String,
+  text: String,
+  isRead: { type: Boolean, default: false },
+}, { timestamps: true });
+
 module.exports = {
   User: mongoose.model("User", UserSchema),
   Post: mongoose.model("Post", PostSchema),
@@ -37,4 +50,5 @@ module.exports = {
   Like: mongoose.model("Like", LikeSchema),
   Follow: mongoose.model("Follow", FollowSchema),
   Message: mongoose.model("Message", MessageSchema),
+  Notification: mongoose.model("Notification", NotificationSchema),
 };

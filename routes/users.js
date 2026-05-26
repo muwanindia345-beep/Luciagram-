@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { User, Follow } = require("../models");
+const notifRouter = require("./notifications");
 
 router.get("/search", auth, async (req, res) => {
   try {
@@ -42,6 +43,16 @@ router.post("/:id/follow", auth, async (req, res) => {
     const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
     await Follow.create({ followerId: req.user.id, followerUsername: req.user.username, followingId: req.params.id });
+    // Notify followed user
+    const followedUser = await User.findOne({ id: req.params.id }).lean();
+    await notifRouter.createNotif({
+      userId: req.params.id,
+      fromUserId: req.user.id,
+      fromUsername: req.user.username,
+      fromAvatar: followedUser?.avatar || "",
+      type: "follow",
+      text: req.user.username + " started following you",
+    });
     res.json({ message: "Followed", following: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

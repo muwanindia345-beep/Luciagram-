@@ -66,6 +66,10 @@ router.post("/", auth, async (req, res) => {
       mediaUrl: mediaUrl || "",
       isRead: false,
     });
+    // Emit real-time to receiver
+    if (global.io) {
+      global.io.to('user_' + receiverId).emit('new_message', msg);
+    }
     res.status(201).json(msg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

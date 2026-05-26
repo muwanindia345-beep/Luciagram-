@@ -2,6 +2,7 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Comment } = require("../models");
 const { v4: uuidv4 } = require("uuid");
+const notifRouter = require("./notifications");
 
 router.get("/:postId", async (req, res) => {
   try {
@@ -20,6 +21,20 @@ router.post("/:postId", auth, async (req, res) => {
       text: req.body.text,
     });
     res.status(201).json(comment);
+    // Notify post owner
+    const { Post } = require("../models");
+    const post = await Post.findOne({ id: req.params.postId }).lean();
+    if (post) {
+      await notifRouter.createNotif({
+        userId: post.userId,
+        fromUserId: req.user.id,
+        fromUsername: req.user.username,
+        type: "comment",
+        postId: post.id,
+        postThumb: post.mediaUrl,
+        text: req.user.username + " commented: " + req.body.text.slice(0, 50),
+      });
+    }
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

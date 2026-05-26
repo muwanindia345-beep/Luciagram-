@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const { Post, Like } = require("../models");
 const SupaStore = require("../supastore");
 const { v4: uuidv4 } = require("uuid");
+const notifRouter = require("./notifications");
 
 router.get("/feed", auth, async (req, res) => {
   try {
@@ -89,6 +90,20 @@ router.post("/:id/like", auth, async (req, res) => {
     const existing = await Like.findOne({ postId: req.params.id, userId: req.user.id });
     if (existing) { await existing.deleteOne(); return res.json({ liked: false }); }
     await Like.create({ postId: req.params.id, userId: req.user.id });
+    // Notify post owner
+    const { Post } = require("../models");
+    const post = await Post.findOne({ id: req.params.id }).lean();
+    if (post) {
+      await notifRouter.createNotif({
+        userId: post.userId,
+        fromUserId: req.user.id,
+        fromUsername: req.user.username,
+        type: "like",
+        postId: post.id,
+        postThumb: post.mediaUrl,
+        text: req.user.username + " liked your post",
+      });
+    }
     res.json({ liked: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
