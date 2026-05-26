@@ -15,6 +15,22 @@ const THEMES = [
   { id: "midnight", name: "Midnight", emoji: "🌙", mine: "linear-gradient(135deg,#6366f1,#8b5cf6)", bg: "#07070f", bubble: "#111128" },
 ];
 
+const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+
+function MessageText({ text }) {
+  const parts = text.split(URL_REGEX);
+  return (
+    <span>
+      {parts.map((part, i) =>
+        URL_REGEX.test(part)
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+              style={{color:"#a78bfa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
+          : <span key={i}>{part}</span>
+      )}
+    </span>
+  );
+}
+
 export default function GroupChatRoom() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
@@ -28,10 +44,13 @@ export default function GroupChatRoom() {
   const [showInfo, setShowInfo] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
+  const [showPending, setShowPending] = useState(false);
+  const [pendingMembers, setPendingMembers] = useState([]);
   const [memberSearch, setMemberSearch] = useState("");
   const [memberResults, setMemberResults] = useState([]);
   const [addStatus, setAddStatus] = useState({});
   const [toast, setToast] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("lg_theme_" + groupId);
     return THEMES.find(t => t.id === saved) || THEMES[0];
@@ -84,6 +103,10 @@ export default function GroupChatRoom() {
     try { const r = await API.get("/groups/" + groupId + "/messages"); setMessages(r.data); } catch {}
   };
 
+  const loadPending = async () => {
+    try { const r = await API.get("/groups/" + groupId + "/pending"); setPendingMembers(r.data); } catch {}
+  };
+
   const handleTyping = () => {
     socketRef.current?.emit("group_typing", { groupId, senderId: user?.id, senderUsername: user?.username, senderAvatar: user?.avatar || "" });
     clearTimeout(typingTimerRef.current);
@@ -132,13 +155,19 @@ export default function GroupChatRoom() {
         const r = await API.get("/users/" + u.id + "/followers");
         if (!r.data.isFollowing) {
           setAddStatus(prev => ({ ...prev, [u.id]: "blocked" }));
-          showToast("@" + u.username + " is private — follow them first");
+          showToast("@" + u.username + " is private — follow first");
           return;
         }
       }
-      await API.post("/groups/" + groupId + "/members", { userId: u.id, username: u.username, avatar: u.avatar || "" });
-      setAddStatus(prev => ({ ...prev, [u.id]: "added" }));
-      showToast("@" + u.username + " added ✅");
+      if (group?.requireApproval) {
+        await API.post("/groups/" + groupId + "/members", { userId: u.id, username: u.username, avatar: u.avatar || "", pending: true });
+        setAddStatus(prev => ({ ...prev, [u.id]: "pending" }));
+        showToast("@" + u.username + " added to pending ⏳");
+      } else {
+        await API.post("/groups/" + groupId + "/members", { userId: u.id, username: u.username, avatar: u.avatar || "" });
+        setAddStatus(prev => ({ ...prev, [u.id]: "added" }));
+        showToast("@" + u.username + " added ✅");
+      }
       await loadGroup();
     } catch {
       setAddStatus(prev => ({ ...prev, [u.id]: "error" }));
@@ -167,6 +196,39 @@ export default function GroupChatRoom() {
     } catch (e) { showToast(e?.response?.data?.message || "Error"); }
   };
 
+  const toggleApproval = async () => {
+    try {
+      const r = await API.patch("/groups/" + groupId + "/approval");
+      showToast("Approval " + (r.data.requireApproval ? "ON 🔐" : "OFF 🔓"));
+      await loadGroup();
+    } catch {}
+  };
+
+  const deleteGroup = async () => {
+    if (!window.confirm("Delete this group? This cannot be undone.")) return;
+    try {
+      await API.delete("/groups/" + groupId);
+      navigate("/groupchat");
+    } catch (e) { showToast(e?.response?.data?.message || "Error"); }
+  };
+
+  const approvePending = async (memberId) => {
+    try {
+      await API.post("/groups/" + groupId + "/pending/" + memberId + "/approve");
+      showToast("Member approved ✅");
+      await loadPending();
+      await loadGroup();
+    } catch {}
+  };
+
+  const rejectPending = async (memberId) => {
+    try {
+      await API.post("/groups/" + groupId + "/pending/" + memberId + "/reject");
+      showToast("Member rejected");
+      await loadPending();
+    } catch {}
+  };
+
   const applyTheme = (t) => {
     setTheme(t);
     localStorage.setItem("lg_theme_" + groupId, t.id);
@@ -185,12 +247,19 @@ export default function GroupChatRoom() {
         </div>
       )}
 
-      <div style={{background:theme.bg,borderBottom:"1px solid #1e1e2e",padding:"0.6rem 1rem",display:"flex",alignItems:"center",gap:"0.75rem",flexShrink:0}}>
+      {avatarPreview && (
+        <div onClick={()=>setAvatarPreview(null)} style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <img src={avatarPreview} alt="preview" style={{width:"80vw",height:"80vw",borderRadius:"50%",objectFit:"cover",border:"3px solid #7c3aed"}} />
+        </div>
+      )}
+<div style={{background:theme.bg,borderBottom:"1px solid #1e1e2e",padding:"0.6rem 1rem",display:"flex",alignItems:"center",gap:"0.75rem",flexShrink:0}}>
         <span onClick={()=>navigate("/groupchat")} style={{cursor:"pointer",fontSize:"1.3rem",flexShrink:0}}>←</span>
-        {group?.avatar
-          ? <img src={group.avatar} alt={group?.name} style={{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",flexShrink:0,border:"2px solid #7c3aed"}} />
-          : <div style={{width:"40px",height:"40px",borderRadius:"50%",background:theme.mine,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1rem",flexShrink:0}}>{av(group?.name)}</div>
-        }
+        <div onClick={()=>group?.avatar && setAvatarPreview(group.avatar)} style={{cursor:group?.avatar?"pointer":"default",flexShrink:0}}>
+          {group?.avatar
+            ? <img src={group.avatar} alt={group?.name} style={{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",border:"2px solid #7c3aed"}} />
+            : <div style={{width:"40px",height:"40px",borderRadius:"50%",background:theme.mine,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1rem"}}>{av(group?.name)}</div>
+          }
+        </div>
         <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setShowInfo(true)}>
           <div style={{fontWeight:"bold",fontSize:"1rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{group?.name || "Group"}</div>
           <div style={{fontSize:"0.7rem"}}>
@@ -203,20 +272,29 @@ export default function GroupChatRoom() {
         <span onClick={()=>setShowInfo(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>ℹ️</span>
       </div>
 
-<div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem",display:"flex",flexDirection:"column",gap:"0.3rem"}}>
+      <div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem",display:"flex",flexDirection:"column",gap:"0.3rem"}}>
         {messages.map((m, i) => {
           const mine = m.senderId === user?.id;
           const prev = messages[i-1];
           const showAv = !mine && (!prev || prev.senderId !== m.senderId);
           return (
             <div key={m.id||i}>
-              {!mine && showAv && <div style={{fontSize:"0.72rem",color:"#a78bfa",marginLeft:"38px",marginBottom:"2px",marginTop:"6px"}}>@{m.senderUsername}</div>}
+              {!mine && showAv && (
+                <div style={{fontSize:"0.72rem",color:"#a78bfa",marginLeft:"38px",marginBottom:"2px",marginTop:"6px",cursor:"pointer"}}
+                  onClick={()=>navigate("/user/"+m.senderUsername)}>
+                  @{m.senderUsername}
+                </div>
+              )}
               <div style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.35rem"}}>
                 {!mine && (
                   <div style={{width:"28px",height:"28px",flexShrink:0}}>
-                    {showAv && (m.senderAvatar
-                      ? <img src={m.senderAvatar} alt={m.senderUsername} style={{width:"28px",height:"28px",borderRadius:"50%",objectFit:"cover"}} />
-                      : <div style={{width:"28px",height:"28px",borderRadius:"50%",background:grads[(m.senderUsername||"").charCodeAt(0)%4],display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:"bold"}}>{av(m.senderUsername)}</div>
+                    {showAv && (
+                      <div onClick={()=>navigate("/user/"+m.senderUsername)} style={{cursor:"pointer"}}>
+                        {m.senderAvatar
+                          ? <img src={m.senderAvatar} alt={m.senderUsername} style={{width:"28px",height:"28px",borderRadius:"50%",objectFit:"cover"}} />
+                          : <div style={{width:"28px",height:"28px",borderRadius:"50%",background:grads[(m.senderUsername||"").charCodeAt(0)%4],display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",fontWeight:"bold"}}>{av(m.senderUsername)}</div>
+                        }
+                      </div>
                     )}
                   </div>
                 )}
@@ -231,7 +309,7 @@ export default function GroupChatRoom() {
                   )}
                   {m.text && (
                     <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4}}>
-                      {m.text}
+                      <MessageText text={m.text} />
                     </div>
                   )}
                   <div style={{fontSize:"0.68rem",color:"#555",marginTop:"2px",textAlign:mine?"right":"left"}}>
@@ -298,7 +376,7 @@ export default function GroupChatRoom() {
               <input value={memberSearch} onChange={e=>searchMembers(e.target.value)} placeholder="Search users..."
                 style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}} />
             </div>
-            {memberResults.length === 0 && memberSearch.length >= 2 && (
+            {memberResults.length===0 && memberSearch.length>=2 && (
               <div style={{textAlign:"center",color:"#555",padding:"1rem",fontSize:"0.85rem"}}>No users found</div>
             )}
             {memberResults.map((u,i) => {
@@ -310,17 +388,15 @@ export default function GroupChatRoom() {
                     : <div style={{width:"42px",height:"42px",borderRadius:"50%",background:grads[i%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{av(u.username)}</div>}
                   <div style={{flex:1}}>
                     <div style={{fontSize:"0.9rem",fontWeight:"bold"}}>@{u.username}</div>
-                    {u.isPrivate && <div style={{fontSize:"0.72rem",color:"#f59e0b"}}>🔒 Private account</div>}
+                    {u.isPrivate && <div style={{fontSize:"0.72rem",color:"#f59e0b"}}>🔒 Private</div>}
                   </div>
-                  {status === "added"
-                    ? <span style={{fontSize:"0.8rem",color:"#10b981"}}>Added ✅</span>
-                    : status === "blocked"
-                    ? <span style={{fontSize:"0.8rem",color:"#f87171"}}>🔒 Follow first</span>
-                    : <button onClick={()=>addMember(u)} disabled={status==="checking"}
-                        style={{background:theme.mine,border:"none",borderRadius:"20px",padding:"0.35rem 0.9rem",color:"white",cursor:"pointer",fontSize:"0.82rem",fontWeight:"bold"}}>
-                        {status==="checking" ? "..." : "+ Add"}
-                      </button>
-                  }
+                  {status==="added" ? <span style={{fontSize:"0.8rem",color:"#10b981"}}>Added ✅</span>
+                  : status==="pending" ? <span style={{fontSize:"0.8rem",color:"#f59e0b"}}>Pending ⏳</span>
+                  : status==="blocked" ? <span style={{fontSize:"0.8rem",color:"#f87171"}}>Follow first</span>
+                  : <button onClick={()=>addMember(u)} disabled={status==="checking"}
+                      style={{background:theme.mine,border:"none",borderRadius:"20px",padding:"0.35rem 0.9rem",color:"white",cursor:"pointer",fontSize:"0.82rem",fontWeight:"bold"}}>
+                      {status==="checking"?"...":"+ Add"}
+                    </button>}
                 </div>
               );
             })}
@@ -328,24 +404,69 @@ export default function GroupChatRoom() {
         </div>
       )}
 
+      {showPending && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowPending(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem",maxHeight:"70vh",overflowY:"auto"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",marginBottom:"1rem"}}>⏳ Pending Approvals ({pendingMembers.length})</div>
+            {pendingMembers.length===0
+              ? <div style={{textAlign:"center",color:"#555",padding:"2rem",fontSize:"0.85rem"}}>No pending members</div>
+              : pendingMembers.map((m,i) => (
+                <div key={m.id||i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid #1e1e2e"}}>
+                  {m.avatar
+                    ? <img src={m.avatar} alt={m.username} style={{width:"42px",height:"42px",borderRadius:"50%",objectFit:"cover"}} />
+                    : <div style={{width:"42px",height:"42px",borderRadius:"50%",background:grads[i%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{av(m.username)}</div>}
+                  <div style={{flex:1,fontSize:"0.9rem"}}>@{m.username}</div>
+                  <button onClick={()=>approvePending(m.id)}
+                    style={{background:"linear-gradient(135deg,#10b981,#059669)",border:"none",borderRadius:"10px",padding:"0.3rem 0.7rem",color:"white",cursor:"pointer",fontSize:"0.8rem",marginRight:"0.4rem"}}>✓</button>
+                  <button onClick={()=>rejectPending(m.id)}
+                    style={{background:"#2a2a3a",border:"none",borderRadius:"10px",padding:"0.3rem 0.7rem",color:"#f87171",cursor:"pointer",fontSize:"0.8rem"}}>✕</button>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+      )}
+
       {showInfo && (
         <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
           <div onClick={()=>setShowInfo(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
-          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem",maxHeight:"80vh",overflowY:"auto"}}>
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem",maxHeight:"85vh",overflowY:"auto"}}>
             <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
             <div style={{textAlign:"center",marginBottom:"1rem"}}>
-              {group?.avatar
-                ? <img src={group.avatar} alt={group?.name} style={{width:"72px",height:"72px",borderRadius:"50%",objectFit:"cover",border:"3px solid #7c3aed"}} />
-                : <div style={{width:"72px",height:"72px",borderRadius:"50%",background:theme.mine,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"2rem",margin:"0 auto"}}>{av(group?.name)}</div>}
+              <div onClick={()=>group?.avatar&&setAvatarPreview(group.avatar)} style={{cursor:group?.avatar?"pointer":"default",display:"inline-block"}}>
+                {group?.avatar
+                  ? <img src={group.avatar} alt={group?.name} style={{width:"72px",height:"72px",borderRadius:"50%",objectFit:"cover",border:"3px solid #7c3aed"}} />
+                  : <div style={{width:"72px",height:"72px",borderRadius:"50%",background:theme.mine,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"2rem",margin:"0 auto"}}>{av(group?.name)}</div>}
+              </div>
               <div style={{fontWeight:"bold",fontSize:"1.1rem",marginTop:"0.75rem"}}>{group?.name}</div>
               <div style={{color:"#888",fontSize:"0.82rem",marginTop:"0.25rem"}}>Created by @{group?.createdBy}</div>
             </div>
 
             {isAdmin && (
-              <button onClick={()=>{setShowInfo(false);setShowAddMember(true);}}
-                style={{width:"100%",background:theme.mine,border:"none",borderRadius:"12px",color:"white",padding:"0.75rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.95rem",marginBottom:"1rem"}}>
-                ➕ Add Members
-              </button>
+              <div style={{display:"flex",gap:"0.5rem",marginBottom:"1rem"}}>
+                <button onClick={()=>{setShowInfo(false);setShowAddMember(true);}}
+                  style={{flex:1,background:theme.mine,border:"none",borderRadius:"12px",color:"white",padding:"0.7rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem"}}>
+                  ➕ Add Members
+                </button>
+                <button onClick={()=>{loadPending();setShowPending(true);}}
+                  style={{flex:1,background:"#1e1e2e",border:"1px solid #333",borderRadius:"12px",color:"white",padding:"0.7rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem"}}>
+                  ⏳ Pending
+                </button>
+              </div>
+            )}
+
+            {isAdmin && (
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e1e2e",borderRadius:"12px",padding:"0.75rem 1rem",marginBottom:"1rem"}}>
+                <div>
+                  <div style={{fontSize:"0.9rem",fontWeight:"bold"}}>🔐 Admin Approval</div>
+                  <div style={{fontSize:"0.72rem",color:"#888",marginTop:"2px"}}>New members need approval</div>
+                </div>
+                <div onClick={toggleApproval} style={{width:"44px",height:"24px",borderRadius:"12px",background:group?.requireApproval?"#7c3aed":"#333",cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
+                  <div style={{position:"absolute",top:"2px",left:group?.requireApproval?"22px":"2px",width:"20px",height:"20px",borderRadius:"50%",background:"white",transition:"left 0.2s"}} />
+                </div>
+              </div>
             )}
 
             <div style={{color:"#888",fontSize:"0.75rem",fontWeight:"bold",letterSpacing:"0.05em",marginBottom:"0.5rem"}}>MEMBERS ({group?.members?.length || 0})</div>
@@ -354,22 +475,24 @@ export default function GroupChatRoom() {
               const memberIsCreator = m.id === group?.createdById;
               return (
                 <div key={m.id||i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid #1e1e2e"}}>
-                  {m.avatar
-                    ? <img src={m.avatar} alt={m.username} style={{width:"38px",height:"38px",borderRadius:"50%",objectFit:"cover"}} />
-                    : <div style={{width:"38px",height:"38px",borderRadius:"50%",background:grads[i%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{av(m.username)}</div>}
-                  <div style={{flex:1}}>
+                  <div onClick={()=>navigate("/user/"+m.username)} style={{cursor:"pointer",flexShrink:0}}>
+                    {m.avatar
+                      ? <img src={m.avatar} alt={m.username} style={{width:"38px",height:"38px",borderRadius:"50%",objectFit:"cover"}} />
+                      : <div style={{width:"38px",height:"38px",borderRadius:"50%",background:grads[i%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{av(m.username)}</div>}
+                  </div>
+                  <div style={{flex:1,cursor:"pointer"}} onClick={()=>navigate("/user/"+m.username)}>
                     <div style={{fontSize:"0.9rem"}}>@{m.username}</div>
                   </div>
                   <div style={{display:"flex",gap:"0.4rem",alignItems:"center"}}>
                     {memberIsAdmin && <span style={{fontSize:"0.72rem",background:"linear-gradient(135deg,#7c3aed,#db2777)",borderRadius:"8px",padding:"2px 8px",color:"white"}}>Admin</span>}
                     {memberIsCreator && <span style={{fontSize:"0.72rem",background:"linear-gradient(135deg,#f59e0b,#ef4444)",borderRadius:"8px",padding:"2px 8px",color:"white"}}>Owner</span>}
                     {isCreator && !memberIsCreator && (
-                      <button onClick={()=>toggleAdmin(m.id, memberIsAdmin)}
+                      <button onClick={()=>toggleAdmin(m.id,memberIsAdmin)}
                         style={{background:memberIsAdmin?"#2a2a3a":"#1e1e2e",border:"1px solid #333",borderRadius:"8px",color:memberIsAdmin?"#f87171":"#a78bfa",padding:"2px 8px",cursor:"pointer",fontSize:"0.72rem"}}>
-                        {memberIsAdmin ? "−Admin" : "+Admin"}
+                        {memberIsAdmin?"−Admin":"+Admin"}
                       </button>
                     )}
-                    {isAdmin && !memberIsCreator && m.id !== user?.id && (
+                    {isAdmin && !memberIsCreator && m.id!==user?.id && (
                       <button onClick={()=>removeMember(m.id)}
                         style={{background:"transparent",border:"none",color:"#555",cursor:"pointer",fontSize:"1rem",padding:"0 2px"}}>
                         🗑
@@ -379,6 +502,13 @@ export default function GroupChatRoom() {
                 </div>
               );
             })}
+
+            {isCreator && (
+              <button onClick={deleteGroup}
+                style={{width:"100%",background:"transparent",border:"1px solid #ef4444",borderRadius:"12px",color:"#ef4444",padding:"0.75rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem",marginTop:"1.25rem"}}>
+                🗑 Delete Group
+              </button>
+            )}
           </div>
         </div>
       )}
