@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Comment } = require("../models");
+const { Comment, Like } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const notifRouter = require("./notifications");
 
@@ -45,6 +45,28 @@ router.delete("/:id", auth, async (req, res) => {
     if (comment.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
     await comment.deleteOne();
     res.json({ message: "Deleted" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Like / unlike a comment
+router.post("/:id/like", auth, async (req, res) => {
+  try {
+    const existing = await Like.findOne({ postId: "comment_" + req.params.id, userId: req.user.id });
+    if (existing) {
+      await existing.deleteOne();
+      return res.json({ liked: false });
+    }
+    await Like.create({ postId: "comment_" + req.params.id, userId: req.user.id });
+    res.json({ liked: true });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get comment like count
+router.get("/:id/likes", auth, async (req, res) => {
+  try {
+    const count = await Like.countDocuments({ postId: "comment_" + req.params.id });
+    const liked = !!(await Like.findOne({ postId: "comment_" + req.params.id, userId: req.user.id }));
+    res.json({ count, liked });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
