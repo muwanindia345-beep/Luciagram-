@@ -42,6 +42,36 @@ const NotificationSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
 }, { timestamps: true });
 
+const GroupSchema = new mongoose.Schema({
+  id: String,
+  name: String,
+  avatar: String,
+  createdBy: String,
+  createdById: String,
+  admins: [String],
+  members: [{ id: String, username: String, avatar: String }],
+}, { timestamps: true });
+
+const GroupMessageSchema = new mongoose.Schema({
+  id: String,
+  groupId: String,
+  senderId: String,
+  senderUsername: String,
+  senderAvatar: String,
+  text: String,
+  mediaUrl: String,
+  mediaType: String,
+}, { timestamps: true });
+
+const NoteSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  username: String,
+  avatar: String,
+  text: String,
+  expiresAt: Date,
+}, { timestamps: true });
+
 module.exports = {
   User: mongoose.model("User", UserSchema),
   Post: mongoose.model("Post", PostSchema),
