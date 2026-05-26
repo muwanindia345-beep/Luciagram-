@@ -159,16 +159,26 @@ export default function Chat() {
                 </div>
               )}
               <div style={{maxWidth:"72%"}}>
-                {m.mediaUrl && (
-                  <div style={{marginBottom:"0.3rem",borderRadius:"12px",overflow:"hidden"}}>
-                    {m.mediaUrl.includes("video") || m.mediaType === "video" ? (
-                      <video src={m.mediaUrl} controls style={{maxWidth:"100%",borderRadius:"12px",maxHeight:"300px"}} />
-                    ) : (
-                      <img src={m.mediaUrl} alt="media" style={{maxWidth:"100%",borderRadius:"12px",maxHeight:"300px",objectFit:"cover"}} />
-                    )}
-                  </div>
-                )}
-                {m.text && (
+                {m.mediaUrl && (() => {
+                  const url = m.mediaUrl || "";
+                  const isVideo = url.includes(".mp4") || url.includes("video") || (m.mediaType === "video");
+                  const isSharedReel = m.text && (m.text.includes("Shared a Reel") || m.text.includes("Shared a Post"));
+                  return (
+                    <div style={{borderRadius:"12px",overflow:"hidden",marginBottom: isSharedReel ? "0" : "0.3rem"}}>
+                      {isSharedReel && (
+                        <div style={{background:"rgba(124,58,237,0.15)",borderRadius:"12px 12px 0 0",padding:"0.4rem 0.75rem",fontSize:"0.78rem",color:"#a78bfa",fontWeight:"bold"}}>
+                          {m.text.includes("Reel") ? "🎬 Shared a Reel" : "📸 Shared a Post"}
+                        </div>
+                      )}
+                      {isVideo ? (
+                        <video src={url} controls playsInline style={{width:"100%",maxWidth:"280px",borderRadius: isSharedReel ? "0 0 12px 12px" : "12px",maxHeight:"320px",display:"block",background:"#000"}} />
+                      ) : (
+                        <img src={url} alt="media" style={{width:"100%",maxWidth:"280px",borderRadius: isSharedReel ? "0 0 12px 12px" : "12px",maxHeight:"320px",objectFit:"cover",display:"block"}} />
+                      )}
+                    </div>
+                  );
+                })()}
+                {m.text && !(m.mediaUrl && (m.text.includes("Shared a Reel") || m.text.includes("Shared a Post"))) && (
                   <div style={{background:isMe?currentTheme:"#1e1e2e",padding:"0.55rem 0.9rem",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4}}>
                     {m.text}
                   </div>

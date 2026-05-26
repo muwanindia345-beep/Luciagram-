@@ -115,6 +115,14 @@ export default function Reels() {
       const res = await API.get("/messages/conversations");
       const users = res.data.map(c => ({ id: c.userId, username: c.username }));
       setDmUsers(users);
+      // Load real avatars for each user
+      users.forEach(u => {
+        if (u.username && !profileData[u.username]) {
+          API.get("/users/" + u.username).then(r => {
+            setProfileData(prev => ({...prev, [u.username]: r.data}));
+          }).catch(()=>{});
+        }
+      });
     } catch {}
   };
 
@@ -122,12 +130,25 @@ export default function Reels() {
     setDmSearch(q);
     if (q.length < 1) {
       const res = await API.get("/messages/conversations").catch(()=>({data:[]}));
-      setDmUsers(res.data.map(c => ({ id: c.userId, username: c.username })));
+      const users = res.data.map(c => ({ id: c.userId, username: c.username }));
+      setDmUsers(users);
+      users.forEach(u => {
+        if (u.username && !profileData[u.username]) {
+          API.get("/users/" + u.username).then(r => {
+            setProfileData(prev => ({...prev, [u.username]: r.data}));
+          }).catch(()=>{});
+        }
+      });
       return;
     }
     try {
       const res = await API.get("/users/search?q=" + q);
-      setDmUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
+      const users = res.data.filter(u => u.id !== user?.id);
+      setDmUsers(users.map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
+      // Store avatars directly from search results
+      users.forEach(u => {
+        if (u.avatar) setProfileData(prev => ({...prev, [u.username]: u}));
+      });
     } catch {}
   };
 
@@ -369,10 +390,13 @@ export default function Reels() {
                   <p style={{fontSize:"0.9rem"}}>Search for people to send to</p>
                 </div>
               )}
-              {dmUsers.map((u,i) => (
+              {dmUsers.map((u,i) => {
+                const uProfile = profileData[u.username];
+                const uAvatar = u.avatar || uProfile?.avatar;
+                return (
                 <div key={u.id||i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.75rem 0",borderBottom:"1px solid #1e1e2e"}}>
-                  {u.avatar ? (
-                    <img src={u.avatar} alt={u.username} style={{width:"44px",height:"44px",borderRadius:"50%",objectFit:"cover"}} />
+                  {uAvatar ? (
+                    <img src={uAvatar} alt={u.username} style={{width:"44px",height:"44px",borderRadius:"50%",objectFit:"cover",flexShrink:0}} />
                   ) : (
                     <div style={{width:"44px",height:"44px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",flexShrink:0}}>{avatar(u.username)}</div>
                   )}
@@ -387,7 +411,8 @@ export default function Reels() {
                     {sentTo[u.id] ? "✓ Sent" : "Send"}
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
