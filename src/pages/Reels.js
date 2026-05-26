@@ -13,6 +13,15 @@ export default function Reels() {
   const [showComments, setShowComments] = useState(null);
   const [comments, setComments] = useState({});
   const [commentText, setCommentText] = useState("");
+  const [showShareMenu, setShowShareMenu] = useState(null);
+  const [showProfileCard, setShowProfileCard] = useState(null);
+  const [profileData, setProfileData] = useState({});
+  const [profileStats, setProfileStats] = useState({});
+  const [followingMap, setFollowingMap] = useState({});
+  const [showDMSheet, setShowDMSheet] = useState(null);
+  const [dmSearch, setDmSearch] = useState("");
+  const [dmUsers, setDmUsers] = useState([]);
+  const [sentTo, setSentTo] = useState({});
   const { user } = useAuth();
   const navigate = useNavigate();
   const videoRefs = useRef({});
@@ -27,6 +36,11 @@ export default function Reels() {
           setLiked(prev => ({...prev, [p.id]: r.data.liked}));
         }).catch(()=>{});
       });
+    }).catch(()=>{});
+    // Load followed users for DM
+    API.get("/messages/conversations").then(r => {
+      const users = r.data.map(c => ({ id: c.userId, username: c.username }));
+      setDmUsers(users);
     }).catch(()=>{});
   }, []);
 
@@ -48,37 +62,32 @@ export default function Reels() {
     } catch {}
   };
 
-  const shareToStory = async (post) => {
+  const openProfileCard = async (username) => {
+    if (profileData[username]) { setShowProfileCard(username); return; }
     try {
-      // Share reel URL directly as story mediaUrl
-      await API.post("/stories/share", {
-        mediaUrl: post.mediaUrl,
-        mediaType: post.mediaType || "video",
-      });
-      alert("✅ Reel shared to your story for 24h!");
-    } catch { alert("Failed to share to story"); }
-  };
-
-  const [showShareMenu, setShowShareMenu] = useState(null);
-
-  const handleShare = (post) => {
-    setShowShareMenu(post);
-  };
-
-  const shareViaOption = async (post, option) => {
-    setShowShareMenu(null);
-    if (option === "story") {
-      await shareToStory(post);
-    } else if (option === "dm") {
-      navigate("/messages?shareReel="+encodeURIComponent(post.mediaUrl));
-    } else if (option === "copy") {
-      navigator.clipboard?.writeText(window.location.origin);
-      alert("🔗 Link copied!");
-    } else if (option === "native") {
-      if (navigator.share) {
-        try { await navigator.share({ title: "Luciagram Reel", text: post.caption||"", url: window.location.origin }); } catch {}
+      const res = await API.get("/users/" + username);
+      setProfileData(p => ({...p, [username]: res.data}));
+      if (res.data.id) {
+        const statsRes = await API.get("/users/" + res.data.id + "/followers");
+        setProfileStats(p => ({...p, [username]: statsRes.data}));
+        setFollowingMap(p => ({...p, [res.data.id]: statsRes.data.isFollowing}));
       }
-    }
+      setShowProfileCard(username);
+    } catch {}
+  };
+
+  const handleFollow = async (profile) => {
+    try {
+      const res = await API.post("/users/" + profile.id + "/follow");
+      setFollowingMap(p => ({...p, [profile.id]: res.data.following}));
+      setProfileStats(p => ({
+        ...p,
+        [profile.username]: {
+          ...p[profile.username],
+          followers: (p[profile.username]?.followers || 0) + (res.data.following ? 1 : -1)
+        }
+      }));
+    } catch {}
   };
 
   const loadComments = async (postId) => {
@@ -96,6 +105,61 @@ export default function Reels() {
       setComments(p => ({...p, [postId]: [...(p[postId]||[]), res.data]}));
       setCommentText("");
     } catch {}
+  };
+
+  const openDMSheet = async (post) => {
+    setShowDMSheet(post);
+    setSentTo({});
+    setDmSearch("");
+    try {
+      const res = await API.get("/messages/conversations");
+      const users = res.data.map(c => ({ id: c.userId, username: c.username }));
+      setDmUsers(users);
+    } catch {}
+  };
+
+  const searchDMUsers = async (q) => {
+    setDmSearch(q);
+    if (q.length < 1) {
+      const res = await API.get("/messages/conversations").catch(()=>({data:[]}));
+      setDmUsers(res.data.map(c => ({ id: c.userId, username: c.username })));
+      return;
+    }
+    try {
+      const res = await API.get("/users/search?q=" + q);
+      setDmUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
+    } catch {}
+  };
+
+  const sendReelViaDM = async (post, toUser) => {
+    try {
+      await API.post("/messages", {
+        receiverId: toUser.id,
+        receiverUsername: toUser.username,
+        text: (post.caption ? post.caption + "\n" : "") + "🎬 Shared a Reel",
+        mediaUrl: post.mediaUrl || "",
+      });
+      setSentTo(p => ({...p, [toUser.id]: true}));
+    } catch {}
+  };
+
+  const shareViaOption = async (post, option) => {
+    setShowShareMenu(null);
+    if (option === "story") {
+      try {
+        await API.post("/stories/share", { mediaUrl: post.mediaUrl, mediaType: post.mediaType || "video" });
+        alert("✅ Reel shared to your story for 24h!");
+      } catch { alert("Failed to share to story"); }
+    } else if (option === "dm") {
+      openDMSheet(post);
+    } else if (option === "copy") {
+      navigator.clipboard?.writeText(window.location.origin);
+      alert("🔗 Link copied!");
+    } else if (option === "native") {
+      if (navigator.share) {
+        try { await navigator.share({ title: "Luciagram Reel", text: post.caption||"", url: window.location.origin }); } catch {}
+      }
+    }
   };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
@@ -135,10 +199,7 @@ export default function Reels() {
                 muted={muted}
                 playsInline={true}
                 controls={false}
-                onClick={()=>{
-                  const v = videoRefs.current[i];
-                  if(v) v.paused ? v.play() : v.pause();
-                }}
+                onClick={()=>{ const v = videoRefs.current[i]; if(v) v.paused ? v.play() : v.pause(); }}
               />
             ) : (
               <div style={{width:"100%",height:"100%",background:gradients[i%3],position:"absolute",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"4rem"}}>🦋</div>
@@ -154,20 +215,17 @@ export default function Reels() {
                 <span style={{fontSize:"1.8rem",filter:liked[p.id]?"drop-shadow(0 0 6px red)":"none"}}>{liked[p.id]?"❤️":"🤍"}</span>
                 <span style={{color:"white",fontSize:"0.75rem",fontWeight:"bold"}}>{likes[p.id]||0}</span>
               </div>
-
               {/* Comment */}
               <div onClick={()=>loadComments(p.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem"}}>💬</span>
                 <span style={{color:"white",fontSize:"0.75rem",fontWeight:"bold"}}>{(comments[p.id]||[]).length}</span>
               </div>
-
               {/* Share */}
-              <div onClick={()=>handleShare(p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
+              <div onClick={()=>setShowShareMenu(p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem"}}>📤</span>
                 <span style={{color:"white",fontSize:"0.75rem"}}>Share</span>
               </div>
-
-              {/* Mute toggle */}
+              {/* Mute */}
               <div onClick={()=>setMuted(m=>!m)} style={{cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem"}}>{muted?"🔇":"🔊"}</span>
               </div>
@@ -176,14 +234,25 @@ export default function Reels() {
             {/* Bottom Info */}
             <div style={{position:"absolute",bottom:"4.5rem",left:"1rem",right:"5rem",zIndex:10}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
-                {user?.avatar && p.username===user?.username ? (
-                  <img src={user.avatar} alt="a" style={{width:"36px",height:"36px",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}} />
-                ) : (
-                  <div style={{width:"36px",height:"36px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",border:"2px solid white"}}>{avatar(p.username)}</div>
-                )}
-                <span style={{color:"white",fontWeight:"bold",fontSize:"0.95rem"}}>@{p.username||"user"}</span>
+                {/* Tappable Avatar */}
+                <div onClick={()=>openProfileCard(p.username)} style={{cursor:"pointer",flexShrink:0}}>
+                  {user?.avatar && p.username===user?.username ? (
+                    <img src={user.avatar} alt="a" style={{width:"38px",height:"38px",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}} />
+                  ) : profileData[p.username]?.avatar ? (
+                    <img src={profileData[p.username].avatar} alt="a" style={{width:"38px",height:"38px",borderRadius:"50%",objectFit:"cover",border:"2px solid white"}} />
+                  ) : (
+                    <div style={{width:"38px",height:"38px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",border:"2px solid white"}}>{avatar(p.username)}</div>
+                  )}
+                </div>
+                {/* Tappable Username */}
+                <span onClick={()=>openProfileCard(p.username)} style={{color:"white",fontWeight:"bold",fontSize:"0.95rem",cursor:"pointer"}}>@{p.username||"user"}</span>
                 {p.username !== user?.username && (
-                  <button style={{background:"transparent",border:"1px solid white",color:"white",borderRadius:"6px",padding:"0.2rem 0.6rem",fontSize:"0.8rem",cursor:"pointer",marginLeft:"0.3rem"}}>Follow</button>
+                  <button
+                    onClick={()=>openProfileCard(p.username)}
+                    style={{background:"transparent",border:"1px solid white",color:"white",borderRadius:"6px",padding:"0.2rem 0.6rem",fontSize:"0.8rem",cursor:"pointer",marginLeft:"0.3rem"}}
+                  >
+                    {followingMap[profileData[p.username]?.id] ? "Following ✓" : "Follow"}
+                  </button>
                 )}
               </div>
               {p.caption && <p style={{color:"white",fontSize:"0.9rem",margin:"0 0 0.3rem",lineHeight:1.4}}>{p.caption}</p>}
@@ -195,6 +264,62 @@ export default function Reels() {
           </div>
         ))}
       </div>
+
+      {/* Profile Card Bottom Sheet */}
+      {showProfileCard && profileData[showProfileCard] && (
+        <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowProfileCard(null)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",padding:"1.5rem 1rem"}}>
+            {/* Drag handle */}
+            <div style={{width:"40px",height:"4px",borderRadius:"2px",background:"#444",margin:"0 auto 1.2rem"}} />
+            <div style={{display:"flex",alignItems:"center",gap:"1rem",marginBottom:"1.2rem"}}>
+              {/* Profile Pic */}
+              {profileData[showProfileCard].avatar ? (
+                <img src={profileData[showProfileCard].avatar} alt="p" style={{width:"72px",height:"72px",borderRadius:"50%",objectFit:"cover",border:"3px solid #7c3aed"}} />
+              ) : (
+                <div style={{width:"72px",height:"72px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.8rem",fontWeight:"bold"}}>{avatar(showProfileCard)}</div>
+              )}
+              <div style={{flex:1}}>
+                <div style={{fontWeight:"bold",fontSize:"1rem",color:"white"}}>@{profileData[showProfileCard].username}{profileData[showProfileCard].isVerified && <span style={{color:"#7c3aed",marginLeft:"4px"}}>✓</span>}</div>
+                {profileData[showProfileCard].fullName && <div style={{color:"#ccc",fontSize:"0.85rem"}}>{profileData[showProfileCard].fullName}</div>}
+                {profileData[showProfileCard].bio && <div style={{color:"#888",fontSize:"0.8rem",marginTop:"0.2rem"}}>{profileData[showProfileCard].bio}</div>}
+              </div>
+            </div>
+            {/* Stats */}
+            <div style={{display:"flex",justifyContent:"space-around",marginBottom:"1.2rem",padding:"0.75rem",background:"#13131a",borderRadius:"12px"}}>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontWeight:"bold",color:"white",fontSize:"1.1rem"}}>{profileStats[showProfileCard]?.followers||0}</div>
+                <div style={{color:"#888",fontSize:"0.75rem"}}>Followers</div>
+              </div>
+              <div style={{textAlign:"center"}}>
+                <div style={{fontWeight:"bold",color:"white",fontSize:"1.1rem"}}>{profileStats[showProfileCard]?.following||0}</div>
+                <div style={{color:"#888",fontSize:"0.75rem"}}>Following</div>
+              </div>
+            </div>
+            {/* Action Buttons */}
+            <div style={{display:"flex",gap:"0.75rem",marginBottom:"0.75rem"}}>
+              <button
+                onClick={()=>handleFollow(profileData[showProfileCard])}
+                style={{flex:1,padding:"0.6rem",background:followingMap[profileData[showProfileCard].id]?"transparent":"linear-gradient(135deg,#7c3aed,#db2777)",border:followingMap[profileData[showProfileCard].id]?"1px solid #444":"none",borderRadius:"10px",color:"white",fontWeight:"bold",cursor:"pointer",fontSize:"0.95rem"}}
+              >
+                {followingMap[profileData[showProfileCard].id] ? "Following ✓" : "Follow"}
+              </button>
+              <button
+                onClick={()=>{ setShowProfileCard(null); navigate("/chat/"+profileData[showProfileCard].id+"?username="+profileData[showProfileCard].username); }}
+                style={{flex:1,padding:"0.6rem",background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"10px",color:"white",fontWeight:"bold",cursor:"pointer",fontSize:"0.95rem"}}
+              >
+                💬 Message
+              </button>
+              <button
+                onClick={()=>{ setShowProfileCard(null); navigate("/user/"+showProfileCard); }}
+                style={{padding:"0.6rem 0.9rem",background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"10px",color:"white",cursor:"pointer",fontSize:"0.95rem"}}
+              >
+                👤
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Share Menu */}
       {showShareMenu && (
@@ -218,7 +343,57 @@ export default function Reels() {
         </div>
       )}
 
-      {/* Comments Sheet */}}
+      {/* DM Sheet */}
+      {showDMSheet && (
+        <div style={{position:"fixed",inset:0,zIndex:450,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowDMSheet(null)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",maxHeight:"75vh",display:"flex",flexDirection:"column"}}>
+            <div style={{padding:"1rem",borderBottom:"1px solid #2a2a3a"}}>
+              <div style={{width:"40px",height:"4px",borderRadius:"2px",background:"#444",margin:"0 auto 1rem"}} />
+              <div style={{fontWeight:"bold",color:"white",fontSize:"1rem",marginBottom:"0.75rem",textAlign:"center"}}>Send to...</div>
+              <div style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"#13131a",borderRadius:"12px",padding:"0.6rem 1rem"}}>
+                <span style={{color:"#888"}}>🔍</span>
+                <input
+                  value={dmSearch}
+                  onChange={e=>searchDMUsers(e.target.value)}
+                  placeholder="Search people..."
+                  style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem"}}>
+              {dmUsers.length === 0 && (
+                <div style={{textAlign:"center",color:"#888",padding:"2rem"}}>
+                  <div style={{fontSize:"2rem"}}>💬</div>
+                  <p style={{fontSize:"0.9rem"}}>Search for people to send to</p>
+                </div>
+              )}
+              {dmUsers.map((u,i) => (
+                <div key={u.id||i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.75rem 0",borderBottom:"1px solid #1e1e2e"}}>
+                  {u.avatar ? (
+                    <img src={u.avatar} alt={u.username} style={{width:"44px",height:"44px",borderRadius:"50%",objectFit:"cover"}} />
+                  ) : (
+                    <div style={{width:"44px",height:"44px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",flexShrink:0}}>{avatar(u.username)}</div>
+                  )}
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:"bold",color:"white",fontSize:"0.95rem"}}>@{u.username}</div>
+                  </div>
+                  <button
+                    onClick={()=>sendReelViaDM(showDMSheet,u)}
+                    disabled={sentTo[u.id]}
+                    style={{padding:"0.4rem 1rem",background:sentTo[u.id]?"#2a2a3a":"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"20px",color:"white",cursor:sentTo[u.id]?"default":"pointer",fontSize:"0.85rem",fontWeight:"bold",flexShrink:0}}
+                  >
+                    {sentTo[u.id] ? "✓ Sent" : "Send"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Sheet */}
       {showComments && (
         <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
           <div onClick={()=>setShowComments(null)} style={{flex:1,background:"rgba(0,0,0,0.5)"}} />
