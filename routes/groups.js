@@ -129,6 +129,29 @@ router.get("/:id/typing", auth, (req, res) => {
   res.json({ typers });
 });
 
+router.post("/:id/messages/:msgId/react", auth, async (req, res) => {
+  try {
+    const { emoji } = req.body;
+    const msg = await GroupMessage.findOne({ id: req.params.msgId });
+    if (!msg) return res.status(404).json({ message: "Not found" });
+    const existing = msg.reactions.find(r => r.userId === req.user.id);
+    if (existing) {
+      if (existing.emoji === emoji) {
+        msg.reactions = msg.reactions.filter(r => r.userId !== req.user.id);
+      } else {
+        existing.emoji = emoji;
+      }
+    } else {
+      msg.reactions.push({ userId: req.user.id, username: req.user.username, emoji });
+    }
+    await msg.save();
+    if (global.io) {
+      global.io.to("group_" + req.params.id).emit("group_reaction", { msgId: req.params.msgId, reactions: msg.reactions });
+    }
+    res.json({ reactions: msg.reactions });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.delete("/:id", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });

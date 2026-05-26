@@ -63,6 +63,13 @@ const GroupMessageSchema = new mongoose.Schema({
   text: String,
   mediaUrl: String,
   mediaType: String,
+  replyTo: {
+    id: String,
+    text: String,
+    senderUsername: String,
+    mediaType: String,
+  },
+  reactions: [{ userId: String, username: String, emoji: String }],
 }, { timestamps: true });
 
 const StoryViewSchema = new mongoose.Schema({
