@@ -25,6 +25,8 @@ export default function Home() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const storyTimer = useRef(null);
+  const storyVideoRef = useRef(null);
+  const [storyDuration, setStoryDuration] = useState(5000);
 
   useEffect(() => {
     API.get("/posts/feed").then(r => {
@@ -59,21 +61,51 @@ export default function Home() {
     });
   }, [posts, stories]);
 
-  // Story auto-advance
+  // Story auto-advance — dynamic duration based on media type
   useEffect(() => {
     if (!activeStory) return;
     clearTimeout(storyTimer.current);
-    storyTimer.current = setTimeout(() => {
-      const items = activeStory.items || [];
+
+    const items = activeStory.items || [];
+    const currentItem = items[storyIndex];
+    const isVideo = currentItem?.mediaType === "video";
+
+    const advance = () => {
       if (storyIndex < items.length - 1) {
         setStoryIndex(i => i + 1);
       } else {
         setActiveStory(null);
         setStoryIndex(0);
       }
-    }, 5000);
+    };
+
+    if (isVideo) {
+      // Wait for video to report duration, then use it
+      // Timer will be set by onLoadedMetadata on video element
+      setStoryDuration(null); // null = waiting for video
+    } else {
+      setStoryDuration(5000);
+      storyTimer.current = setTimeout(advance, 5000);
+    }
+
     return () => clearTimeout(storyTimer.current);
   }, [activeStory, storyIndex]);
+
+  const handleStoryVideoLoaded = (e) => {
+    const video = e.target;
+    const duration = video.duration * 1000 || 10000;
+    setStoryDuration(duration);
+    clearTimeout(storyTimer.current);
+    const items = activeStory?.items || [];
+    storyTimer.current = setTimeout(() => {
+      if (storyIndex < items.length - 1) {
+        setStoryIndex(i => i + 1);
+      } else {
+        setActiveStory(null);
+        setStoryIndex(0);
+      }
+    }, duration);
+  };
 
   const handleLike = async (postId) => {
     const wasLiked = liked[postId];
@@ -224,7 +256,16 @@ export default function Home() {
         </div>
 
         {storyGroups.map((group, i) => (
-          <div key={group.userId||i} onClick={()=>{setActiveStory(group);setStoryIndex(0);setStorySent(false);setStoryReplyText("");}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
+          <div key={group.userId||i} onClick={()=>{
+            setActiveStory(group);
+            setStoryIndex(0);
+            setStorySent(false);
+            setStoryReplyText("");
+            // Record view for first story item
+            if(group.items?.[0]?.id) {
+              API.post("/stories/"+group.items[0].id+"/view").catch(()=>{});
+            }
+          }} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px",cursor:"pointer"}}>
             <div style={{padding:"2px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#f59e0b)"}}>
               <div style={{width:"56px",height:"56px",borderRadius:"50%",overflow:"hidden",border:"2px solid #0a0a0f"}}>
                 <AvatarImg username={group.username} size={56} />
@@ -402,7 +443,7 @@ export default function Home() {
                   background:"white",
                   borderRadius:"2px",
                   width: idx < storyIndex ? "100%" : "0%",
-                  animation: idx === storyIndex ? "progress 5s linear forwards" : "none"
+                  animation: idx === storyIndex && storyDuration ? `progress ${storyDuration/1000}s linear forwards` : "none"
                 }} />
               </div>
             ))}
@@ -427,10 +468,28 @@ export default function Home() {
             const x = e.clientX;
             const w = window.innerWidth;
             if(x < w/2) { if(storyIndex>0) setStoryIndex(i=>i-1); else {setActiveStory(null);setStoryIndex(0);} }
-            else { if(storyIndex<currentStoryItems.length-1) setStoryIndex(i=>i+1); else {setActiveStory(null);setStoryIndex(0);} }
+            else {
+              const nextIdx = storyIndex+1;
+              if(nextIdx<currentStoryItems.length) {
+                setStoryIndex(nextIdx);
+                const nextItem = currentStoryItems[nextIdx];
+                if(nextItem?.id) API.post("/stories/"+nextItem.id+"/view").catch(()=>{});
+              } else { setActiveStory(null); setStoryIndex(0); }
+            }
           }}>
             {currentStoryItem.mediaType==="video" ? (
-              <video src={currentStoryItem.mediaUrl} autoPlay loop style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",background:"#000"}} playsInline />
+              <video
+                src={currentStoryItem.mediaUrl}
+                autoPlay
+                style={{width:"100%",height:"100%",objectFit:"contain",position:"absolute",background:"#000"}}
+                playsInline
+                onLoadedMetadata={handleStoryVideoLoaded}
+                onEnded={()=>{
+                  const items = activeStory?.items||[];
+                  if(storyIndex < items.length-1) setStoryIndex(i=>i+1);
+                  else { setActiveStory(null); setStoryIndex(0); }
+                }}
+              />
             ) : currentStoryItem.mediaUrl ? (
               <img src={currentStoryItem.mediaUrl} alt="story" style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}} />
             ) : (
