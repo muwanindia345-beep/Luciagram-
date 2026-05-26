@@ -129,6 +129,19 @@ router.get("/:id/typing", auth, (req, res) => {
   res.json({ typers });
 });
 
+router.delete("/:id/messages/:msgId", auth, async (req, res) => {
+  try {
+    const msg = await GroupMessage.findOne({ id: req.params.msgId });
+    if (!msg) return res.status(404).json({ message: "Not found" });
+    if (msg.senderId !== req.user.id) return res.status(403).json({ message: "Own messages only" });
+    await GroupMessage.deleteOne({ id: req.params.msgId });
+    if (global.io) {
+      global.io.to("group_" + req.params.id).emit("group_unsend", { msgId: req.params.msgId });
+    }
+    res.json({ message: "Unsent" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.post("/:id/messages/:msgId/react", auth, async (req, res) => {
   try {
     const { emoji } = req.body;

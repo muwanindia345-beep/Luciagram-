@@ -62,6 +62,10 @@ io.on('connection', (socket) => {
     socket.to('group_' + data.groupId).emit('group_reaction', data);
   });
 
+  socket.on('group_unsend', (data) => {
+    socket.to('group_' + data.groupId).emit('group_unsend', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('❌ Socket disconnected:', socket.id);
   });
