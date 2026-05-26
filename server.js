@@ -25,6 +25,7 @@ const storyRoutes = require('./routes/stories');
 const messageRoutes = require('./routes/messages');
 const commentRoutes = require('./routes/comments');
 
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
