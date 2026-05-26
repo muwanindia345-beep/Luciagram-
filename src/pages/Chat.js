@@ -12,7 +12,7 @@ export default function Chat() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [typingTimer, setTypingTimer] = useState(null);
+  const typingTimerRef = useRef(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [mediaData, setMediaData] = useState(null);
   const [mediaType, setMediaType] = useState(null);
@@ -62,7 +62,8 @@ export default function Chat() {
     socket.on("typing", (data) => {
       if (data.senderId === userId) {
         setIsTyping(true);
-        setTimeout(() => setIsTyping(false), 3000);
+        clearTimeout(socket._typingHideTimer);
+        socket._typingHideTimer = setTimeout(() => setIsTyping(false), 3000);
       }
     });
 
@@ -98,13 +99,12 @@ export default function Chat() {
   const handleTyping = () => {
     if (socketRef.current) {
       socketRef.current.emit("typing", { senderId: user?.id, receiverId: userId });
-      clearTimeout(typingTimer);
-      const t = setTimeout(() => {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
         if (socketRef.current) {
           socketRef.current.emit("stop_typing", { senderId: user?.id, receiverId: userId });
         }
       }, 2000);
-      setTypingTimer(t);
     }
   };
 
@@ -237,7 +237,11 @@ export default function Chat() {
         })}
         {isTyping && (
           <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
-            <div style={{width:"28px",height:"28px",borderRadius:"50%",background:currentTheme,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem"}}>{avatar(username)}</div>
+            {otherUser?.avatar ? (
+              <img src={otherUser.avatar} alt={username} style={{width:"28px",height:"28px",borderRadius:"50%",objectFit:"cover",flexShrink:0}} />
+            ) : (
+              <div style={{width:"28px",height:"28px",borderRadius:"50%",background:currentTheme,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.7rem",flexShrink:0}}>{avatar(username)}</div>
+            )}
             <div style={{background:"#1e1e2e",padding:"0.55rem 0.9rem",borderRadius:"18px 18px 18px 4px"}}>
               <div style={{display:"flex",gap:"3px",alignItems:"center"}}>
                 {[0,1,2].map(i => <div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:"#888",animation:`bounce 1s ${i*0.2}s infinite`}} />)}
