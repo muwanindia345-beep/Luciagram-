@@ -40,8 +40,8 @@ export default function UserProfile() {
       }
 
       // Load posts
-      const postsRes = await API.get("/posts/feed");
-      setPosts(postsRes.data.filter(p => p.username === username));
+      const postsRes = await API.get("/posts/user/" + username);
+      setPosts(postsRes.data);
 
       // Load stories
       const storiesRes = await API.get("/stories");

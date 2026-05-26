@@ -16,7 +16,7 @@ export default function Profile() {
 
   useEffect(() => {
     API.get("/posts/user/" + user.id).then(r => setPosts(r.data)).catch(()=>{});
-    API.get("/stories").then(r => setStories(r.data.filter(s => s.userId === user?.id))).catch(()=>{});
+    API.get("/stories").then(r => setStories(r.data.filter(s => s.username === user?.username || s.userId === user?.id))).catch(()=>{});
     if (user?.id) API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
   }, [user]);
 
