@@ -18,6 +18,37 @@ const LuciagramUptimeBot = require('./uptimebot');
 const bot = new LuciagramUptimeBot();
 bot.start();
 
+const { Server } = require('socket.io');
+const io = new Server(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST'] }
+});
+
+io.on('connection', (socket) => {
+  console.log('🔌 Socket connected:', socket.id);
+
+  socket.on('join', (userId) => {
+    socket.join('user_' + userId);
+  });
+
+  socket.on('send_message', (data) => {
+    io.to('user_' + data.receiverId).emit('new_message', data);
+  });
+
+  socket.on('typing', (data) => {
+    io.to('user_' + data.receiverId).emit('typing', { senderId: data.senderId });
+  });
+
+  socket.on('stop_typing', (data) => {
+    io.to('user_' + data.receiverId).emit('stop_typing', { senderId: data.senderId });
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected:', socket.id);
+  });
+});
+
+global.io = io;
+
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const postRoutes = require('./routes/posts');
