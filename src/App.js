@@ -14,6 +14,7 @@ import Comments from "./pages/Comments";
 import Search from "./pages/Search";
 import Channel from "./pages/Channel";
 import UserProfile from "./pages/UserProfile";
+import Settings from "./pages/Settings";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
