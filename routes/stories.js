@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Story } = require("../models");
+const { Story, StoryView } = require("../models");
 const SupaStore = require("../supastore");
 const { v4: uuidv4 } = require("uuid");
 
@@ -76,6 +76,32 @@ router.delete("/:id", auth, async (req, res) => {
     if (story.mediaFileName) await SupaStore.delete(story.mediaFileName);
     await story.deleteOne();
     res.json({ message: "Deleted" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Record story view
+router.post("/:id/view", auth, async (req, res) => {
+  try {
+    const existing = await StoryView.findOne({ storyId: req.params.id, userId: req.user.id });
+    if (!existing) {
+      await StoryView.create({
+        storyId: req.params.id,
+        userId: req.user.id,
+        username: req.user.username,
+      });
+    }
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get story views (only story owner can see)
+router.get("/:id/views", auth, async (req, res) => {
+  try {
+    const story = await Story.findOne({ id: req.params.id });
+    if (!story) return res.status(404).json({ message: "Not found" });
+    if (story.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+    const views = await StoryView.find({ storyId: req.params.id }).sort({ createdAt: -1 }).lean();
+    res.json({ count: views.length, viewers: views });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

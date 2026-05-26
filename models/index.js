@@ -63,6 +63,12 @@ const GroupMessageSchema = new mongoose.Schema({
   mediaType: String,
 }, { timestamps: true });
 
+const StoryViewSchema = new mongoose.Schema({
+  storyId: String,
+  userId: String,
+  username: String,
+}, { timestamps: true });
+
 const NoteSchema = new mongoose.Schema({
   id: String,
   userId: String,
@@ -84,4 +90,5 @@ module.exports = {
   Group: mongoose.model("Group", GroupSchema),
   GroupMessage: mongoose.model("GroupMessage", GroupMessageSchema),
   Note: mongoose.model("Note", NoteSchema),
+  StoryView: mongoose.model("StoryView", StoryViewSchema),
 };
