@@ -24,6 +24,17 @@ export default function Chat() {
   const bottomRef = useRef();
   const fileRef = useRef();
   const socketRef = useRef(null);
+  const doubleTapRef = useRef({});
+  const [pressTimer, setPressTimer] = useState(null);
+  const [selectedMsg, setSelectedMsg] = useState(null);
+  const [reactionPicker, setReactionPicker] = useState(null);
+  const [showEmojiInput, setShowEmojiInput] = useState(false);
+  const [customEmoji, setCustomEmoji] = useState("");
+  const [replyTo, setReplyTo] = useState(null);
+  const [swipeX, setSwipeX] = useState({});
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [showFontPicker, setShowFontPicker] = useState(false);
+  const [chatFont, setChatFont] = useState(() => localStorage.getItem("chat_font_"+userId) || "default");
 
   const themes = {
     purple: "linear-gradient(135deg,#7c3aed,#db2777)",
@@ -67,6 +78,12 @@ export default function Chat() {
       }
     });
 
+    socket.on("dm_reaction", (data) => {
+      setMessages(prev => prev.map(m => m.id === data.msgId ? { ...m, reactions: data.reactions } : m));
+    });
+    socket.on("dm_unsend", (data) => {
+      setMessages(prev => prev.filter(m => m.id !== data.msgId));
+    });
     socket.on("stop_typing", (data) => {
       if (data.senderId === userId) setIsTyping(false);
     });
@@ -123,6 +140,8 @@ export default function Chat() {
         receiverUsername: username,
         text: text.trim(),
         mediaUrl,
+        mediaType: mediaType || "",
+        replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderUsername: replyTo.senderUsername, mediaType: replyTo.mediaType } : null,
       });
       setMessages(p => [...p, res.data]);
       // Emit to receiver via socket
@@ -133,6 +152,7 @@ export default function Chat() {
       setMediaPreview(null);
       setMediaData(null);
       setMediaType(null);
+      setReplyTo(null);
     } catch {}
     setSending(false);
   };
@@ -141,6 +161,70 @@ export default function Chat() {
     setTheme(t);
     localStorage.setItem("chat_theme_"+userId, t);
     setShowThemes(false);
+  };
+
+  const FONTS = [
+    { id: "default", name: "Default", style: "inherit" },
+    { id: "mono", name: "Mono", style: "monospace" },
+    { id: "serif", name: "Serif", style: "Georgia, serif" },
+    { id: "rounded", name: "Rounded", style: "'Trebuchet MS', sans-serif" },
+    { id: "cursive", name: "Cursive", style: "cursive" },
+    { id: "fantasy", name: "Fantasy", style: "fantasy" },
+  ];
+  const currentFont = FONTS.find(f => f.id === chatFont)?.style || "inherit";
+  const applyFont = (id) => { setChatFont(id); localStorage.setItem("chat_font_"+userId, id); setShowFontPicker(false); };
+
+  const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+  const renderText = (text) => {
+    const parts = text.split(URL_REGEX);
+    return parts.map((part, i) =>
+      URL_REGEX.test(part)
+        ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#a78bfa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
+        : <span key={i}>{part}</span>
+    );
+  };
+
+  const handleDoubleTap = (msg) => {
+    const now = Date.now();
+    const last = doubleTapRef.current[msg.id] || 0;
+    if (now - last < 350) setReactionPicker(msg.id);
+    doubleTapRef.current[msg.id] = now;
+  };
+
+  const sendReaction = async (msgId, emoji) => {
+    setReactionPicker(null); setShowEmojiInput(false); setCustomEmoji("");
+    try {
+      const r = await API.post("/messages/" + msgId + "/react", { emoji });
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: r.data.reactions } : m));
+      socketRef.current?.emit("dm_reaction", { receiverId: userId, msgId, reactions: r.data.reactions });
+    } catch {}
+  };
+
+  const handleTouchStart = (e, msgId) => setSwipeX(prev => ({ ...prev, [msgId]: e.touches[0].clientX }));
+  const handleTouchEnd = (e, msg) => {
+    const startX = swipeX[msg.id]; if (!startX) return;
+    const diff = e.changedTouches[0].clientX - startX;
+    const mine = msg.senderId === user?.id;
+    if (mine && diff < -60) setReplyTo(msg);
+    if (!mine && diff > 60) setReplyTo(msg);
+    setSwipeX(prev => ({ ...prev, [msg.id]: null }));
+  };
+  const handlePressStart = (msg) => { const t = setTimeout(() => { if (msg.senderId === user?.id) setSelectedMsg(msg); }, 500); setPressTimer(t); };
+  const handlePressEnd = () => clearTimeout(pressTimer);
+
+  const unsendMessage = async (msgId) => {
+    setSelectedMsg(null);
+    try {
+      await API.delete("/messages/" + msgId);
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+      socketRef.current?.emit("dm_unsend", { receiverId: userId, msgId });
+    } catch {}
+  };
+
+  const groupReactions = (reactions = []) => {
+    const map = {};
+    reactions.forEach(r => { map[r.emoji] = (map[r.emoji] || 0) + 1; });
+    return Object.entries(map);
   };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
@@ -154,7 +238,7 @@ export default function Chat() {
         <span onClick={()=>navigate("/messages")} style={{cursor:"pointer",fontSize:"1.3rem",flexShrink:0}}>←</span>
         
         {/* Avatar - tap to view profile */}
-        <div onClick={()=>navigate("/user/"+username)} style={{cursor:"pointer",flexShrink:0}}>
+        <div style={{cursor:"pointer",flexShrink:0}} onClick={()=>otherUser?.avatar ? setAvatarPreview(otherUser.avatar) : navigate("/user/"+username)}>
           {otherUser?.avatar ? (
             <img src={otherUser.avatar} alt={username} style={{width:"40px",height:"40px",borderRadius:"50%",objectFit:"cover",border:"2px solid #7c3aed"}} />
           ) : (
@@ -171,6 +255,7 @@ export default function Chat() {
         </div>
 
         <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
+          <span onClick={()=>setShowFontPicker(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🔤</span>
           <span onClick={()=>setShowThemes(!showThemes)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🎨</span>
           <span style={{fontSize:"1.2rem",cursor:"pointer"}}>📞</span>
           <span style={{fontSize:"1.2rem",cursor:"pointer"}}>🎥</span>
@@ -192,7 +277,11 @@ export default function Chat() {
         {messages.map((m,i) => {
           const isMe = m.senderId === user?.id;
           return (
-            <div key={m.id||i} style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.4rem"}}>
+            <div key={m.id||i}
+              onTouchStart={e=>{handleTouchStart(e,m.id);handlePressStart(m);}}
+              onTouchEnd={e=>{handleTouchEnd(e,m);handlePressEnd();}}
+              onClick={()=>handleDoubleTap(m)}
+              style={{display:"flex",justifyContent:isMe?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.4rem"}}>
               {!isMe && (
                 <div onClick={()=>navigate("/user/"+username)} style={{cursor:"pointer",flexShrink:0}}>
                   {otherUser?.avatar ? (
@@ -223,8 +312,24 @@ export default function Chat() {
                   );
                 })()}
                 {m.text && !(m.mediaUrl && (m.text.includes("Shared a Reel") || m.text.includes("Shared a Post"))) && (
-                  <div style={{background:isMe?currentTheme:"#1e1e2e",padding:"0.55rem 0.9rem",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4}}>
-                    {m.text}
+                  <div style={{background:isMe?currentTheme:"#1e1e2e",padding:"0.55rem 0.9rem",borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4,fontFamily:currentFont}}>
+                    {m.replyTo && (
+                      <div style={{background:"rgba(255,255,255,0.08)",borderLeft:"3px solid rgba(255,255,255,0.4)",borderRadius:"6px",padding:"0.25rem 0.5rem",marginBottom:"0.3rem",fontSize:"0.75rem",opacity:0.85}}>
+                        <div style={{fontWeight:"bold",marginBottom:"1px"}}>@{m.replyTo.senderUsername}</div>
+                        <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"180px"}}>{m.replyTo.mediaType?"📎 Media":m.replyTo.text}</div>
+                      </div>
+                    )}
+                    {renderText(m.text)}
+                  </div>
+                )}
+                {m.reactions?.length > 0 && (
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"3px",marginTop:"3px",justifyContent:isMe?"flex-end":"flex-start"}}>
+                    {groupReactions(m.reactions).map(([emoji,count]) => (
+                      <span key={emoji} onClick={()=>sendReaction(m.id,emoji)}
+                        style={{background:"rgba(255,255,255,0.08)",borderRadius:"20px",padding:"2px 7px",fontSize:"0.78rem",cursor:"pointer"}}>
+                        {emoji} {count}
+                      </span>
+                    ))}
                   </div>
                 )}
                 <div style={{fontSize:"0.68rem",color:"#555",marginTop:"0.2rem",textAlign:isMe?"right":"left"}}>
@@ -265,6 +370,17 @@ export default function Chat() {
         </div>
       )}
 
+      {replyTo && (
+        <div style={{padding:"0.5rem 1rem",background:"#13131a",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <div style={{flex:1,borderLeft:"3px solid #7c3aed",paddingLeft:"0.5rem"}}>
+            <div style={{fontSize:"0.72rem",color:"#a78bfa"}}>@{replyTo.senderUsername}</div>
+            <div style={{fontSize:"0.82rem",color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"240px"}}>
+              {replyTo.mediaType?"📎 Media":replyTo.text}
+            </div>
+          </div>
+          <span onClick={()=>setReplyTo(null)} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
+        </div>
+      )}
       {/* Input */}
       <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:"#0a0a0f",flexShrink:0}}>
         <span style={{fontSize:"1.3rem",cursor:"pointer"}}>😊</span>
@@ -284,9 +400,67 @@ export default function Chat() {
         )}
       </div>
 
-      <style>{`
+      {avatarPreview && (
+        <div onClick={()=>setAvatarPreview(null)} style={{position:"fixed",inset:0,zIndex:600,background:"rgba(0,0,0,0.9)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <img src={avatarPreview} alt="avatar" style={{width:"80vw",height:"80vw",borderRadius:"50%",objectFit:"cover",border:"3px solid #7c3aed"}} />
+        </div>
+      )}
+
+      {selectedMsg && (
+        <div onClick={()=>setSelectedMsg(null)} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#1e1e2e",borderRadius:"16px",padding:"1rem",minWidth:"200px",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+            <div style={{fontSize:"0.75rem",color:"#888",marginBottom:"0.75rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selectedMsg.text||"Media message"}</div>
+            <button onClick={()=>unsendMessage(selectedMsg.id)}
+              style={{width:"100%",background:"transparent",border:"1px solid #ef4444",borderRadius:"10px",color:"#ef4444",padding:"0.6rem",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem"}}>
+              🗑 Unsend Message
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reactionPicker && (
+        <div onClick={()=>{setReactionPicker(null);setShowEmojiInput(false);}} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#1e1e2e",borderRadius:"30px",padding:"0.75rem 1rem",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+            <div style={{display:"flex",gap:"0.5rem"}}>
+              {["❤️","😂","😮","😢","😡","👍"].map(emoji => (
+                <span key={emoji} onClick={()=>sendReaction(reactionPicker,emoji)} style={{fontSize:"1.6rem",cursor:"pointer",padding:"0.2rem"}}>{emoji}</span>
+              ))}
+              <span onClick={()=>setShowEmojiInput(true)} style={{fontSize:"1.4rem",cursor:"pointer",padding:"0.2rem",color:"#a78bfa",fontWeight:"bold"}}>+</span>
+            </div>
+            {showEmojiInput && (
+              <div style={{marginTop:"0.5rem",display:"flex",gap:"0.5rem",alignItems:"center"}}>
+                <input value={customEmoji} onChange={e=>setCustomEmoji(e.target.value)} placeholder="Any emoji..."
+                  style={{background:"#2a2a3a",border:"none",borderRadius:"12px",padding:"0.4rem 0.75rem",color:"white",fontSize:"1rem",outline:"none",width:"120px"}} />
+                <button onClick={()=>sendReaction(reactionPicker,customEmoji.trim())}
+                  style={{background:currentTheme,border:"none",borderRadius:"12px",padding:"0.4rem 0.75rem",color:"white",cursor:"pointer",fontSize:"0.85rem"}}>Send</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showFontPicker && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowFontPicker(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",marginBottom:"1rem"}}>🔤 Chat Font</div>
+            <div style={{display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+              {FONTS.map(f => (
+                <div key={f.id} onClick={()=>applyFont(f.id)}
+                  style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e1e2e",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",border:chatFont===f.id?"1px solid #7c3aed":"1px solid transparent"}}>
+                  <span style={{fontFamily:f.style,fontSize:"1rem"}}>Hello! How are you?</span>
+                  <span style={{fontSize:"0.75rem",color:chatFont===f.id?"#a78bfa":"#555"}}>{f.name} {chatFont===f.id?"✓":""}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{\`
         @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
-      `}</style>
+      \`}</style>
     </div>
   );
 }
