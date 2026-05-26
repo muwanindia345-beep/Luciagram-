@@ -66,4 +66,99 @@ router.get("/:id/followers", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Remove profile picture
+router.put("/remove-avatar", auth, async (req, res) => {
+  try {
+    const user = await User.findOneAndUpdate(
+      { id: req.user.id },
+      { avatar: "" },
+      { new: true }
+    ).select("-password");
+    res.json(user);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Toggle private account
+router.put("/privacy", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id });
+    user.isPrivate = !user.isPrivate;
+    await user.save();
+    res.json({ isPrivate: user.isPrivate });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Follow request system
+router.post("/:id/follow-request", auth, async (req, res) => {
+  try {
+    const targetUser = await User.findOne({ id: req.params.id });
+    if (!targetUser) return res.status(404).json({ message: "User not found" });
+    
+    if (!targetUser.isPrivate) {
+      // Public account — direct follow
+      const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
+      if (existing) { await existing.deleteOne(); return res.json({ status: "unfollowed" }); }
+      await Follow.create({ followerId: req.user.id, followerUsername: req.user.username, followingId: req.params.id });
+      const notifRouter = require("./notifications");
+      await notifRouter.createNotif({
+        userId: req.params.id,
+        fromUserId: req.user.id,
+        fromUsername: req.user.username,
+        type: "follow",
+        text: req.user.username + " started following you",
+      });
+      return res.json({ status: "following" });
+    }
+    
+    // Private account — send request
+    if (!targetUser.followRequests) targetUser.followRequests = [];
+    const alreadyRequested = targetUser.followRequests.find(r => r.userId === req.user.id);
+    if (alreadyRequested) {
+      targetUser.followRequests = targetUser.followRequests.filter(r => r.userId !== req.user.id);
+      await targetUser.save();
+      return res.json({ status: "request_cancelled" });
+    }
+    targetUser.followRequests.push({ userId: req.user.id, username: req.user.username });
+    await targetUser.save();
+    // Notify
+    const notifRouter = require("./notifications");
+    await notifRouter.createNotif({
+      userId: req.params.id,
+      fromUserId: req.user.id,
+      fromUsername: req.user.username,
+      type: "follow",
+      text: req.user.username + " requested to follow you",
+    });
+    res.json({ status: "requested" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Accept/decline follow request
+router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id });
+    user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
+    await user.save();
+    await Follow.create({ followerId: req.params.requesterId, followingId: req.user.id });
+    const notifRouter = require("./notifications");
+    await notifRouter.createNotif({
+      userId: req.params.requesterId,
+      fromUserId: req.user.id,
+      fromUsername: req.user.username,
+      type: "follow",
+      text: req.user.username + " accepted your follow request",
+    });
+    res.json({ message: "Accepted" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id });
+    user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
+    await user.save();
+    res.json({ message: "Declined" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
