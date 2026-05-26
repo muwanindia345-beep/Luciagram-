@@ -55,6 +55,7 @@ const postRoutes = require('./routes/posts');
 const storyRoutes = require('./routes/stories');
 const messageRoutes = require('./routes/messages');
 const commentRoutes = require('./routes/comments');
+const noteRoutes = require('./routes/notes');
 
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/notifications', require('./routes/notifications'));
@@ -64,6 +65,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/notes', noteRoutes);
 
 // LuciaStore Media Server
 const { LuciaStore } = require('./luciastore');
