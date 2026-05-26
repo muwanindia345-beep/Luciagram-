@@ -51,6 +51,10 @@ export default function GroupChatRoom() {
   const [addStatus, setAddStatus] = useState({});
   const [toast, setToast] = useState("");
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [reactionPicker, setReactionPicker] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
+  const [swipeX, setSwipeX] = useState({});
+  const doubleTapRef = useRef({});
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("lg_theme_" + groupId);
     return THEMES.find(t => t.id === saved) || THEMES[0];
@@ -78,6 +82,9 @@ export default function GroupChatRoom() {
     socket.on("group_message", (msg) => {
       if (msg.groupId === groupId)
         setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
+    });
+    socket.on("group_reaction", (data) => {
+      setMessages(prev => prev.map(m => m.id === data.msgId ? { ...m, reactions: data.reactions } : m));
     });
     socket.on("group_typing", (data) => {
       if (data.groupId === groupId && data.senderId !== user?.id) {
@@ -131,10 +138,13 @@ export default function GroupChatRoom() {
         const r = await API.post("/groups/upload", { mediaBase64: mediaData, mediaType });
         mediaUrl = r.data.url;
       }
-      const r = await API.post("/groups/" + groupId + "/messages", { text: text.trim(), mediaUrl, mediaType: mediaType || "" });
+      const r = await API.post("/groups/" + groupId + "/messages", {
+        text: text.trim(), mediaUrl, mediaType: mediaType || "",
+        replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderUsername: replyTo.senderUsername, mediaType: replyTo.mediaType } : null,
+      });
       setMessages(prev => [...prev, r.data]);
       socketRef.current?.emit("group_message", r.data);
-      setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null);
+      setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null);
     } catch {}
     setSending(false);
   };
@@ -235,6 +245,44 @@ export default function GroupChatRoom() {
     setShowTheme(false);
   };
 
+  const handleDoubleTap = (msg) => {
+    const now = Date.now();
+    const last = doubleTapRef.current[msg.id] || 0;
+    if (now - last < 350) {
+      setReactionPicker(msg.id);
+    }
+    doubleTapRef.current[msg.id] = now;
+  };
+
+  const sendReaction = async (msgId, emoji) => {
+    setReactionPicker(null);
+    try {
+      const r = await API.post("/groups/" + groupId + "/messages/" + msgId + "/react", { emoji });
+      setMessages(prev => prev.map(m => m.id === msgId ? { ...m, reactions: r.data.reactions } : m));
+      socketRef.current?.emit("group_reaction", { groupId, msgId, reactions: r.data.reactions });
+    } catch {}
+  };
+
+  const handleTouchStart = (e, msgId) => {
+    setSwipeX(prev => ({ ...prev, [msgId]: e.touches[0].clientX }));
+  };
+
+  const handleTouchEnd = (e, msg) => {
+    const startX = swipeX[msg.id];
+    if (!startX) return;
+    const diff = e.changedTouches[0].clientX - startX;
+    const mine = msg.senderId === user?.id;
+    if (mine && diff < -60) setReplyTo(msg);
+    if (!mine && diff > 60) setReplyTo(msg);
+    setSwipeX(prev => ({ ...prev, [msg.id]: null }));
+  };
+
+  const groupReactions = (reactions = []) => {
+    const map = {};
+    reactions.forEach(r => { map[r.emoji] = (map[r.emoji] || 0) + 1; });
+    return Object.entries(map);
+  };
+
   const av = (n) => (n || "U").slice(0, 1).toUpperCase();
   const grads = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
@@ -285,7 +333,11 @@ export default function GroupChatRoom() {
                   @{m.senderUsername}
                 </div>
               )}
-              <div style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.35rem"}}>
+              <div
+                onTouchStart={e=>handleTouchStart(e,m.id)}
+                onTouchEnd={e=>handleTouchEnd(e,m)}
+                onClick={()=>handleDoubleTap(m)}
+                style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",alignItems:"flex-end",gap:"0.35rem"}}>
                 {!mine && (
                   <div style={{width:"28px",height:"28px",flexShrink:0}}>
                     {showAv && (
@@ -312,6 +364,24 @@ export default function GroupChatRoom() {
                       <MessageText text={m.text} />
                     </div>
                   )}
+                  {m.replyTo && (
+                    <div style={{background:"rgba(255,255,255,0.05)",borderLeft:"3px solid #7c3aed",borderRadius:"8px",padding:"0.3rem 0.6rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:"#888"}}>
+                      <span style={{color:"#a78bfa"}}>@{m.replyTo.senderUsername}</span>
+                      <div style={{marginTop:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"200px"}}>
+                        {m.replyTo.mediaType ? "📎 Media" : m.replyTo.text}
+                      </div>
+                    </div>
+                  )}
+                  {m.reactions?.length > 0 && (
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"3px",marginTop:"4px",justifyContent:mine?"flex-end":"flex-start"}}>
+                      {groupReactions(m.reactions).map(([emoji, count]) => (
+                        <span key={emoji} onClick={()=>sendReaction(m.id,emoji)}
+                          style={{background:"rgba(255,255,255,0.08)",borderRadius:"20px",padding:"2px 7px",fontSize:"0.78rem",cursor:"pointer"}}>
+                          {emoji} {count}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div style={{fontSize:"0.68rem",color:"#555",marginTop:"2px",textAlign:mine?"right":"left"}}>
                     {new Date(m.createdAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
                   </div>
@@ -333,6 +403,17 @@ export default function GroupChatRoom() {
         </div>
       )}
 
+      {replyTo && (
+        <div style={{padding:"0.5rem 1rem",background:"#13131a",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <div style={{flex:1,borderLeft:"3px solid #7c3aed",paddingLeft:"0.5rem"}}>
+            <div style={{fontSize:"0.72rem",color:"#a78bfa"}}>@{replyTo.senderUsername}</div>
+            <div style={{fontSize:"0.82rem",color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"240px"}}>
+              {replyTo.mediaType ? "📎 Media" : replyTo.text}
+            </div>
+          </div>
+          <span onClick={()=>setReplyTo(null)} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
+        </div>
+      )}
       <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:theme.bg,flexShrink:0}}>
         <span style={{fontSize:"1.3rem",cursor:"pointer"}}>😊</span>
         <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
@@ -344,6 +425,18 @@ export default function GroupChatRoom() {
           : <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>}
       </div>
 
+      {reactionPicker && (
+        <div onClick={()=>setReactionPicker(null)} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#1e1e2e",borderRadius:"30px",padding:"0.6rem 1rem",display:"flex",gap:"0.5rem",boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+            {["❤️","😂","😮","😢","😡","👍"].map(emoji => (
+              <span key={emoji} onClick={()=>sendReaction(reactionPicker,emoji)}
+                style={{fontSize:"1.6rem",cursor:"pointer",padding:"0.2rem"}}>
+                {emoji}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {showTheme && (
         <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
           <div onClick={()=>setShowTheme(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
