@@ -80,4 +80,34 @@ router.get("/cleanup-luciastore", async (req, res) => {
   }
 });
 
+// Clean LuciaStore chunks (old storage system)
+router.get("/cleanup-luciastore", async (req, res) => {
+  try {
+    const mongoose = require("mongoose");
+    const db = mongoose.connection.db;
+    
+    // Drop old LuciaStore collections
+    const collections = await db.listCollections().toArray();
+    const names = collections.map(c => c.name);
+    
+    let dropped = [];
+    if (names.includes("mediachunks")) {
+      await db.collection("mediachunks").drop();
+      dropped.push("mediachunks");
+    }
+    if (names.includes("mediametas")) {
+      await db.collection("mediametas").drop();
+      dropped.push("mediametas");
+    }
+    
+    res.json({ 
+      message: "LuciaStore cleaned!", 
+      droppedCollections: dropped,
+      note: "This freed the most MongoDB space!"
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
