@@ -13,6 +13,7 @@ export default function Comments() {
   const [pinnedId, setPinnedId] = useState(null);
   const [holdMenu, setHoldMenu] = useState(null); // comment being long-pressed
   const [holdTimer, setHoldTimer] = useState(null);
+  const [commentLikes, setCommentLikes] = useState({}); // { commentId: { count, liked } }
   const { user } = useAuth();
   const navigate = useNavigate();
   const inputRef = useRef();
@@ -28,6 +29,12 @@ export default function Comments() {
             setUserProfiles(prev => ({...prev, [username]: res.data}));
           }).catch(()=>{});
         }
+      });
+      // Load comment likes
+      r.data.forEach(c => {
+        API.get("/comments/" + c.id + "/likes").then(res => {
+          setCommentLikes(prev => ({...prev, [c.id]: res.data}));
+        }).catch(()=>{});
       });
     }).catch(()=>{});
   }, [postId]);
@@ -74,6 +81,16 @@ export default function Comments() {
   const handlePin = (comment) => {
     setPinnedId(prev => prev === comment.id ? null : comment.id);
     setHoldMenu(null);
+  };
+
+  const handleCommentLike = async (commentId) => {
+    const prev = commentLikes[commentId] || { count: 0, liked: false };
+    setCommentLikes(p => ({...p, [commentId]: { count: prev.count + (prev.liked ? -1 : 1), liked: !prev.liked }}));
+    try {
+      await API.post("/comments/" + commentId + "/like");
+    } catch {
+      setCommentLikes(p => ({...p, [commentId]: prev}));
+    }
   };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
@@ -166,6 +183,12 @@ export default function Comments() {
                     style={{fontSize:"0.75rem",color:"#888",cursor:"pointer",fontWeight:"bold"}}
                   >
                     Reply
+                  </span>
+                  <span
+                    onClick={()=>handleCommentLike(c.id)}
+                    style={{fontSize:"0.75rem",color:commentLikes[c.id]?.liked?"#f87171":"#888",cursor:"pointer",fontWeight:"bold",display:"flex",alignItems:"center",gap:"0.2rem"}}
+                  >
+                    {commentLikes[c.id]?.liked ? "❤️" : "🤍"} {commentLikes[c.id]?.count > 0 ? commentLikes[c.id].count : ""}
                   </span>
                   {isPinned && (
                     <span onClick={()=>setPinnedId(null)} style={{fontSize:"0.75rem",color:"#7c3aed",cursor:"pointer",fontWeight:"bold"}}>Unpin</span>

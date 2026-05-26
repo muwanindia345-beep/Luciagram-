@@ -22,6 +22,8 @@ export default function Reels() {
   const [dmSearch, setDmSearch] = useState("");
   const [dmUsers, setDmUsers] = useState([]);
   const [sentTo, setSentTo] = useState({});
+  const [commentLikes, setCommentLikes] = useState({});
+  const [replyTo, setReplyTo] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const videoRefs = useRef({});
@@ -117,15 +119,38 @@ export default function Reels() {
     try {
       const res = await API.get("/comments/" + postId);
       setComments(p => ({...p, [postId]: res.data}));
+      // Load avatars + likes for each comment
+      res.data.forEach(c => {
+        if (c.username && !profileData[c.username]) {
+          API.get("/users/" + c.username).then(r => {
+            setProfileData(prev => ({...prev, [c.username]: r.data}));
+          }).catch(()=>{});
+        }
+        API.get("/comments/" + c.id + "/likes").then(r => {
+          setCommentLikes(prev => ({...prev, [c.id]: r.data}));
+        }).catch(()=>{});
+      });
     } catch {}
+  };
+
+  const handleCommentLike = async (commentId) => {
+    const prev = commentLikes[commentId] || { count: 0, liked: false };
+    setCommentLikes(p => ({...p, [commentId]: { count: prev.count + (prev.liked ? -1 : 1), liked: !prev.liked }}));
+    try {
+      await API.post("/comments/" + commentId + "/like");
+    } catch {
+      setCommentLikes(p => ({...p, [commentId]: prev}));
+    }
   };
 
   const sendComment = async (postId) => {
     if (!commentText.trim()) return;
     try {
-      const res = await API.post("/comments/" + postId, { text: commentText });
+      const fullText = replyTo ? "@" + replyTo + " " + commentText.trim() : commentText.trim();
+      const res = await API.post("/comments/" + postId, { text: fullText });
       setComments(p => ({...p, [postId]: [...(p[postId]||[]), res.data]}));
       setCommentText("");
+      setReplyTo(null);
     } catch {}
   };
 
@@ -449,28 +474,48 @@ export default function Reels() {
               <span style={{fontWeight:"bold",color:"white",fontSize:"1rem"}}>Comments</span>
               <span onClick={()=>setShowComments(null)} style={{color:"#888",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:"1rem",display:"flex",flexDirection:"column",gap:"1rem"}}>
+            <div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem"}}>
               {(comments[showComments]||[]).length === 0 ? (
                 <div style={{textAlign:"center",color:"#888",padding:"2rem"}}>
                   <div style={{fontSize:"2rem"}}>💬</div>
                   <p>No comments yet. Be first!</p>
                 </div>
               ) : (comments[showComments]||[]).map((c,i) => (
-                <div key={c.id||i} style={{display:"flex",gap:"0.75rem",alignItems:"flex-start"}}>
-                  <div style={{width:"32px",height:"32px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"0.8rem",flexShrink:0}}>{avatar(c.username)}</div>
-                  <div>
-                    <span style={{fontWeight:"bold",color:"#c084fc",fontSize:"0.85rem"}}>@{c.username} </span>
-                    <span style={{color:"white",fontSize:"0.9rem"}}>{c.text}</span>
+                <div key={c.id||i} style={{display:"flex",gap:"0.75rem",marginBottom:"1rem",alignItems:"flex-start"}}>
+                  {/* Avatar */}
+                  {profileData[c.username]?.avatar ? (
+                    <img src={profileData[c.username].avatar} alt={c.username} onClick={()=>navigate("/user/"+c.username)} style={{width:"36px",height:"36px",borderRadius:"50%",objectFit:"cover",flexShrink:0,cursor:"pointer",border:"2px solid #2a2a3a"}} />
+                  ) : (
+                    <div onClick={()=>navigate("/user/"+c.username)} style={{width:"36px",height:"36px",borderRadius:"50%",background:gradients[i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"0.85rem",flexShrink:0,cursor:"pointer"}}>{avatar(c.username)}</div>
+                  )}
+                  <div style={{flex:1}}>
+                    <div style={{background:"#1e1e2e",borderRadius:"14px",padding:"0.55rem 0.85rem"}}>
+                      <span onClick={()=>navigate("/user/"+c.username)} style={{fontWeight:"bold",color:"#c084fc",fontSize:"0.83rem",cursor:"pointer"}}>@{c.username} </span>
+                      <span style={{color:"white",fontSize:"0.9rem",lineHeight:1.4}}>{c.text}</span>
+                    </div>
+                    <div style={{display:"flex",gap:"1rem",marginTop:"0.3rem",paddingLeft:"0.5rem",alignItems:"center"}}>
+                      <span style={{fontSize:"0.72rem",color:"#555"}}>{new Date(c.createdAt).toLocaleDateString()}</span>
+                      <span onClick={()=>setReplyTo(c.username)} style={{fontSize:"0.75rem",color:"#888",cursor:"pointer",fontWeight:"bold"}}>Reply</span>
+                      <span onClick={()=>handleCommentLike(c.id)} style={{fontSize:"0.75rem",color:commentLikes[c.id]?.liked?"#f87171":"#888",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.2rem"}}>
+                        {commentLikes[c.id]?.liked ? "❤️" : "🤍"} {commentLikes[c.id]?.count > 0 ? commentLikes[c.id].count : ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
+            {replyTo && (
+              <div style={{padding:"0.4rem 1rem",background:"#13131a",borderTop:"1px solid #2a2a3a",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:"0.8rem",color:"#a78bfa"}}>↩ Replying to <strong>@{replyTo}</strong></span>
+                <span onClick={()=>setReplyTo(null)} style={{color:"#888",cursor:"pointer"}}>✕</span>
+              </div>
+            )}
             <div style={{padding:"0.75rem 1rem",borderTop:"1px solid #2a2a3a",display:"flex",gap:"0.75rem",alignItems:"center"}}>
               <input
                 value={commentText}
                 onChange={e=>setCommentText(e.target.value)}
                 onKeyDown={e=>e.key==="Enter"&&sendComment(showComments)}
-                placeholder="Add a comment..."
+                placeholder={replyTo ? "Reply to @"+replyTo+"..." : "Add a comment..."}
                 style={{flex:1,background:"#2a2a3a",border:"none",borderRadius:"20px",padding:"0.6rem 1rem",color:"white",fontSize:"0.9rem",outline:"none"}}
               />
               <button onClick={()=>sendComment(showComments)} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem"}}>➤</button>
