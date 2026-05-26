@@ -37,6 +37,7 @@ function App() {
           <Route path="/reels" element={<PrivateRoute><Reels /></PrivateRoute>} />
           <Route path="/edit-profile" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
           <Route path="/messages" element={<PrivateRoute><Messages /></PrivateRoute>} />
+          <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/chat/:userId" element={<PrivateRoute><Chat /></PrivateRoute>} />
           <Route path="/comments/:postId" element={<PrivateRoute><Comments /></PrivateRoute>} />
           <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
