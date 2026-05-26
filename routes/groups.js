@@ -4,7 +4,6 @@ const { Group, GroupMessage } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const SupaStore = require("../supastore");
 
-// GET all groups for user
 router.get("/", auth, async (req, res) => {
   try {
     const groups = await Group.find({ "members.id": req.user.id }).sort({ updatedAt: -1 });
@@ -12,7 +11,6 @@ router.get("/", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST create group
 router.post("/", auth, async (req, res) => {
   try {
     const { name, avatarBase64 } = req.body;
@@ -22,11 +20,8 @@ router.post("/", auth, async (req, res) => {
       avatarUrl = result.url;
     }
     const group = await Group.create({
-      id: uuidv4(),
-      name,
-      avatar: avatarUrl,
-      createdBy: req.user.username,
-      createdById: req.user.id,
+      id: uuidv4(), name, avatar: avatarUrl,
+      createdBy: req.user.username, createdById: req.user.id,
       admins: [req.user.id],
       members: [{ id: req.user.id, username: req.user.username, avatar: req.user.avatar || "" }],
     });
@@ -34,7 +29,6 @@ router.post("/", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST add member
 router.post("/:id/members", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });
@@ -47,7 +41,6 @@ router.post("/:id/members", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// DELETE remove member (admin only, cant remove creator)
 router.delete("/:id/members/:userId", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });
@@ -61,7 +54,6 @@ router.delete("/:id/members/:userId", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST make admin
 router.post("/:id/admins/:userId", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });
@@ -73,7 +65,6 @@ router.post("/:id/admins/:userId", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// DELETE remove admin (creator only, cant remove self if creator)
 router.delete("/:id/admins/:userId", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });
@@ -86,7 +77,6 @@ router.delete("/:id/admins/:userId", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET messages
 router.get("/:id/messages", auth, async (req, res) => {
   try {
     const msgs = await GroupMessage.find({ groupId: req.params.id }).sort({ createdAt: 1 });
@@ -94,26 +84,20 @@ router.get("/:id/messages", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST send message
 router.post("/:id/messages", auth, async (req, res) => {
   try {
     const { text, mediaUrl, mediaType } = req.body;
     const msg = await GroupMessage.create({
-      id: uuidv4(),
-      groupId: req.params.id,
-      senderId: req.user.id,
-      senderUsername: req.user.username,
+      id: uuidv4(), groupId: req.params.id,
+      senderId: req.user.id, senderUsername: req.user.username,
       senderAvatar: req.user.avatar || "",
-      text: text || "",
-      mediaUrl: mediaUrl || "",
-      mediaType: mediaType || "",
+      text: text || "", mediaUrl: mediaUrl || "", mediaType: mediaType || "",
     });
     await Group.updateOne({ id: req.params.id }, { updatedAt: new Date() });
     res.status(201).json(msg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// POST upload media
 router.post("/upload", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType } = req.body;
@@ -122,7 +106,6 @@ router.post("/upload", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// In-memory typing
 const groupTyping = {};
 router.post("/:id/typing", auth, (req, res) => {
   if (!groupTyping[req.params.id]) groupTyping[req.params.id] = {};
