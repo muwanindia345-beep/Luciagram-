@@ -129,4 +129,59 @@ router.get("/:id/typing", auth, (req, res) => {
   res.json({ typers });
 });
 
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id });
+    if (!group) return res.status(404).json({ message: "Not found" });
+    if (group.createdById !== req.user.id) return res.status(403).json({ message: "Creator only" });
+    await GroupMessage.deleteMany({ groupId: req.params.id });
+    await Group.deleteOne({ id: req.params.id });
+    res.json({ message: "Group deleted" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.patch("/:id/approval", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id });
+    if (!group) return res.status(404).json({ message: "Not found" });
+    if (!group.admins.includes(req.user.id)) return res.status(403).json({ message: "Admins only" });
+    group.requireApproval = !group.requireApproval;
+    await group.save();
+    res.json({ requireApproval: group.requireApproval });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:id/pending", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id });
+    if (!group) return res.status(404).json({ message: "Not found" });
+    res.json(group.pendingMembers || []);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post("/:id/pending/:userId/approve", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id });
+    if (!group) return res.status(404).json({ message: "Not found" });
+    if (!group.admins.includes(req.user.id)) return res.status(403).json({ message: "Admins only" });
+    const pending = (group.pendingMembers || []).find(m => m.id === req.params.userId);
+    if (!pending) return res.status(404).json({ message: "Not in pending" });
+    group.members.push({ id: pending.id, username: pending.username, avatar: pending.avatar });
+    group.pendingMembers = group.pendingMembers.filter(m => m.id !== req.params.userId);
+    await group.save();
+    res.json(group);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post("/:id/pending/:userId/reject", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id });
+    if (!group) return res.status(404).json({ message: "Not found" });
+    if (!group.admins.includes(req.user.id)) return res.status(403).json({ message: "Admins only" });
+    group.pendingMembers = (group.pendingMembers || []).filter(m => m.id !== req.params.userId);
+    await group.save();
+    res.json({ message: "Rejected" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;

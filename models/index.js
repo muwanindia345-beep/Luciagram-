@@ -50,6 +50,8 @@ const GroupSchema = new mongoose.Schema({
   createdById: String,
   admins: [String],
   members: [{ id: String, username: String, avatar: String }],
+  pendingMembers: [{ id: String, username: String, avatar: String, addedBy: String }],
+  requireApproval: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const GroupMessageSchema = new mongoose.Schema({
