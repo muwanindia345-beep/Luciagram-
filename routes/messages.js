@@ -55,7 +55,7 @@ router.get("/:userId", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const { receiverId, receiverUsername, text, mediaUrl } = req.body;
+    const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo } = req.body;
     const msg = await Message.create({
       id: uuidv4(),
       senderId: req.user.id,
@@ -64,7 +64,10 @@ router.post("/", auth, async (req, res) => {
       receiverUsername,
       text,
       mediaUrl: mediaUrl || "",
+      mediaType: mediaType || "",
       isRead: false,
+      replyTo: replyTo || null,
+      reactions: [],
     });
     // Emit real-time to receiver
     if (global.io) {
@@ -79,8 +82,36 @@ router.delete("/:id", auth, async (req, res) => {
     const msg = await Message.findOne({ id: req.params.id });
     if (!msg) return res.status(404).json({ message: "Not found" });
     if (msg.senderId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
+    const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
     await msg.deleteOne();
+    if (global.io) {
+      global.io.to('user_' + otherId).emit('dm_unsend', { msgId: req.params.id });
+    }
     res.json({ message: "Deleted" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post("/:id/react", auth, async (req, res) => {
+  try {
+    const { emoji } = req.body;
+    const msg = await Message.findOne({ id: req.params.id });
+    if (!msg) return res.status(404).json({ message: "Not found" });
+    const existing = msg.reactions.find(r => r.userId === req.user.id);
+    if (existing) {
+      if (existing.emoji === emoji) {
+        msg.reactions = msg.reactions.filter(r => r.userId !== req.user.id);
+      } else {
+        existing.emoji = emoji;
+      }
+    } else {
+      msg.reactions.push({ userId: req.user.id, username: req.user.username, emoji });
+    }
+    await msg.save();
+    const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
+    if (global.io) {
+      global.io.to('user_' + otherId).emit('dm_reaction', { msgId: req.params.id, reactions: msg.reactions });
+    }
+    res.json({ reactions: msg.reactions });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

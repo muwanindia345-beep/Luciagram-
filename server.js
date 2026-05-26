@@ -42,6 +42,14 @@ io.on('connection', (socket) => {
     io.to('user_' + data.receiverId).emit('stop_typing', { senderId: data.senderId });
   });
 
+  socket.on('dm_reaction', (data) => {
+    socket.to('user_' + data.receiverId).emit('dm_reaction', data);
+  });
+
+  socket.on('dm_unsend', (data) => {
+    socket.to('user_' + data.receiverId).emit('dm_unsend', data);
+  });
+
   socket.on('join_group', (groupId) => {
     socket.join('group_' + groupId);
   });

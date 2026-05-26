@@ -27,7 +27,24 @@ const StorySchema = new mongoose.Schema({
 const CommentSchema = new mongoose.Schema({ id: String, postId: String, userId: String, username: String, text: String }, { timestamps: true });
 const LikeSchema = new mongoose.Schema({ postId: String, userId: String, username: String }, { timestamps: true });
 const FollowSchema = new mongoose.Schema({ followerId: String, followerUsername: String, followingId: String, followingUsername: String }, { timestamps: true });
-const MessageSchema = new mongoose.Schema({ id: String, senderId: String, senderUsername: String, receiverId: String, receiverUsername: String, text: String, mediaUrl: String, isRead: Boolean }, { timestamps: true });
+const MessageSchema = new mongoose.Schema({
+  id: String,
+  senderId: String,
+  senderUsername: String,
+  receiverId: String,
+  receiverUsername: String,
+  text: String,
+  mediaUrl: String,
+  mediaType: String,
+  isRead: Boolean,
+  replyTo: {
+    id: String,
+    text: String,
+    senderUsername: String,
+    mediaType: String,
+  },
+  reactions: [{ userId: String, username: String, emoji: String }],
+}, { timestamps: true });
 
 const NotificationSchema = new mongoose.Schema({
   id: String,
