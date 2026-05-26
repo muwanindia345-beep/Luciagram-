@@ -15,6 +15,8 @@ import Search from "./pages/Search";
 import UserProfile from "./pages/UserProfile";
 import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
+import GroupChat from "./pages/GroupChat";
+import GroupChatRoom from "./pages/GroupChatRoom";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -40,6 +42,8 @@ function App() {
           <Route path="/search" element={<PrivateRoute><Search /></PrivateRoute>} />
           <Route path="/notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
           <Route path="/user/:username" element={<PrivateRoute><UserProfile /></PrivateRoute>} />
+          <Route path="/groupchat" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
+          <Route path="/group/:groupId" element={<PrivateRoute><GroupChatRoom /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
