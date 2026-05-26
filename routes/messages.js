@@ -3,6 +3,18 @@ const auth = require("../middleware/auth");
 const { Message } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 
+router.post("/upload", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const jwt = require("jsonwebtoken");
+    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+    const SupaStore = require("../supastore");
+    const { mediaBase64, mediaType } = req.body;
+    const result = await SupaStore.upload(mediaBase64, mediaType || "image", decoded.id);
+    res.json({ url: result.url });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.get("/conversations", auth, async (req, res) => {
   try {
     const msgs = await Message.find({
