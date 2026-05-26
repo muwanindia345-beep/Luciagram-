@@ -11,3 +11,8 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Reels full screen fix */
+::-webkit-scrollbar { display: none; }
+* { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; background: #000; }

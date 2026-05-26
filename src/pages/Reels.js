@@ -221,7 +221,7 @@ export default function Reels() {
       </div>
 
       {/* Scrollable Reels */}
-      <div ref={scrollContainerRef} onScroll={handleScroll} style={{height:"100vh",overflowY:"scroll",scrollSnapType:"y mandatory",scrollbarWidth:"none"}}>
+      <div ref={scrollContainerRef} onScroll={handleScroll} style={{height:"100vh",overflowY:"scroll",scrollSnapType:"y mandatory",scrollbarWidth:"none",msOverflowStyle:"none"}}>
         {posts.length === 0 ? (
           <div style={{height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:"white"}}>
             <div style={{fontSize:"3rem",marginBottom:"1rem"}}>🎬</div>
@@ -229,7 +229,7 @@ export default function Reels() {
             <button onClick={()=>navigate("/upload")} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"8px",color:"white",padding:"0.5rem 1rem",cursor:"pointer",marginTop:"1rem"}}>Upload Video</button>
           </div>
         ) : posts.map((p, i) => (
-          <div key={p.id||i} style={{height:"100vh",scrollSnapAlign:"start",position:"relative",background:"#000",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div key={p.id||i} style={{height:"100vh",scrollSnapAlign:"start",scrollSnapStop:"always",position:"relative",background:"#000",overflow:"hidden"}}>
 
             {/* Media */}
             {p.mediaUrl ? (
@@ -248,11 +248,11 @@ export default function Reels() {
               <div style={{width:"100%",height:"100%",background:gradients[i%3],position:"absolute",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"4rem"}}>🦋</div>
             )}
 
-            {/* Gradient overlay */}
-            <div style={{position:"absolute",inset:0,background:"linear-gradient(transparent 30%, rgba(0,0,0,0.85))"}} />
+            {/* Gradient overlay - stronger at bottom for nav */}
+            <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 25%, transparent 50%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.92) 100%)",zIndex:1,pointerEvents:"none"}} />
 
             {/* Right Actions */}
-            <div style={{position:"absolute",right:"1rem",bottom:"7rem",display:"flex",flexDirection:"column",alignItems:"center",gap:"1.5rem",zIndex:10}}>
+            <div style={{position:"absolute",right:"1rem",bottom:"5.5rem",display:"flex",flexDirection:"column",alignItems:"center",gap:"1.5rem",zIndex:10}}>
               {/* Like */}
               <div onClick={()=>handleLike(p.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem",filter:liked[p.id]?"drop-shadow(0 0 6px red)":"none"}}>{liked[p.id]?"❤️":"🤍"}</span>
@@ -275,7 +275,7 @@ export default function Reels() {
             </div>
 
             {/* Bottom Info */}
-            <div style={{position:"absolute",bottom:"4.5rem",left:"1rem",right:"5rem",zIndex:10}}>
+            <div style={{position:"absolute",bottom:"4rem",left:"1rem",right:"5rem",zIndex:10}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
                 {/* Tappable Avatar */}
                 <div onClick={()=>openProfileCard(p.username)} style={{cursor:"pointer",flexShrink:0}}>
