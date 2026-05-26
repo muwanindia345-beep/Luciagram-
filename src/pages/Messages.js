@@ -103,7 +103,6 @@ export default function Messages() {
         <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
           <span onClick={()=>navigate("/channels")} style={{fontSize:"1.3rem",cursor:"pointer"}}>👥</span>
           <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
-          <span onClick={()=>navigate("/groupchat")} title="Group Chats" style={{fontSize:"1.3rem",cursor:"pointer"}}>👥</span>
           <span onClick={()=>navigate("/channels")} title="Channels" style={{fontSize:"1.3rem",cursor:"pointer"}}>📢</span>
           <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
           <span onClick={()=>navigate("/groupchat")} style={{fontSize:"1.3rem",cursor:"pointer"}}>👥</span>
