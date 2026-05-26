@@ -65,6 +65,7 @@ app.use('/api/posts', postRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/groups', require('./routes/groups'));
 app.use('/api/notes', noteRoutes);
 
 // LuciaStore Media Server
