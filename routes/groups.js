@@ -87,13 +87,18 @@ router.get("/:id/messages", auth, async (req, res) => {
 router.post("/:id/messages", auth, async (req, res) => {
   try {
     const { text, mediaUrl, mediaType } = req.body;
+    const { User } = require("../models");
+    const sender = await User.findOne({ id: req.user.id }).select("avatar").lean();
     const msg = await GroupMessage.create({
       id: uuidv4(), groupId: req.params.id,
       senderId: req.user.id, senderUsername: req.user.username,
-      senderAvatar: req.user.avatar || "",
+      senderAvatar: sender?.avatar || "",
       text: text || "", mediaUrl: mediaUrl || "", mediaType: mediaType || "",
     });
     await Group.updateOne({ id: req.params.id }, { updatedAt: new Date() });
+    if (global.io) {
+      global.io.to('group_' + req.params.id).emit('group_message', msg);
+    }
     res.status(201).json(msg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

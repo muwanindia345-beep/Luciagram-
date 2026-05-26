@@ -42,6 +42,22 @@ io.on('connection', (socket) => {
     io.to('user_' + data.receiverId).emit('stop_typing', { senderId: data.senderId });
   });
 
+  socket.on('join_group', (groupId) => {
+    socket.join('group_' + groupId);
+  });
+
+  socket.on('group_typing', (data) => {
+    socket.to('group_' + data.groupId).emit('group_typing', data);
+  });
+
+  socket.on('group_stop_typing', (data) => {
+    socket.to('group_' + data.groupId).emit('group_stop_typing', data);
+  });
+
+  socket.on('group_message', (data) => {
+    socket.to('group_' + data.groupId).emit('group_message', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('❌ Socket disconnected:', socket.id);
   });
