@@ -59,24 +59,24 @@ export default function Reels() {
     } catch { alert("Failed to share to story"); }
   };
 
-  const handleShare = async (post) => {
-    const choice = window.confirm(
-      "Share options:\n\nOK = Share to Story (24h)\nCancel = Copy Link"
-    );
-    if (choice) {
+  const [showShareMenu, setShowShareMenu] = useState(null);
+
+  const handleShare = (post) => {
+    setShowShareMenu(post);
+  };
+
+  const shareViaOption = async (post, option) => {
+    setShowShareMenu(null);
+    if (option === "story") {
       await shareToStory(post);
-    } else {
+    } else if (option === "dm") {
+      navigate("/messages?shareReel="+encodeURIComponent(post.mediaUrl));
+    } else if (option === "copy") {
+      navigator.clipboard?.writeText(window.location.origin);
+      alert("🔗 Link copied!");
+    } else if (option === "native") {
       if (navigator.share) {
-        try {
-          await navigator.share({
-            title: "Luciagram Reel by @" + post.username,
-            text: post.caption || "Check this reel!",
-            url: window.location.origin,
-          });
-        } catch {}
-      } else {
-        navigator.clipboard?.writeText(window.location.origin);
-        alert("🔗 Link copied!");
+        try { await navigator.share({ title: "Luciagram Reel", text: post.caption||"", url: window.location.origin }); } catch {}
       }
     }
   };
@@ -196,7 +196,29 @@ export default function Reels() {
         ))}
       </div>
 
-      {/* Comments Sheet */}
+      {/* Share Menu */}
+      {showShareMenu && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowShareMenu(null)} style={{flex:1,background:"rgba(0,0,0,0.5)"}} />
+          <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",padding:"1rem"}}>
+            <div style={{textAlign:"center",color:"#888",fontSize:"0.85rem",marginBottom:"1rem"}}>Share Reel</div>
+            {[
+              {icon:"📖",label:"Share to Story",action:"story"},
+              {icon:"💬",label:"Send via DM",action:"dm"},
+              {icon:"🔗",label:"Copy Link",action:"copy"},
+              {icon:"📤",label:"Share",action:"native"},
+            ].map(opt => (
+              <div key={opt.action} onClick={()=>shareViaOption(showShareMenu,opt.action)} style={{display:"flex",alignItems:"center",gap:"1rem",padding:"0.85rem 1rem",borderRadius:"12px",cursor:"pointer",marginBottom:"0.5rem",background:"#13131a"}}>
+                <span style={{fontSize:"1.5rem"}}>{opt.icon}</span>
+                <span style={{color:"white",fontSize:"1rem"}}>{opt.label}</span>
+              </div>
+            ))}
+            <div onClick={()=>setShowShareMenu(null)} style={{textAlign:"center",padding:"0.75rem",color:"#888",cursor:"pointer",marginTop:"0.5rem"}}>Cancel</div>
+          </div>
+        </div>
+      )}
+
+      {/* Comments Sheet */}}
       {showComments && (
         <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
           <div onClick={()=>setShowComments(null)} style={{flex:1,background:"rgba(0,0,0,0.5)"}} />
