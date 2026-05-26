@@ -145,31 +145,27 @@ export default function Messages() {
 
         {/* Notes Bar */}
         <div style={{padding:"0 1rem 0.75rem",borderBottom:"1px solid #1e1e2e",marginBottom:"0.75rem"}}>
-          <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",paddingBottom:"0.25rem",scrollbarWidth:"none"}}>
+          <div style={{overflowX:"auto",display:"flex",gap:"1rem",paddingBottom:"0.25rem",scrollbarWidth:"none"}}>
             {/* Your Note */}
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"60px",cursor:"pointer"}} onClick={()=>setShowNoteEditor(true)}>
-              <div style={{position:"relative"}}>
-                <div style={{width:"52px",height:"52px",borderRadius:"50%",overflow:"hidden",border:"2px solid #2a2a3a"}}>
-                  {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="you"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{(user?.username||"U").slice(0,1).toUpperCase()}</div>}
-                </div>
-                <div style={{position:"absolute",bottom:-4,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",border:"1px solid #7c3aed",borderRadius:"8px",padding:"1px 5px",whiteSpace:"nowrap",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis"}}>
-                  {notes.find(n=>n.userId===user?.id) ? <span style={{fontSize:"0.6rem",color:"#c084fc"}}>{notes.find(n=>n.userId===user?.id).text.slice(0,12)}{notes.find(n=>n.userId===user?.id).text.length>12?"...":""}</span> : <span style={{fontSize:"0.65rem",color:"#888"}}>+ Note</span>}
-                </div>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.4rem",minWidth:"70px",cursor:"pointer"}} onClick={()=>setShowNoteEditor(true)}>
+              <div style={{width:"70px",height:"70px",borderRadius:"50%",overflow:"hidden",border:"2.5px solid #7c3aed",flexShrink:0}}>
+                {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="you"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(user?.username||"U").slice(0,1).toUpperCase()}</div>}
               </div>
-              <span style={{fontSize:"0.62rem",color:"#888",marginTop:"6px"}}>Your note</span>
+              <div style={{background:"#1a1a2e",border:"1px solid #7c3aed",borderRadius:"8px",padding:"2px 7px",maxWidth:"70px",textAlign:"center"}}>
+                {notes.find(n=>n.userId===user?.id) ? <span style={{fontSize:"0.62rem",color:"#c084fc"}}>{notes.find(n=>n.userId===user?.id).text.slice(0,12)}{notes.find(n=>n.userId===user?.id).text.length>12?"...":""}</span> : <span style={{fontSize:"0.65rem",color:"#888"}}>+ Note</span>}
+              </div>
+              <span style={{fontSize:"0.62rem",color:"#888"}}>Your note</span>
             </div>
             {/* Others notes */}
             {notes.filter(n=>n.userId!==user?.id).map((n,i)=>(
-              <div key={n.id||i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"60px",cursor:"pointer"}} onClick={()=>setShowNoteSheet(n)}>
-                <div style={{position:"relative"}}>
-                  <div style={{width:"52px",height:"52px",borderRadius:"50%",overflow:"hidden",border:"2px solid #7c3aed"}}>
-                    {n.avatar?<img src={n.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={n.username}/>:<div style={{width:"100%",height:"100%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold"}}>{(n.username||"U").slice(0,1).toUpperCase()}</div>}
-                  </div>
-                  <div style={{position:"absolute",bottom:-4,left:"50%",transform:"translateX(-50%)",background:"#1a1a2e",border:"1px solid #2a2a3a",borderRadius:"8px",padding:"1px 5px",whiteSpace:"nowrap",maxWidth:"80px",overflow:"hidden",textOverflow:"ellipsis"}}>
-                    <span style={{fontSize:"0.6rem",color:"#ccc"}}>{n.text.slice(0,12)}{n.text.length>12?"...":""}</span>
-                  </div>
+              <div key={n.id||i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.4rem",minWidth:"70px",cursor:"pointer"}} onClick={()=>setShowNoteSheet(n)}>
+                <div style={{width:"70px",height:"70px",borderRadius:"50%",overflow:"hidden",border:"2.5px solid #7c3aed",flexShrink:0}}>
+                  {n.avatar?<img src={n.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={n.username}/>:<div style={{width:"100%",height:"100%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(n.username||"U").slice(0,1).toUpperCase()}</div>}
                 </div>
-                <span style={{fontSize:"0.62rem",color:"#888",marginTop:"6px",maxWidth:"60px",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{n.username}</span>
+                <div style={{background:"#1a1a2e",border:"1px solid #2a2a3a",borderRadius:"8px",padding:"2px 7px",maxWidth:"70px",textAlign:"center"}}>
+                  <span style={{fontSize:"0.62rem",color:"#ccc"}}>{n.text.slice(0,12)}{n.text.length>12?"...":""}</span>
+                </div>
+                <span style={{fontSize:"0.62rem",color:"#888",maxWidth:"70px",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{n.username}</span>
               </div>
             ))}
           </div>
