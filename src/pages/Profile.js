@@ -22,6 +22,7 @@ export default function Profile() {
   }, [user?.id]);
 
   const handleLogout = () => { logout(); navigate("/login"); };
+  const goSettings = () => navigate("/settings");
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
 
