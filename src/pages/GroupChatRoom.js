@@ -35,6 +35,7 @@ export default function GroupChatRoom() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [typers, setTypers] = useState([]);
@@ -116,7 +117,10 @@ export default function GroupChatRoom() {
   };
 
   const loadMessages = async () => {
-    try { const r = await API.get("/groups/" + groupId + "/messages"); setMessages(r.data); } catch {}
+    try {
+      const r = await API.get("/groups/" + groupId + "/messages");
+      setMessages(r.data);
+    } catch {} finally { setLoading(false); }
   };
 
   const loadPending = async () => {
