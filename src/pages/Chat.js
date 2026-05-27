@@ -101,7 +101,6 @@ export default function Chat() {
     });
     socketRef.current = socket;
 
-  const endCall = () => { setActiveCall(null); setIncomingCall(null); };
 
   return () => socket.disconnect();
   }, [userId]);
@@ -243,6 +242,8 @@ export default function Chat() {
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
   const currentTheme = themes[theme] || themes.purple;
+
+  const endCall = () => { setActiveCall(null); setIncomingCall(null); };
 
   return (
     <>
