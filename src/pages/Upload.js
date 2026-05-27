@@ -134,6 +134,7 @@ export default function Upload() {
           </button>
         )}
       </div>
+    </div>
     </>
   );
 }
