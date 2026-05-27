@@ -5,7 +5,8 @@ mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
-const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date }, { timestamps: true });
+const SongField = { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number };
+const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date, song: SongField }, { timestamps: true });
 
 const PostSchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 
@@ -21,7 +22,8 @@ const StorySchema = new mongoose.Schema({
   mediaUrl: String,
   mediaFileName: String,
   mediaType: { type: String, default: "image" }, 
-  expiresAt: Date 
+  expiresAt: Date,
+  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number } 
 }, { timestamps: true });
 
 const CommentSchema = new mongoose.Schema({ id: String, postId: String, userId: String, username: String, text: String }, { timestamps: true });

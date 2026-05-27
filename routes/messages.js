@@ -85,7 +85,7 @@ router.get("/:userId", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo } = req.body;
+    const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo, music } = req.body;
     const msg = await Message.create({
       id: uuidv4(),
       senderId: req.user.id,
@@ -98,6 +98,7 @@ router.post("/", auth, async (req, res) => {
       isRead: false,
       replyTo: replyTo || null,
       reactions: [],
+      music: music || null,
     });
     // Emit real-time with decrypted text
     const msgObj = msg.toObject();

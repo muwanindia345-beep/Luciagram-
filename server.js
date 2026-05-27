@@ -123,6 +123,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/groups', require('./routes/groups'));
 app.use('/api/notes', noteRoutes);
+app.use('/api/music', require('./routes/music'));
 
 // LuciaStore Media Server
 const { LuciaStore } = require('./luciastore');
