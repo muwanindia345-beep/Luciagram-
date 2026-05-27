@@ -7,28 +7,45 @@ const notifRouter = require("./notifications");
 
 router.get("/feed", auth, async (req, res) => {
   try {
-    const posts = await Post.find()
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const skip = (page - 1) * limit;
+    // Home feed = images only
+    const posts = await Post.find({ mediaType: { $in: ["image", null] } })
       .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
-      .hint({ createdAt: -1 })
-      .limit(20)
+      .limit(limit)
+      .skip(skip)
       .lean();
-    
-    // Sort in memory (avoid MongoDB sort memory limit)
     posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json(posts);
+    res.json({ posts, hasMore: posts.length === limit, page });
   } catch (err) {
     console.error("Feed error:", err);
-    // Fallback without sort
     try {
-      const posts = await Post.find()
+      const posts = await Post.find({ mediaType: { $in: ["image", null] } })
         .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
-        .limit(20)
+        .limit(10)
         .lean();
-      res.json(posts);
+      res.json({ posts, hasMore: false, page: 1 });
     } catch(err2) {
       res.status(500).json({ message: err2.message });
     }
   }
+});
+
+// Reels feed - videos only with pagination
+router.get("/reels", auth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 10;
+    const skip = (page - 1) * limit;
+    const posts = await Post.find({ mediaType: "video" })
+      .select("id userId username mediaUrl mediaType caption location createdAt")
+      .limit(limit)
+      .skip(skip)
+      .lean();
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ posts, hasMore: posts.length === limit, page });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 // Reels feed - only video posts
