@@ -6,7 +6,7 @@ const SupaStore = require("../supastore");
 
 router.get("/", auth, async (req, res) => {
   try {
-    const groups = await Group.find({ "members.id": req.user.id }).sort({ updatedAt: -1 });
+    const groups = await Group.find({ "members.id": req.user.id }).sort({ updatedAt: -1 }).lean();
     res.json(groups);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
