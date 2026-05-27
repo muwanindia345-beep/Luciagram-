@@ -35,9 +35,12 @@ export default function Home() {
   const [storyViews, setStoryViews] = useState({});
 
   useEffect(() => {
-    API.get("/posts/feed").then(r => {
-      setPosts(r.data);
-      r.data.forEach(p => {
+    API.get("/posts/feed?page=1").then(r => {
+      const newPosts = r.data.posts || r.data;
+      setHasMore(r.data.hasMore !== false);
+      setLoadingFeed(false);
+      setPosts(Array.isArray(newPosts) ? newPosts : []);
+      (Array.isArray(newPosts) ? newPosts : []).forEach(p => {
         API.get("/posts/" + p.id + "/likes").then(res => {
           setLikeCounts(prev => ({...prev, [p.id]: res.data.count}));
           setLiked(prev => ({...prev, [p.id]: res.data.liked}));
@@ -47,7 +50,7 @@ export default function Home() {
           setInlineComments(prev => ({...prev, [p.id]: res.data.slice(0,2)}));
         }).catch(()=>{});
       });
-    }).catch(()=>{});
+    }).catch(()=>{ setLoadingFeed(false); });
     API.get("/stories").then(r => setStories(r.data)).catch(()=>{});
     API.get("/messages/conversations").then(r => {
       setDmUsers(r.data.map(c => ({ id: c.userId, username: c.username })));
