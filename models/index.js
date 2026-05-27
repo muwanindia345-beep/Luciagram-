@@ -103,6 +103,7 @@ const NoteSchema = new mongoose.Schema({
   username: String,
   avatar: String,
   text: String,
+  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number },
   expiresAt: Date,
 }, { timestamps: true });
 

@@ -24,7 +24,7 @@ router.get("/", auth, async (req, res) => {
 // POST create/update own note
 router.post("/", auth, async (req, res) => {
   try {
-    const { text, avatar } = req.body;
+    const { text, avatar, music } = req.body;
     await Note.deleteMany({ userId: req.user.id });
     if (!text || !text.trim()) return res.json({ deleted: true });
     const note = await Note.create({
@@ -33,6 +33,7 @@ router.post("/", auth, async (req, res) => {
       username: req.user.username,
       avatar: avatar || req.user.avatar || "",
       text: text.trim(),
+      music: music || null,
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
     res.status(201).json(note);
