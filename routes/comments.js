@@ -25,6 +25,27 @@ router.post("/:postId", auth, async (req, res) => {
     const { Post } = require("../models");
     const post = await Post.findOne({ id: req.params.postId }).lean();
     if (post) {
+      // Also notify if replying to someone's comment (mention)
+      if (text && text.includes('@')) {
+        const mentioned = text.match(/@([a-zA-Z0-9_]+)/g);
+        if (mentioned) {
+          for (const m of mentioned) {
+            const { User } = require('../models');
+            const mentionedUser = await User.findOne({ username: m.slice(1) }).lean();
+            if (mentionedUser && mentionedUser.id !== req.user.id) {
+              await notifRouter.createNotif({
+                userId: mentionedUser.id,
+                fromUserId: req.user.id,
+                fromUsername: req.user.username,
+                fromAvatar: req.user.avatar || "",
+                type: "mention",
+                postId,
+                text: req.user.username + " mentioned you in a comment",
+              });
+            }
+          }
+        }
+      }
       await notifRouter.createNotif({
         userId: post.userId,
         fromUserId: req.user.id,

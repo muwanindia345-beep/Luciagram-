@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Message } = require("../models");
+const notifRouter = require("./notifications");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
 
@@ -104,6 +105,15 @@ router.post("/", auth, async (req, res) => {
     if (global.io) {
       global.io.to('user_' + receiverId).emit('new_message', decryptedMsg);
     }
+    // DM notification
+    await notifRouter.createNotif({
+      userId: receiverId,
+      fromUserId: req.user.id,
+      fromUsername: req.user.username,
+      fromAvatar: req.user.avatar || "",
+      type: "message",
+      text: req.user.username + " sent you a message",
+    });
     res.status(201).json(decryptedMsg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

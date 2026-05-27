@@ -99,6 +99,21 @@ router.post("/:id/messages", auth, async (req, res) => {
     if (global.io) {
       global.io.to('group_' + req.params.id).emit('group_message', msg);
     }
+    // Notify all group members except sender
+    if (group.members) {
+      for (const member of group.members) {
+        if (member.id !== req.user.id) {
+          await notifRouter.createNotif({
+            userId: member.id,
+            fromUserId: req.user.id,
+            fromUsername: req.user.username,
+            fromAvatar: req.user.avatar || "",
+            type: "group_message",
+            text: req.user.username + " sent a message in " + group.name,
+          });
+        }
+      }
+    }
     res.status(201).json(msg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
