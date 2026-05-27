@@ -40,8 +40,9 @@ export default function Reels() {
   }, [muted]);
 
   useEffect(() => {
-    API.get("/posts/reels").then(r => {
-      const all = r.data;
+    API.get("/posts/reels?page=1").then(r => {
+      const all = r.data.posts || r.data;
+      setLoading(false);
       setPosts(all);
       all.forEach(p => {
         API.get("/posts/" + p.id + "/likes").then(r => {
@@ -49,10 +50,11 @@ export default function Reels() {
           setLiked(prev => ({...prev, [p.id]: r.data.liked}));
         }).catch(()=>{});
       });
-    }).catch(()=>{});
+    }).catch(()=>{ setLoading(false); });
     // Load followed users for DM
     API.get("/messages/conversations").then(r => {
-      const users = r.data.map(c => ({ id: c.userId, username: c.username }));
+      const convs = r.data.conversations || r.data;
+      const users = Array.isArray(convs) ? convs.map(c => ({ id: c.userId, username: c.username })) : [];
       setDmUsers(users);
     }).catch(()=>{});
   }, []);
