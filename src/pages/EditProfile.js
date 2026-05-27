@@ -3,13 +3,11 @@ import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import MusicPicker from "../components/MusicPicker";
 
 export default function EditProfile() {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [form, setForm] = useState({
     fullName: user?.fullName || "",
     username: user?.username || "",
