@@ -89,6 +89,7 @@ const GroupMessageSchema = new mongoose.Schema({
     mediaType: String,
   },
   reactions: [{ userId: String, username: String, emoji: String }],
+  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number },
 }, { timestamps: true });
 
 const StoryViewSchema = new mongoose.Schema({
