@@ -2,6 +2,34 @@ const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Message } = require("../models");
 const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
+
+const ENCRYPT_KEY = Buffer.from((process.env.MSG_ENCRYPT_KEY || "luciagram_msg_key_32bytes_secure!").slice(0, 32));
+const IV_LENGTH = 16;
+
+function encryptText(text) {
+  if (!text) return text;
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPT_KEY, iv);
+    const encrypted = Buffer.concat([cipher.update(text, "utf8"), cipher.final()]);
+    return iv.toString("hex") + ":" + encrypted.toString("hex");
+  } catch { return text; }
+}
+
+function decryptText(text) {
+  if (!text) return text;
+  if (!text.includes(":")) return text;
+  try {
+    const parts = text.split(":");
+    if (parts.length !== 2) return text;
+    if (parts[0].length !== 32) return text;
+    const iv = Buffer.from(parts[0], "hex");
+    const enc = Buffer.from(parts[1], "hex");
+    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPT_KEY, iv);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+  } catch { return text; }
+}
 
 router.post("/upload", async (req, res) => {
   try {
