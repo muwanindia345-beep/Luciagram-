@@ -27,7 +27,7 @@ router.get("/", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const { mediaBase64, mediaType } = req.body;
+    const { mediaBase64, mediaType, music } = req.body;
     let mediaUrl = "";
     let mediaFileName = "";
     if (mediaBase64) {
@@ -43,6 +43,7 @@ router.post("/", auth, async (req, res) => {
       mediaFileName,
       mediaType: mediaType || "image",
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      music: music || null,
     });
     res.status(201).json(story);
   } catch (err) { res.status(500).json({ message: err.message }); }
