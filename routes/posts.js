@@ -31,6 +31,18 @@ router.get("/feed", auth, async (req, res) => {
   }
 });
 
+// Reels feed - only video posts
+router.get("/reels", auth, async (req, res) => {
+  try {
+    const posts = await Post.find({ mediaType: "video" })
+      .select("id userId username mediaUrl mediaType caption location createdAt")
+      .limit(30)
+      .lean();
+    posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json(posts);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.get("/user/:username", auth, async (req, res) => {
   try {
     const posts = await Post.find({ username: req.params.username })
