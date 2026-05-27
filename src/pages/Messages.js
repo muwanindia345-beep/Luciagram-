@@ -44,7 +44,17 @@ export default function Messages() {
 
   useEffect(() => {
     loadConversations();
-    API.get("/notes").then(r => setNotes(r.data)).catch(()=>{});
+    API.get("/notes").then(r => {
+      setNotes(r.data);
+      // Fetch fresh profile pics for all note authors
+      r.data.forEach(n => {
+        if (n.username && n.userId !== user?.id) {
+          API.get("/users/" + n.username).then(res => {
+            setUserProfiles(prev => ({...prev, [n.username]: res.data}));
+          }).catch(()=>{});
+        }
+      });
+    }).catch(()=>{});
     // Poll every 5s for new messages / notifications
     pollRef.current = setInterval(loadConversations, 5000);
     return () => clearInterval(pollRef.current);
@@ -168,9 +178,9 @@ export default function Messages() {
             </div>
             {/* Others notes */}
             {notes.filter(n=>n.userId!==user?.id).map((n,i)=>(
-              <div key={n.id||i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.4rem",minWidth:"70px",cursor:"pointer"}} onClick={()=>setShowNoteSheet(n)}>
+              <div key={n.id||i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.4rem",minWidth:"70px",cursor:"pointer"}} onClick={()=>{ setShowNoteSheet({...n, liveAvatar: userProfiles[n.username]?.avatar || n.avatar}); }}>
                 <div style={{width:"70px",height:"70px",borderRadius:"50%",overflow:"hidden",border:"2.5px solid #7c3aed",flexShrink:0}}>
-                  {n.avatar?<img src={n.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={n.username}/>:<div style={{width:"100%",height:"100%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(n.username||"U").slice(0,1).toUpperCase()}</div>}
+                  {(userProfiles[n.username]?.avatar || n.avatar)?<img src={userProfiles[n.username]?.avatar || n.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt={n.username}/>:<div style={{width:"100%",height:"100%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(n.username||"U").slice(0,1).toUpperCase()}</div>}
                 </div>
                 <div style={{background:"#1a1a2e",border:"1px solid #2a2a3a",borderRadius:"8px",padding:"2px 7px",maxWidth:"70px",textAlign:"center"}}>
                   <span style={{fontSize:"0.62rem",color:"#ccc"}}>{n.text.slice(0,12)}{n.text.length>12?"...":""}</span>
@@ -276,31 +286,16 @@ export default function Messages() {
         <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNoteSheet(null)}>
           <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.7)"}} />
           <div style={{background:"#1a1a2e",borderRadius:"20px",padding:"1.5rem",maxWidth:"280px",width:"90%",zIndex:10,position:"relative",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
-            <div style={{width:"64px",height:"64px",borderRadius:"50%",overflow:"hidden",margin:"0 auto 0.75rem",border:"3px solid #7c3aed"}}>
-              {showNoteSheet.avatar?<img src={showNoteSheet.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="n"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(showNoteSheet.username||"U").slice(0,1).toUpperCase()}</div>}
+            <div onClick={()=>{setShowNoteSheet(null);navigate("/user/"+showNoteSheet.username);}}
+              style={{width:"64px",height:"64px",borderRadius:"50%",overflow:"hidden",margin:"0 auto 0.75rem",border:"3px solid #7c3aed",cursor:"pointer"}}>
+              {(showNoteSheet.liveAvatar||showNoteSheet.avatar)?<img src={showNoteSheet.liveAvatar||showNoteSheet.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="n"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(showNoteSheet.username||"U").slice(0,1).toUpperCase()}</div>}
             </div>
-            <div style={{fontWeight:"bold",color:"#c084fc",marginBottom:"0.5rem"}}>@{showNoteSheet.username}</div>
+            <div onClick={()=>{setShowNoteSheet(null);navigate("/user/"+showNoteSheet.username);}}
+              style={{fontWeight:"bold",color:"#c084fc",marginBottom:"0.5rem",cursor:"pointer"}}>@{showNoteSheet.username}</div>
             <div style={{background:"#13131a",borderRadius:"12px",padding:"1rem",fontSize:"1rem",color:"white",lineHeight:1.5,marginBottom:"1rem"}}>"{showNoteSheet.text}"</div>
             {showNoteSheet.music && (
               <div onClick={()=>{
                 if(!showNoteSheet.music.previewUrl) return;
-                if(noteAudioPlaying===showNoteSheet.id){noteAudioRef.current?.pause();setNoteAudioPlaying(null);}
-                else{if(noteAudioRef.current){noteAudioRef.current.src=showNoteSheet.music.previewUrl;noteAudioRef.current.play().catch(()=>{});}setNoteAudioPlaying(showNoteSheet.id);}
-              }}
-                style={{background:"rgba(124,58,237,0.12)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:"14px",padding:"0.65rem 0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"1rem",width:"100%",boxSizing:"border-box"}}>
-                {showNoteSheet.music.albumArt && <img src={showNoteSheet.music.albumArt} alt={showNoteSheet.music.title} style={{width:"42px",height:"42px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:"0.85rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎵 {showNoteSheet.music.title}</div>
-                  <div style={{fontSize:"0.72rem",color:"#888",marginTop:"1px"}}>{showNoteSheet.music.artist}</div>
-                </div>
-                <div style={{width:"34px",height:"34px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.9rem",flexShrink:0}}>
-                  {noteAudioPlaying===showNoteSheet.id ? "⏸" : "▶"}
-                </div>
-              </div>
-            )}
-            {showNoteSheet.music && (
-              <div onClick={()=>{
-                if(!showNoteSheet.music?.previewUrl) return;
                 if(noteAudioPlaying===showNoteSheet.id){noteAudioRef.current?.pause();setNoteAudioPlaying(null);}
                 else{if(noteAudioRef.current){noteAudioRef.current.src=showNoteSheet.music.previewUrl;noteAudioRef.current.play().catch(()=>{});}setNoteAudioPlaying(showNoteSheet.id);}
               }}
