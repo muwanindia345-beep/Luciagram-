@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import CallScreen from "./CallScreen";
 import API from "../api";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +29,8 @@ export default function Chat() {
   const [pressTimer, setPressTimer] = useState(null);
   const [selectedMsg, setSelectedMsg] = useState(null);
   const [reactionPicker, setReactionPicker] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
   const [showEmojiInput, setShowEmojiInput] = useState(false);
   const [customEmoji, setCustomEmoji] = useState("");
   const [replyTo, setReplyTo] = useState(null);
@@ -81,6 +84,11 @@ export default function Chat() {
     socket.on("dm_reaction", (data) => {
       setMessages(prev => prev.map(m => m.id === data.msgId ? { ...m, reactions: data.reactions } : m));
     });
+    // Incoming call listener
+    socket.on("call:incoming", (data) => {
+      setIncomingCall({ ...data, isIncoming: true });
+    });
+
     socket.on("dm_unsend", (data) => {
       setMessages(prev => prev.filter(m => m.id !== data.msgId));
     });
@@ -89,7 +97,9 @@ export default function Chat() {
     });
 
     socketRef.current = socket;
-    return () => socket.disconnect();
+    const endCall = () => { setActiveCall(null); setIncomingCall(null); };
+
+  return () => socket.disconnect();
   }, [userId]);
 
   useEffect(() => {
@@ -231,7 +241,16 @@ export default function Chat() {
   const currentTheme = themes[theme] || themes.purple;
 
   return (
-    <div style={{background:"#0a0a0f",height:"100vh",color:"white",display:"flex",flexDirection:"column",maxWidth:"100vw",overflow:"hidden"}}>
+    <>
+      {(activeCall || incomingCall) && (
+        <CallScreen
+          call={activeCall || incomingCall}
+          socket={socketRef.current}
+          user={user}
+          onEnd={endCall}
+        />
+      )}
+      <div style={{background:"#0a0a0f",height:"100vh",color:"white",display:"flex",flexDirection:"column",maxWidth:"100vw",overflow:"hidden"}}>
       
       {/* Header */}
       <div style={{background:"#0a0a0f",borderBottom:"1px solid #1e1e2e",padding:"0.6rem 1rem",display:"flex",alignItems:"center",gap:"0.75rem",position:"sticky",top:0,zIndex:100,flexShrink:0}}>
@@ -257,8 +276,8 @@ export default function Chat() {
         <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
           <span onClick={()=>setShowFontPicker(true)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🔤</span>
           <span onClick={()=>setShowThemes(!showThemes)} style={{fontSize:"1.2rem",cursor:"pointer"}}>🎨</span>
-          <span style={{fontSize:"1.2rem",cursor:"pointer"}}>📞</span>
-          <span style={{fontSize:"1.2rem",cursor:"pointer"}}>🎥</span>
+          <span onClick={()=>setActiveCall({ receiverId: userId, receiverUsername: username, receiverAvatar: otherUser?.avatar||"", callType:"audio" })} style={{fontSize:"1.2rem",cursor:"pointer"}}>📞</span>
+          <span onClick={()=>setActiveCall({ receiverId: userId, receiverUsername: username, receiverAvatar: otherUser?.avatar||"", callType:"video" })} style={{fontSize:"1.2rem",cursor:"pointer"}}>🎥</span>
         </div>
       </div>
 
@@ -462,5 +481,6 @@ export default function Chat() {
         @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
       `}</style>
     </div>
+    </>
   );
 }
