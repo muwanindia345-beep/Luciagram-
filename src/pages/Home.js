@@ -40,14 +40,8 @@ export default function Home() {
   const [storySentTo, setStorySentTo] = useState({});
   const [storyDMSearch, setStoryDMSearch] = useState("");
   const [storyReplyText, setStoryReplyText] = useState("");
-  const [storySent, setStorySent] = useState(false);
   const [storyDMUsers, setStoryDMUsers] = useState([]);
   const [showViewsTab, setShowViewsTab] = useState(false);
-  const [showStoryMusicPicker, setShowStoryMusicPicker] = useState(false);
-  const [storyText, setStoryText] = useState("");
-  const [showStoryTextInput, setShowStoryTextInput] = useState(false);
-  const [storyTextColor, setStoryTextColor] = useState("#ffffff");
-  const [storyPaused, setStoryPaused] = useState(false);
   const storyVideoRef = useRef(null);
 
   // Upload story state
@@ -297,52 +291,8 @@ export default function Home() {
     const currentItem = items[storyIndex];
     if (!currentItem) return;
     const key = currentItem.id;
-    if (storyLikes[key]) return;
-    setStoryLikes(prev => ({...prev, [key]: true}));
     try {
-      const profile = userProfiles[activeStory.username] || {};
-      await API.post("/messages", {
-        receiverId: currentItem.userId || profile.id,
-        receiverUsername: activeStory.username,
-        text: "❤️ liked your story",
-        mediaUrl: currentItem.mediaUrl || "",
-        mediaType: currentItem.mediaType || "image",
-      });
-    } catch {}
-  };
-
-  const sendStoryViaDM = async (toUser) => {
-    const items = activeStory?.items || [];
-    const currentItem = items[storyIndex];
-    if (!currentItem) return;
-    try {
-      await API.post("/messages", {
-        receiverId: toUser.id,
-        receiverUsername: toUser.username,
-        text: "📖 Shared a Story",
-        mediaUrl: currentItem.mediaUrl || "",
-        mediaType: currentItem.mediaType || "image",
-      });
-      setStorySentTo(prev => ({...prev, [toUser.id]: true}));
-    } catch {}
-  };
-
-  const searchStoryDMUsers = async (q) => {
-    setStoryDMSearch(q);
-    if (q.length < 1) {
-      API.get("/messages/conversations").then(r => setStoryDMUsers(r.data.map(c => ({ id: c.userId, username: c.username })))).catch(()=>{});
       return;
-    }
-    try {
-      const res = await API.get("/users/search?q=" + q);
-      setStoryDMUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
-    } catch {}
-  };
-
-  const handleStoryUpload = async () => {
-    if (!storyMedia) return alert("Pick a photo or video first!");
-    setStoryUploading(true);
-    try {
       await API.post("/stories", {
         mediaBase64: storyMedia,
         mediaType: storyMediaType,
