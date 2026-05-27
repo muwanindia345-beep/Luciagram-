@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import API from "./api";
-import { useAuth } from "./context/AuthContext";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
