@@ -4,7 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import MediaLoader from "../components/MediaLoader";
 import MusicPicker from "../components/MusicPicker";
-import MusicPicker from "../components/MusicPicker";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
