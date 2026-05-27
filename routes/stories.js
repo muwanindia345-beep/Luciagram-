@@ -18,7 +18,7 @@ setInterval(async () => {
 router.get("/", auth, async (req, res) => {
   try {
     const stories = await Story.find({ expiresAt: { $gt: new Date() } })
-      .select("id userId username mediaUrl mediaType expiresAt createdAt")
+      .select("id userId username mediaUrl mediaType music caption expiresAt createdAt")
       .sort({ createdAt: -1 })
       .lean();
     res.json(stories);
