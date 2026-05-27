@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
 import MusicPicker from "../components/MusicPicker";
+import MusicPicker from "../components/MusicPicker";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +19,10 @@ export default function Messages() {
   const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
   const noteAudioRef = React.useRef(null);
   const [showNoteSheet, setShowNoteSheet] = useState(null);
+  const [noteMusic, setNoteMusic] = useState(null);
+  const [showNoteMusicPicker, setShowNoteMusicPicker] = useState(false);
+  const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
+  const noteAudioRef = useRef(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const pollRef = useRef(null);
@@ -174,6 +179,7 @@ export default function Messages() {
                 </div>
                 <div style={{background:"#1a1a2e",border:"1px solid #2a2a3a",borderRadius:"8px",padding:"2px 7px",maxWidth:"70px",textAlign:"center"}}>
                   <span style={{fontSize:"0.62rem",color:"#ccc"}}>{n.text.slice(0,12)}{n.text.length>12?"...":""}</span>
+                  {n.music && <div style={{fontSize:"0.65rem",textAlign:"center"}}>🎵</div>}
                 </div>
                 <span style={{fontSize:"0.62rem",color:"#888",maxWidth:"70px",textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>@{n.username}</span>
               </div>
@@ -297,10 +303,35 @@ export default function Messages() {
                 </div>
               </div>
             )}
+            {showNoteSheet.music && (
+              <div onClick={()=>{
+                if(!showNoteSheet.music?.previewUrl) return;
+                if(noteAudioPlaying===showNoteSheet.id){noteAudioRef.current?.pause();setNoteAudioPlaying(null);}
+                else{if(noteAudioRef.current){noteAudioRef.current.src=showNoteSheet.music.previewUrl;noteAudioRef.current.play().catch(()=>{});}setNoteAudioPlaying(showNoteSheet.id);}
+              }}
+                style={{background:"rgba(124,58,237,0.12)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:"14px",padding:"0.65rem 0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"1rem",width:"100%",boxSizing:"border-box"}}>
+                {showNoteSheet.music.albumArt && <img src={showNoteSheet.music.albumArt} alt={showNoteSheet.music.title} style={{width:"42px",height:"42px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:"0.85rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎵 {showNoteSheet.music.title}</div>
+                  <div style={{fontSize:"0.72rem",color:"#888",marginTop:"1px"}}>{showNoteSheet.music.artist}</div>
+                </div>
+                <div style={{width:"34px",height:"34px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.9rem",flexShrink:0}}>
+                  {noteAudioPlaying===showNoteSheet.id ? "⏸" : "▶"}
+                </div>
+              </div>
+            )}
             <div style={{color:"#555",fontSize:"0.75rem",marginBottom:"1rem"}}>Expires in {Math.max(0,Math.floor((new Date(showNoteSheet.expiresAt)-Date.now())/3600000))}h</div>
             <button onClick={()=>{setShowNoteSheet(null);navigate("/chat/"+showNoteSheet.userId+"?username="+showNoteSheet.username);}} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.6rem 1.5rem",cursor:"pointer",fontWeight:"bold"}}>💬 Reply</button>
           </div>
         </div>
+      )}
+      <audio ref={noteAudioRef} onEnded={()=>setNoteAudioPlaying(null)} />
+      {showNoteMusicPicker && (
+        <MusicPicker
+          selectedMusic={noteMusic}
+          onSelect={t=>{setNoteMusic(t);setShowNoteMusicPicker(false);}}
+          onClose={()=>setShowNoteMusicPicker(false)}
+        />
       )}
     </div>
   );
