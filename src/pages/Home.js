@@ -5,10 +5,12 @@ import { useNavigate } from "react-router-dom";
 import MediaLoader from "../components/MediaLoader";
 import MusicPicker from "../components/MusicPicker";
 
+
 export default function Home() {
   const [posts, setPosts] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+
   const [loadingFeed, setLoadingFeed] = useState(true);
   const feedBottomRef = useRef(null);
   const [stories, setStories] = useState([]);
@@ -37,7 +39,6 @@ export default function Home() {
   const [showStoryShareSheet, setShowStoryShareSheet] = useState(false);
   const [storySentTo, setStorySentTo] = useState({});
   const [storyDMSearch, setStoryDMSearch] = useState("");
-  const [storyLikes, setStoryLikes] = useState({});
   const [storyReplyText, setStoryReplyText] = useState("");
   const [storySent, setStorySent] = useState(false);
   const [storyDMUsers, setStoryDMUsers] = useState([]);
