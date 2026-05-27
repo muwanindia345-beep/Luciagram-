@@ -50,6 +50,17 @@ export default function Settings() {
     </div>
   );
 
+  const [loginHistory, setLoginHistory] = React.useState([]);
+  const [showSecurity, setShowSecurity] = React.useState(false);
+
+  const loadLoginHistory = async () => {
+    try {
+      const res = await API.get('/auth/login-history');
+      setLoginHistory(res.data.loginHistory || []);
+      setShowSecurity(true);
+    } catch {}
+  };
+
   return (
     <div style={{background:"#0a0a0f",minHeight:"100dvh",color:"white",paddingBottom:"5rem"}}>
 
