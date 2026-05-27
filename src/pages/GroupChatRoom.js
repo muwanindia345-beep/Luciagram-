@@ -113,7 +113,7 @@ export default function GroupChatRoom() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   const loadGroup = async () => {
-    try { const r = await API.get("/groups"); setGroup(r.data.find(g => g.id === groupId) || null); } catch {}
+    try { const r = await API.get("/groups/" + groupId); setGroup(r.data); } catch {}
   };
 
   const loadMessages = async () => {
