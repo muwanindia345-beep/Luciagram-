@@ -286,29 +286,6 @@ export default function Home() {
     } catch {}
   };
 
-  const sendStoryLike = async () => {
-    const items = activeStory?.items || [];
-    const currentItem = items[storyIndex];
-    if (!currentItem) return;
-    const key = currentItem.id;
-    try {
-      return;
-      await API.post("/stories", {
-        mediaBase64: storyMedia,
-        mediaType: storyMediaType,
-        music: storyMusic || null,
-        caption: storyUploadText || "",
-      });
-      setShowStoryUpload(false);
-      setStoryMedia(null);
-      setStoryMediaPreview(null);
-      setStoryUploadText("");
-      setStoryMusic(null);
-      API.get("/stories").then(r => setStories(r.data)).catch(()=>{});
-    } catch(err) {
-      alert(err.response?.data?.message || "Upload failed");
-    } finally { setStoryUploading(false); }
-  };
 
   const handleLike = async (postId) => {
     const wasLiked = liked[postId];
