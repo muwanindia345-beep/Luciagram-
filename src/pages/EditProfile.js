@@ -5,15 +5,14 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function EditProfile() {
-  const [showMusicPicker, setShowMusicPicker] = useState(false);
   const { user, login } = useAuth();
   const navigate = useNavigate();
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [form, setForm] = useState({
     fullName: user?.fullName || "",
     username: user?.username || "",
     bio: user?.bio || "",
     website: user?.website || "",
-    song: user?.song || null,
     song: user?.song || null,
   });
   const [avatar, setAvatar] = useState(user?.avatar || null);
@@ -39,24 +38,12 @@ export default function EditProfile() {
   };
 
   const avatarLetter = (user?.username||"U").slice(0,1).toUpperCase();
-
-  const songSection = (
-    <div style={{marginBottom:"1rem"}}>
-      <div style={{fontSize:"0.82rem",color:"#888",marginBottom:"0.4rem",fontWeight:"bold"}}>🎷 Profile Song</div>
-      <div onClick={()=>setShowMusicPicker(true)} style={{background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-        {form.song ? (
-          <>
-            {form.song.albumArt && <img src={form.song.albumArt} alt={form.song.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:"0.9rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.song.title}</div><div style={{fontSize:"0.75rem",color:"#888"}}>{form.song.artist}</div></div>
-            <span onClick={e=>{e.stopPropagation();setForm(p=>({...p,song:null}));}} style={{color:"#f87171",fontSize:"1.1rem",cursor:"pointer"}}>✕</span>
-          </>
-        ) : (
-          <><span style={{fontSize:"1.3rem"}}>🎷</span><span style={{color:"#555",fontSize:"0.9rem"}}>Add a song to your profile</span></>
-        )}
-      </div>
-      {showMusicPicker && <MusicPicker selectedMusic={form.song} onSelect={t=>{setForm(p=>({...p,song:t}));setShowMusicPicker(false);}} onClose={()=>setShowMusicPicker(false)} />}
-    </div>
-  );
+  const fields = [
+    { label: "Name", key: "fullName", placeholder: "Full name" },
+    { label: "Username", key: "username", placeholder: "Username" },
+    { label: "Bio", key: "bio", placeholder: "Bio" },
+    { label: "Website", key: "website", placeholder: "Website" },
+  ];
 
   return (
     <div style={{background:"#0a0a0f",minHeight:"100vh",color:"white"}}>
@@ -67,7 +54,6 @@ export default function EditProfile() {
       </div>
 
       <div style={{maxWidth:"600px",margin:"0 auto",padding:"1.5rem 1rem"}}>
-        {/* Avatar */}
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:"2rem"}}>
           <label style={{cursor:"pointer",position:"relative"}}>
             {avatar ? (
@@ -81,14 +67,7 @@ export default function EditProfile() {
           <span style={{color:"#c084fc",marginTop:"0.75rem",cursor:"pointer",fontSize:"0.95rem"}}>Change profile photo</span>
         </div>
 
-        {/* Form Fields */}
-        {[
-          { label: "Name", key: "fullName", placeholder: "Full name" },
-          { label: "Username", key: "username", placeholder: "Username" },
-          { label: "Bio", key: "bio", placeholder: "Bio" },
-          { label: "Website", key: "website", placeholder: "Website" },
-          ].concat([]).map(() => null).filter(Boolean)
-        ].map(f => (
+        {fields.map(f => (
           <div key={f.key} style={{marginBottom:"1.25rem",borderBottom:"1px solid #1e1e2e",paddingBottom:"1.25rem"}}>
             <label style={{color:"#888",fontSize:"0.8rem",display:"block",marginBottom:"0.4rem"}}>{f.label}</label>
             <input
@@ -100,45 +79,41 @@ export default function EditProfile() {
           </div>
         ))}
 
-        
-          {/* Song Picker */}
-          <div style={{marginBottom:"1rem"}}>
-            <div style={{fontSize:"0.82rem",color:"#888",marginBottom:"0.4rem",fontWeight:"bold"}}>🎷 Profile Song</div>
-            <div onClick={()=>setShowMusicPicker(true)}
-              style={{background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-              {form.song ? (
-                <>
-                  {form.song.albumArt && <img src={form.song.albumArt} alt={form.song.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:"0.9rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.song.title}</div>
-                    <div style={{fontSize:"0.75rem",color:"#888"}}>{form.song.artist}</div>
-                  </div>
-                  <span onClick={e=>{e.stopPropagation();setForm(p=>({...p,song:null}));}} style={{color:"#f87171",fontSize:"1.1rem",cursor:"pointer"}}>✕</span>
-                </>
-              ) : (
-                <>
-                  <span style={{fontSize:"1.3rem"}}>🎷</span>
-                  <span style={{color:"#555",fontSize:"0.9rem"}}>Add a song to your profile</span>
-                </>
-              )}
-            </div>
+        <div style={{marginBottom:"1.25rem"}}>
+          <div style={{fontSize:"0.82rem",color:"#888",marginBottom:"0.4rem",fontWeight:"bold"}}>🎷 Profile Song</div>
+          <div onClick={()=>setShowMusicPicker(true)}
+            style={{background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+            {form.song ? (
+              <>
+                {form.song.albumArt && <img src={form.song.albumArt} alt={form.song.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:"0.9rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{form.song.title}</div>
+                  <div style={{fontSize:"0.75rem",color:"#888"}}>{form.song.artist}</div>
+                </div>
+                <span onClick={e=>{e.stopPropagation();setForm(p=>({...p,song:null}));}} style={{color:"#f87171",fontSize:"1.1rem",cursor:"pointer"}}>✕</span>
+              </>
+            ) : (
+              <>
+                <span style={{fontSize:"1.3rem"}}>🎷</span>
+                <span style={{color:"#555",fontSize:"0.9rem"}}>Add a song to your profile</span>
+              </>
+            )}
           </div>
-          {songSection}
-          <button onClick={handleSave} disabled={loading} style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",fontSize:"1rem",fontWeight:"bold",cursor:"pointer",opacity:loading?0.7:1}}>
+        </div>
+
+        <button onClick={handleSave} disabled={loading}
+          style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",fontSize:"1rem",fontWeight:"bold",cursor:"pointer",opacity:loading?0.7:1}}>
           {loading ? "Saving..." : "Save Changes"}
         </button>
       </div>
-    </div>
 
-  return (
-    <>
       {showMusicPicker && (
         <MusicPicker
           selectedMusic={form.song}
-          onSelect={(t) => { setForm(p=>({...p,song:t})); setShowMusicPicker(false); }}
-          onClose={() => setShowMusicPicker(false)}
+          onSelect={t=>{setForm(p=>({...p,song:t}));setShowMusicPicker(false);}}
+          onClose={()=>setShowMusicPicker(false)}
         />
       )}
-    </>
+    </div>
   );
 }
