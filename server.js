@@ -78,6 +78,29 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log('❌ Socket disconnected:', socket.id);
   });
+
+  // ===== CALL SIGNALING =====
+  socket.on('call:initiate', (data) => {
+    io.to('user_' + data.receiverId).emit('call:incoming', data);
+  });
+  socket.on('call:accept', (data) => {
+    io.to('user_' + data.callerId).emit('call:accepted', data);
+  });
+  socket.on('call:reject', (data) => {
+    io.to('user_' + data.callerId).emit('call:rejected');
+  });
+  socket.on('call:end', (data) => {
+    io.to('user_' + data.receiverId).emit('call:ended');
+  });
+  socket.on('call:offer', (data) => {
+    io.to('user_' + data.receiverId).emit('call:offer', data);
+  });
+  socket.on('call:answer', (data) => {
+    io.to('user_' + data.callerId).emit('call:answer', data);
+  });
+  socket.on('call:ice', (data) => {
+    io.to('user_' + data.receiverId).emit('call:ice', data);
+  });
 });
 
 global.io = io;
