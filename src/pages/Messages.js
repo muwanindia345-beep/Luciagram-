@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
 import MusicPicker from "../components/MusicPicker";
-import MusicPicker from "../components/MusicPicker";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -17,12 +16,8 @@ export default function Messages() {
   const [noteMusic, setNoteMusic] = useState(null);
   const [showNoteMusicPicker, setShowNoteMusicPicker] = useState(false);
   const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
-  const noteAudioRef = React.useRef(null);
-  const [showNoteSheet, setShowNoteSheet] = useState(null);
-  const [noteMusic, setNoteMusic] = useState(null);
-  const [showNoteMusicPicker, setShowNoteMusicPicker] = useState(false);
-  const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
   const noteAudioRef = useRef(null);
+  const [showNoteSheet, setShowNoteSheet] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const pollRef = useRef(null);

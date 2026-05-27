@@ -89,10 +89,6 @@ export default function Chat() {
       setMessages(prev => prev.map(m => m.id === data.msgId ? { ...m, reactions: data.reactions } : m));
     });
     // Incoming call listener
-    socket.on("call:incoming", (data) => {
-      setIncomingCall({ ...data, isIncoming: true });
-    });
-
     socket.on("dm_unsend", (data) => {
       setMessages(prev => prev.filter(m => m.id !== data.msgId));
     });
@@ -104,9 +100,7 @@ export default function Chat() {
       setIncomingCall({ ...data, isIncoming: true });
     });
     socketRef.current = socket;
-
-
-  return () => socket.disconnect();
+    return () => socket.disconnect();
   }, [userId]);
 
   useEffect(() => {
