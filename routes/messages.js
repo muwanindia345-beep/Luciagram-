@@ -29,7 +29,7 @@ router.get("/conversations", auth, async (req, res) => {
         conversations[otherId] = {
           userId: otherId,
           username: otherUsername,
-          lastMessage: m.text,
+          lastMessage: decryptText(m.text),
           lastMedia: m.mediaUrl,
           createdAt: m.createdAt,
           unread: !m.isRead && m.receiverId === req.user.id ? 1 : 0,
