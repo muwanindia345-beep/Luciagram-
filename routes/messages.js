@@ -98,11 +98,13 @@ router.post("/", auth, async (req, res) => {
       replyTo: replyTo || null,
       reactions: [],
     });
-    // Emit real-time to receiver
+    // Emit real-time with decrypted text
+    const msgObj = msg.toObject();
+    const decryptedMsg = { ...msgObj, text: decryptText(msgObj.text) };
     if (global.io) {
-      global.io.to('user_' + receiverId).emit('new_message', msg);
+      global.io.to('user_' + receiverId).emit('new_message', decryptedMsg);
     }
-    res.status(201).json(msg);
+    res.status(201).json(decryptedMsg);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
