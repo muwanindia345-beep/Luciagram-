@@ -12,7 +12,7 @@ router.get("/feed", auth, async (req, res) => {
     const skip = (page - 1) * limit;
     // Home feed = images only
     const posts = await Post.find({ mediaType: { $in: ["image", null] } })
-      .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
+      .select("id userId username mediaUrl mediaFileName mediaType caption location music createdAt")
       .limit(limit)
       .skip(skip)
       .lean();
@@ -22,7 +22,7 @@ router.get("/feed", auth, async (req, res) => {
     console.error("Feed error:", err);
     try {
       const posts = await Post.find({ mediaType: { $in: ["image", null] } })
-        .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
+        .select("id userId username mediaUrl mediaFileName mediaType caption location music createdAt")
         .limit(10)
         .lean();
       res.json({ posts, hasMore: false, page: 1 });
@@ -63,7 +63,7 @@ router.get("/reels", auth, async (req, res) => {
 router.get("/user/:username", auth, async (req, res) => {
   try {
     const posts = await Post.find({ username: req.params.username })
-      .select("id userId username mediaUrl mediaFileName mediaType caption location createdAt")
+      .select("id userId username mediaUrl mediaFileName mediaType caption location music createdAt")
       .limit(30)
       .lean();
     posts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -75,7 +75,7 @@ router.get("/user/:username", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const { mediaBase64, mediaType, caption, location } = req.body;
+    const { mediaBase64, mediaType, caption, location, music } = req.body;
     let mediaUrl = "";
     let mediaFileName = "";
 
@@ -93,6 +93,7 @@ router.post("/", auth, async (req, res) => {
       mediaFileName,
       mediaType: mediaType || "image",
       caption,
+      music: music || null,
       location,
     });
 
