@@ -49,7 +49,8 @@ router.get("/:userId", auth, async (req, res) => {
       ]
     }).sort({ createdAt: 1 });
     await Message.updateMany({ senderId: req.params.userId, receiverId: req.user.id, isRead: false }, { isRead: true });
-    res.json(msgs);
+    const decrypted = msgs.map(m => ({ ...m.toObject(), text: decryptText(m.text) }));
+    res.json(decrypted);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -62,7 +63,7 @@ router.post("/", auth, async (req, res) => {
       senderUsername: req.user.username,
       receiverId,
       receiverUsername,
-      text,
+      text: encryptText(text),
       mediaUrl: mediaUrl || "",
       mediaType: mediaType || "",
       isRead: false,
