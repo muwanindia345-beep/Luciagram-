@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
 import CallScreen from "./CallScreen";
-import CallScreen from "./CallScreen";
 import API from "../api";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
@@ -30,8 +29,6 @@ export default function Chat() {
   const [pressTimer, setPressTimer] = useState(null);
   const [selectedMsg, setSelectedMsg] = useState(null);
   const [reactionPicker, setReactionPicker] = useState(null);
-  const [activeCall, setActiveCall] = useState(null);
-  const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
   const [showEmojiInput, setShowEmojiInput] = useState(false);
@@ -103,7 +100,6 @@ export default function Chat() {
       setIncomingCall({ ...data, isIncoming: true });
     });
     socketRef.current = socket;
-    const endCall = () => { setActiveCall(null); setIncomingCall(null); };
 
   const endCall = () => { setActiveCall(null); setIncomingCall(null); };
 
