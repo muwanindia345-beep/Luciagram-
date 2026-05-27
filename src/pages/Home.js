@@ -6,6 +6,11 @@ import MediaLoader from "../components/MediaLoader";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+  const feedBottomRef = useRef(null);
   const [stories, setStories] = useState([]);
   const [activeStory, setActiveStory] = useState(null);
   const [storyIndex, setStoryIndex] = useState(0);

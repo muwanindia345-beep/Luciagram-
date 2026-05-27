@@ -24,6 +24,11 @@ export default function Reels() {
   const [sentTo, setSentTo] = useState({});
   const [commentLikes, setCommentLikes] = useState({});
   const [replyTo, setReplyTo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const progressRef = useRef(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const videoRefs = useRef({});
@@ -51,6 +56,36 @@ export default function Reels() {
       setDmUsers(users);
     }).catch(()=>{});
   }, []);
+
+  // Video progress bar
+  useEffect(() => {
+    const v = videoRefs.current[current];
+    if (!v) return;
+    const update = () => {
+      if (v.duration) setProgress((v.currentTime / v.duration) * 100);
+    };
+    v.addEventListener("timeupdate", update);
+    return () => v.removeEventListener("timeupdate", update);
+  }, [current]);
+
+  // Load more reels when near end
+  useEffect(() => {
+    if (current >= posts.length - 3 && hasMore) {
+      const nextPage = page + 1;
+      API.get("/posts/reels?page=" + nextPage).then(r => {
+        const more = r.data.posts || r.data;
+        setPosts(prev => [...prev, ...more]);
+        setHasMore(r.data.hasMore !== false);
+        setPage(nextPage);
+        more.forEach(p => {
+          API.get("/posts/" + p.id + "/likes").then(res => {
+            setLikes(prev => ({...prev, [p.id]: res.data.count}));
+            setLiked(prev => ({...prev, [p.id]: res.data.liked}));
+          }).catch(()=>{});
+        });
+      }).catch(()=>{});
+    }
+  }, [current, hasMore, page, posts.length]);
 
   const scrollContainerRef = React.useRef(null);
 
@@ -535,5 +570,7 @@ export default function Reels() {
         </div>
       </div>
     </div>
+    >}
+    </>
   );
 }
