@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
+import MusicPicker from "../components/MusicPicker";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
@@ -12,6 +13,10 @@ export default function Messages() {
   const [notes, setNotes] = useState([]);
   const [myNote, setMyNote] = useState("");
   const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [noteMusic, setNoteMusic] = useState(null);
+  const [showNoteMusicPicker, setShowNoteMusicPicker] = useState(false);
+  const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
+  const noteAudioRef = React.useRef(null);
   const [showNoteSheet, setShowNoteSheet] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -152,7 +157,12 @@ export default function Messages() {
                 {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="you"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.5rem"}}>{(user?.username||"U").slice(0,1).toUpperCase()}</div>}
               </div>
               <div style={{background:"#1a1a2e",border:"1px solid #7c3aed",borderRadius:"8px",padding:"2px 7px",maxWidth:"70px",textAlign:"center"}}>
-                {notes.find(n=>n.userId===user?.id) ? <span style={{fontSize:"0.62rem",color:"#c084fc"}}>{notes.find(n=>n.userId===user?.id).text.slice(0,12)}{notes.find(n=>n.userId===user?.id).text.length>12?"...":""}</span> : <span style={{fontSize:"0.65rem",color:"#888"}}>+ Note</span>}
+                {notes.find(n=>n.userId===user?.id) ? (
+                  <div style={{textAlign:"center"}}>
+                    <span style={{fontSize:"0.62rem",color:"#c084fc"}}>{notes.find(n=>n.userId===user?.id).text.slice(0,12)}{notes.find(n=>n.userId===user?.id).text.length>12?"...":""}</span>
+                    {notes.find(n=>n.userId===user?.id).music && <div style={{fontSize:"0.6rem",color:"#a78bfa"}}>🎵</div>}
+                  </div>
+                ) : <span style={{fontSize:"0.65rem",color:"#888"}}>+ Note</span>}
               </div>
               <span style={{fontSize:"0.62rem",color:"#888"}}>Your note</span>
             </div>
@@ -235,10 +245,25 @@ export default function Messages() {
               style={{width:"100%",background:"#13131a",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",color:"white",fontSize:"1rem",outline:"none",resize:"none",height:"80px",boxSizing:"border-box",fontFamily:"inherit"}}
               autoFocus
             />
-            <div style={{textAlign:"right",color:"#555",fontSize:"0.75rem",marginBottom:"1rem"}}>{myNote.length}/60</div>
+            <div style={{textAlign:"right",color:"#555",fontSize:"0.75rem",marginBottom:"0.5rem"}}>{myNote.length}/60</div>
+            <div onClick={()=>setShowNoteMusicPicker(true)}
+              style={{background:"#1e1e2e",borderRadius:"12px",padding:"0.65rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"1rem"}}>
+              {noteMusic ? (
+                <>
+                  {noteMusic.albumArt && <img src={noteMusic.albumArt} alt={noteMusic.title} style={{width:"36px",height:"36px",borderRadius:"6px",objectFit:"cover",flexShrink:0}} />}
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"0.82rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎵 {noteMusic.title}</div>
+                    <div style={{fontSize:"0.72rem",color:"#888"}}>{noteMusic.artist}</div>
+                  </div>
+                  <span onClick={e=>{e.stopPropagation();setNoteMusic(null);}} style={{color:"#f87171",cursor:"pointer",fontSize:"1.1rem"}}>✕</span>
+                </>
+              ) : (
+                <><span style={{fontSize:"1.2rem"}}>🎵</span><span style={{color:"#555",fontSize:"0.85rem"}}>Add music to note</span></>
+              )}
+            </div>
             <div style={{display:"flex",gap:"0.75rem"}}>
-              <button onClick={async()=>{await API.post("/notes",{text:myNote}).catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setShowNoteEditor(false);}} style={{flex:1,background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.75rem",cursor:"pointer",fontWeight:"bold"}}>Share Note</button>
-              {notes.find(n=>n.userId===user?.id) && <button onClick={async()=>{await API.delete("/notes").catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setMyNote("");setShowNoteEditor(false);}} style={{background:"#3a1a1a",border:"none",borderRadius:"12px",color:"#f87171",padding:"0.75rem 1rem",cursor:"pointer",fontWeight:"bold"}}>Delete</button>}
+              <button onClick={async()=>{await API.post("/notes",{text:myNote,music:noteMusic||null}).catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setShowNoteEditor(false);}} style={{flex:1,background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.75rem",cursor:"pointer",fontWeight:"bold"}}>Share Note</button>
+              {notes.find(n=>n.userId===user?.id) && <button onClick={async()=>{await API.delete("/notes").catch(()=>{});const r=await API.get("/notes").catch(()=>({data:[]}));setNotes(r.data);setMyNote("");setNoteMusic(null);setShowNoteEditor(false);}} style={{background:"#3a1a1a",border:"none",borderRadius:"12px",color:"#f87171",padding:"0.75rem 1rem",cursor:"pointer",fontWeight:"bold"}}>Delete</button>}
               <button onClick={()=>setShowNoteEditor(false)} style={{background:"#2a2a3a",border:"none",borderRadius:"12px",color:"#888",padding:"0.75rem 1rem",cursor:"pointer"}}>Cancel</button>
             </div>
           </div>
@@ -255,6 +280,23 @@ export default function Messages() {
             </div>
             <div style={{fontWeight:"bold",color:"#c084fc",marginBottom:"0.5rem"}}>@{showNoteSheet.username}</div>
             <div style={{background:"#13131a",borderRadius:"12px",padding:"1rem",fontSize:"1rem",color:"white",lineHeight:1.5,marginBottom:"1rem"}}>"{showNoteSheet.text}"</div>
+            {showNoteSheet.music && (
+              <div onClick={()=>{
+                if(!showNoteSheet.music.previewUrl) return;
+                if(noteAudioPlaying===showNoteSheet.id){noteAudioRef.current?.pause();setNoteAudioPlaying(null);}
+                else{if(noteAudioRef.current){noteAudioRef.current.src=showNoteSheet.music.previewUrl;noteAudioRef.current.play().catch(()=>{});}setNoteAudioPlaying(showNoteSheet.id);}
+              }}
+                style={{background:"rgba(124,58,237,0.12)",border:"1px solid rgba(124,58,237,0.3)",borderRadius:"14px",padding:"0.65rem 0.75rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.6rem",marginBottom:"1rem",width:"100%",boxSizing:"border-box"}}>
+                {showNoteSheet.music.albumArt && <img src={showNoteSheet.music.albumArt} alt={showNoteSheet.music.title} style={{width:"42px",height:"42px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:"0.85rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎵 {showNoteSheet.music.title}</div>
+                  <div style={{fontSize:"0.72rem",color:"#888",marginTop:"1px"}}>{showNoteSheet.music.artist}</div>
+                </div>
+                <div style={{width:"34px",height:"34px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.9rem",flexShrink:0}}>
+                  {noteAudioPlaying===showNoteSheet.id ? "⏸" : "▶"}
+                </div>
+              </div>
+            )}
             <div style={{color:"#555",fontSize:"0.75rem",marginBottom:"1rem"}}>Expires in {Math.max(0,Math.floor((new Date(showNoteSheet.expiresAt)-Date.now())/3600000))}h</div>
             <button onClick={()=>{setShowNoteSheet(null);navigate("/chat/"+showNoteSheet.userId+"?username="+showNoteSheet.username);}} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",padding:"0.6rem 1.5rem",cursor:"pointer",fontWeight:"bold"}}>💬 Reply</button>
           </div>
