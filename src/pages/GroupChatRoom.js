@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
@@ -61,6 +62,9 @@ export default function GroupChatRoom() {
   const [showEmojiInput, setShowEmojiInput] = useState(false);
   const [customEmoji, setCustomEmoji] = useState("");
   const [showFontPicker, setShowFontPicker] = useState(false);
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
+  const [chatMusic, setChatMusic] = useState(null);
+  const musicAudioRef = useRef(null);
   const [groupFont, setGroupFont] = useState(() => localStorage.getItem("lg_font_" + groupId) || "default");
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("lg_theme_" + groupId);
@@ -153,11 +157,12 @@ export default function GroupChatRoom() {
       }
       const r = await API.post("/groups/" + groupId + "/messages", {
         text: text.trim(), mediaUrl, mediaType: mediaType || "",
+        music: chatMusic || null,
         replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderUsername: replyTo.senderUsername, mediaType: replyTo.mediaType } : null,
       });
       setMessages(prev => [...prev, r.data]);
       socketRef.current?.emit("group_message", r.data);
-      setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null);
+      setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null); setChatMusic(null);
     } catch {}
     setSending(false);
   };
@@ -420,6 +425,23 @@ export default function GroupChatRoom() {
                       }
                     </div>
                   )}
+                  {m.music && (
+                    <div onClick={()=>{if(musicAudioRef.current){musicAudioRef.current.src=m.music.previewUrl;musicAudioRef.current.play().catch(()=>{});}}}
+                      style={{background:mine?theme.mine:theme.bubble,borderRadius:"14px",padding:"0.6rem 0.75rem",width:"210px",cursor:"pointer",marginBottom:"0.2rem"}}>
+                      <div style={{display:"flex",gap:"0.6rem",alignItems:"center"}}>
+                        {m.music.albumArt && <img src={m.music.albumArt} alt={m.music.title} style={{width:"42px",height:"42px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.82rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.music.title}</div>
+                          <div style={{fontSize:"0.72rem",opacity:0.7,marginTop:"2px"}}>{m.music.artist}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.4rem"}}>
+                        <span>🎷</span>
+                        <div style={{flex:1,height:"3px",background:"rgba(255,255,255,0.2)",borderRadius:"2px"}}><div style={{width:"35%",height:"100%",background:"rgba(255,255,255,0.6)",borderRadius:"2px"}} /></div>
+                        <span style={{fontSize:"0.68rem",opacity:0.6}}>0:30</span>
+                      </div>
+                    </div>
+                  )}
                   {m.text && (
                     <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4,fontFamily:currentFont}}>
                       <MessageText text={m.text} />
@@ -475,7 +497,18 @@ export default function GroupChatRoom() {
           <span onClick={()=>setReplyTo(null)} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
         </div>
       )}
+      {chatMusic && (
+        <div style={{padding:"0.5rem 1rem",background:"#13131a",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          {chatMusic.albumArt && <img src={chatMusic.albumArt} alt={chatMusic.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:"0.82rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎷 {chatMusic.title}</div>
+            <div style={{fontSize:"0.72rem",color:"#888"}}>{chatMusic.artist}</div>
+          </div>
+          <span onClick={()=>setChatMusic(null)} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
+        </div>
+      )}
       <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:theme.bg,flexShrink:0}}>
+        <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎷</span>
         <span style={{fontSize:"1.3rem",cursor:"pointer"}}>😊</span>
         <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
           placeholder="Message..." style={{flex:1,background:theme.bubble,border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0}} />
@@ -707,6 +740,8 @@ export default function GroupChatRoom() {
           </div>
         </div>
       )}
+    <audio ref={musicAudioRef} />
+      {showMusicPicker && <MusicPicker selectedMusic={chatMusic} onSelect={t=>{setChatMusic(t);setShowMusicPicker(false);}} onClose={()=>setShowMusicPicker(false)} />}
     </div>
   );
 }

@@ -202,6 +202,17 @@ export default function Profile() {
         <div style={{marginBottom:"1rem"}}>
           <div style={{fontWeight:"bold"}}>{user?.fullName}</div>
           {user?.bio && <div style={{color:"#ddd",fontSize:"0.85rem",marginTop:"0.2rem",whiteSpace:"pre-line"}}>{user.bio}</div>}
+          {user?.song && (
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.5rem",background:"#1e1e2e",borderRadius:"20px",padding:"0.4rem 0.85rem",cursor:"pointer",alignSelf:"flex-start"}}
+              onClick={()=>{const a=new Audio(user.song.previewUrl);a.play();}}>
+              <span style={{fontSize:"0.9rem"}}>🎷</span>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:"0.78rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"160px"}}>{user.song.title}</div>
+                <div style={{fontSize:"0.68rem",color:"#888"}}>{user.song.artist}</div>
+              </div>
+              <span style={{fontSize:"0.7rem",color:"#a78bfa"}}>▶</span>
+            </div>
+          )}
           {user?.website && <div style={{color:"#c084fc",fontSize:"0.85rem",marginTop:"0.2rem"}}>{user.website}</div>}
           {/* Tags */}
           {user?.bio && (

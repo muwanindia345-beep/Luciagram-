@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +10,8 @@ export default function Upload() {
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
   const [loading, setLoading] = useState(false);
+  const [music, setMusic] = useState(null);
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [progress, setProgress] = useState(0);
   const [type, setType] = useState("post");
   const navigate = useNavigate();
@@ -33,7 +36,7 @@ export default function Upload() {
       if (type === "post") {
         await API.post("/posts", { mediaBase64: media, mediaType, caption, location });
       } else {
-        await API.post("/stories", { mediaBase64: media, mediaType });
+        await API.post("/stories", { mediaBase64: media, mediaType, music: music || null });
       }
       navigate("/");
     } catch(err) {
@@ -42,10 +45,29 @@ export default function Upload() {
   };
 
   return (
+    <>
+    {showMusicPicker && <MusicPicker selectedMusic={music} onSelect={t=>{setMusic(t);setShowMusicPicker(false);}} onClose={()=>setShowMusicPicker(false)} />}
     <div style={{background:"#0a0a0f",minHeight:"100vh",color:"white"}}>
       <div style={{background:"#0a0a0f",borderBottom:"1px solid #1e1e2e",padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100}}>
         <span onClick={()=>navigate("/")} style={{color:"#c084fc",cursor:"pointer",fontSize:"1.5rem"}}>✕</span>
         <span style={{fontWeight:"bold",fontSize:"1.1rem"}}>{type==="post"?"New Post":"New Story"}</span>
+        
+        {/* Music Picker Button */}
+        <div onClick={()=>setShowMusicPicker(true)}
+          style={{background:"#1e1e2e",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.75rem",marginBottom:"0.75rem"}}>
+          {music ? (
+            <>
+              {music.albumArt && <img src={music.albumArt} alt={music.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"0.88rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎷 {music.title}</div>
+                <div style={{fontSize:"0.75rem",color:"#888"}}>{music.artist}</div>
+              </div>
+              <span onClick={e=>{e.stopPropagation();setMusic(null);}} style={{color:"#f87171",cursor:"pointer",fontSize:"1.1rem"}}>✕</span>
+            </>
+          ) : (
+            <><span style={{fontSize:"1.3rem"}}>🎷</span><span style={{color:"#555",fontSize:"0.9rem"}}>Add music</span></>
+          )}
+        </div>
         <span onClick={handlePost} style={{color:"#c084fc",fontWeight:"bold",cursor:"pointer",opacity:loading?0.5:1}}>{loading?"Posting...":"Share"}</span>
       </div>
 
@@ -113,5 +135,7 @@ export default function Upload() {
         )}
       </div>
     </div>
+    </div>
+    </>
   );
 }

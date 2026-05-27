@@ -145,6 +145,17 @@ export default function UserProfile() {
         <span style={{fontWeight:"bold",fontSize:"1.1rem"}}>@{profile.username}</span>
         {profile.isVerified && <span style={{color:"#7c3aed",fontSize:"1rem"}}>✓</span>}
         {profile.isPrivate && <span style={{fontSize:"0.75rem",background:"#1e1e2e",borderRadius:"6px",padding:"0.1rem 0.4rem",color:"#888"}}>🔒</span>}
+        {profile?.song && (
+          <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginTop:"0.4rem",background:"#1e1e2e",borderRadius:"20px",padding:"0.35rem 0.85rem",cursor:"pointer"}}
+            onClick={()=>{const a=new Audio(profile.song.previewUrl);a.play();}}>
+            <span style={{fontSize:"0.85rem"}}>🎷</span>
+            <div style={{minWidth:0}}>
+              <div style={{fontSize:"0.75rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"150px"}}>{profile.song.title}</div>
+              <div style={{fontSize:"0.67rem",color:"#888"}}>{profile.song.artist}</div>
+            </div>
+            <span style={{fontSize:"0.7rem",color:"#a78bfa"}}>▶</span>
+          </div>
+        )}
       </div>
 
       {/* Profile Info */}
