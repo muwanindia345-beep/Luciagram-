@@ -29,6 +29,14 @@ router.post("/", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+router.get("/:id", auth, async (req, res) => {
+  try {
+    const group = await Group.findOne({ id: req.params.id }).lean();
+    if (!group) return res.status(404).json({ message: "Not found" });
+    res.json(group);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.post("/:id/members", auth, async (req, res) => {
   try {
     const group = await Group.findOne({ id: req.params.id });
@@ -86,33 +94,23 @@ router.get("/:id/messages", auth, async (req, res) => {
 
 router.post("/:id/messages", auth, async (req, res) => {
   try {
-    const { text, mediaUrl, mediaType } = req.body;
+    const { text, mediaUrl, mediaType, replyTo } = req.body;
     const { User } = require("../models");
-    const sender = await User.findOne({ id: req.user.id }).select("avatar").lean();
+    const [sender, grp] = await Promise.all([
+      User.findOne({ id: req.user.id }).select("avatar").lean(),
+      Group.findOne({ id: req.params.id }).lean(),
+    ]);
+    if (!grp) return res.status(404).json({ message: "Group not found" });
     const msg = await GroupMessage.create({
       id: uuidv4(), groupId: req.params.id,
       senderId: req.user.id, senderUsername: req.user.username,
       senderAvatar: sender?.avatar || "",
       text: text || "", mediaUrl: mediaUrl || "", mediaType: mediaType || "",
+      replyTo: replyTo || null,
     });
     await Group.updateOne({ id: req.params.id }, { updatedAt: new Date() });
     if (global.io) {
-      global.io.to('group_' + req.params.id).emit('group_message', msg);
-    }
-    // Notify all group members except sender
-    if (group.members) {
-      for (const member of group.members) {
-        if (member.id !== req.user.id) {
-          await notifRouter.createNotif({
-            userId: member.id,
-            fromUserId: req.user.id,
-            fromUsername: req.user.username,
-            fromAvatar: req.user.avatar || "",
-            type: "group_message",
-            text: req.user.username + " sent a message in " + group.name,
-          });
-        }
-      }
+      global.io.to("group_" + req.params.id).emit("group_message", msg);
     }
     res.status(201).json(msg);
   } catch (err) { res.status(500).json({ message: err.message }); }
