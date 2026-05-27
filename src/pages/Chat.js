@@ -458,9 +458,9 @@ export default function Chat() {
         </div>
       )}
 
-      <style>{\`
+      <style>{`
         @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
-      \`}</style>
+      `}</style>
     </div>
   );
 }
