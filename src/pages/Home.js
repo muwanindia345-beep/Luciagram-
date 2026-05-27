@@ -564,6 +564,7 @@ export default function Home() {
           </div>
         </div>
       )}
+    <audio ref={musicAudioRef} onEnded={()=>setPlayingMusic(null)} />
     </div>
   );
 }
