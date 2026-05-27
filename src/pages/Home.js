@@ -31,6 +31,8 @@ export default function Home() {
   const navigate = useNavigate();
   const storyTimer = useRef(null);
   const storyVideoRef = useRef(null);
+  const musicAudioRef = useRef(null);
+  const [playingMusic, setPlayingMusic] = useState(null);
   const [storyDuration, setStoryDuration] = useState(5000);
   const [storyViews, setStoryViews] = useState({});
 
