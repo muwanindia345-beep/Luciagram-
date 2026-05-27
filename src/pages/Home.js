@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import MediaLoader from "../components/MediaLoader";
 import MusicPicker from "../components/MusicPicker";
+import MusicPicker from "../components/MusicPicker";
 
 export default function Home() {
   const [posts, setPosts] = useState([]);
@@ -33,6 +34,12 @@ export default function Home() {
   const storyMusicRef = useRef(null);
   const [storyDuration, setStoryDuration] = useState(5000);
   const [storyViews, setStoryViews] = useState({});
+  const [storyLikes, setStoryLikes] = useState({});
+  const [showViewsTab, setShowViewsTab] = useState(false);
+  const [showStoryShareSheet, setShowStoryShareSheet] = useState(false);
+  const [storySentTo, setStorySentTo] = useState({});
+  const [storyDMSearch, setStoryDMSearch] = useState("");
+  const [storyDMUsers, setStoryDMUsers] = useState([]);
   const [storyLikes, setStoryLikes] = useState({});
   const [storyReplyText, setStoryReplyText] = useState("");
   const [storySent, setStorySent] = useState(false);
@@ -215,6 +222,53 @@ export default function Home() {
         closeStory();
       }
     }
+  };
+
+  const sendStoryLike = async () => {
+    const items = activeStory?.items || [];
+    const currentItem = items[storyIndex];
+    if (!currentItem) return;
+    const key = currentItem.id;
+    if (storyLikes[key]) return;
+    setStoryLikes(prev => ({...prev, [key]: true}));
+    try {
+      const profile = userProfiles[activeStory.username] || {};
+      await API.post("/messages", {
+        receiverId: currentItem.userId || profile.id,
+        receiverUsername: activeStory.username,
+        text: "❤️ liked your story",
+        mediaUrl: currentItem.mediaUrl || "",
+        mediaType: currentItem.mediaType || "image",
+      });
+    } catch {}
+  };
+
+  const sendStoryViaDM = async (toUser) => {
+    const items = activeStory?.items || [];
+    const currentItem = items[storyIndex];
+    if (!currentItem) return;
+    try {
+      await API.post("/messages", {
+        receiverId: toUser.id,
+        receiverUsername: toUser.username,
+        text: "📖 Shared a Story",
+        mediaUrl: currentItem.mediaUrl || "",
+        mediaType: currentItem.mediaType || "image",
+      });
+      setStorySentTo(prev => ({...prev, [toUser.id]: true}));
+    } catch {}
+  };
+
+  const searchStoryDMUsers = async (q) => {
+    setStoryDMSearch(q);
+    if (q.length < 1) {
+      API.get("/messages/conversations").then(r => setStoryDMUsers(r.data.map(c => ({ id: c.userId, username: c.username })))).catch(()=>{});
+      return;
+    }
+    try {
+      const res = await API.get("/users/search?q=" + q);
+      setStoryDMUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
+    } catch {}
   };
 
   const sendStoryReply = async () => {
@@ -414,6 +468,7 @@ const openShareSheet = async (post) => {
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
         @keyframes heartPop { 0% { transform:scale(1) } 50% { transform:scale(1.5) } 100% { transform:scale(1) } }
         @keyframes fadeIn { from { opacity:0;transform:scale(0.8) } to { opacity:1;transform:scale(1) } }
+        @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
         @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
       `}</style>
 
