@@ -5,7 +5,7 @@ mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB error:", err));
 
-const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date }, { timestamps: true });
+const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date }, { timestamps: true });
 
 const PostSchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 

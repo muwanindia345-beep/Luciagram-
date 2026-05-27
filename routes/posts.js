@@ -172,4 +172,34 @@ router.get("/hashtag/:tag", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Save / unsave post
+router.post("/:id/save", auth, async (req, res) => {
+  try {
+    const { User } = require("../models");
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const saved = user.savedPosts || [];
+    const idx = saved.indexOf(req.params.id);
+    if (idx === -1) {
+      saved.push(req.params.id);
+    } else {
+      saved.splice(idx, 1);
+    }
+    user.savedPosts = saved;
+    await user.save();
+    res.json({ saved: idx === -1, savedPosts: saved });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get saved posts
+router.get("/saved", auth, async (req, res) => {
+  try {
+    const { User } = require("../models");
+    const user = await User.findOne({ id: req.user.id }).lean();
+    if (!user?.savedPosts?.length) return res.json([]);
+    const posts = await Post.find({ id: { $in: user.savedPosts } }).lean();
+    res.json(posts);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
