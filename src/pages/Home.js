@@ -16,7 +16,7 @@ export default function Home() {
   const [storyIndex, setStoryIndex] = useState(0);
   const [liked, setLiked] = useState({});
   const [likeCounts, setLikeCounts] = useState({});
-  const [saved, setSaved] = useState(() => JSON.parse(localStorage.getItem("luciagram_saved") || "{}"));
+  const [saved, setSaved] = useState({});
   const [userProfiles, setUserProfiles] = useState({});
   const [followingMap, setFollowingMap] = useState({});
   const [inlineComments, setInlineComments] = useState({});
@@ -35,6 +35,13 @@ export default function Home() {
   const [storyViews, setStoryViews] = useState({});
 
   useEffect(() => {
+    // Load saved posts from backend
+    API.get("/posts/saved").then(r => {
+      const savedMap = {};
+      (r.data || []).forEach(p => { savedMap[p.id] = true; });
+      setSaved(savedMap);
+    }).catch(()=>{});
+
     API.get("/posts/feed?page=1").then(r => {
       const newPosts = r.data.posts || r.data;
       setHasMore(r.data.hasMore !== false);
@@ -142,7 +149,7 @@ export default function Home() {
   const handleSave = (postId) => {
     const newSaved = {...saved, [postId]: !saved[postId]};
     setSaved(newSaved);
-    localStorage.setItem("luciagram_saved", JSON.stringify(newSaved));
+    API.post("/posts/" + postId + "/save").catch(()=>{});
   };
 
   const handleFollow = async (userId, username) => {

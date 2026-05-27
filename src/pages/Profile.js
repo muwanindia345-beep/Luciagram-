@@ -31,8 +31,11 @@ export default function Profile() {
     API.get("/posts/user/" + user.username).then(r => setPosts(r.data)).catch(()=>{});
     API.get("/stories").then(r => setStories(r.data.filter(s => s.userId === user?.id))).catch(()=>{});
     API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
-    // Load saved posts from localStorage
-    const saved = JSON.parse(localStorage.getItem("luciagram_saved") || "{}");
+    // Load saved posts from backend
+    API.get("/posts/saved").then(r => {
+      setSavedPosts(r.data || []);
+    }).catch(()=>{});
+    const saved = {};
     const savedIds = Object.keys(saved).filter(id => saved[id]);
     if (savedIds.length > 0) {
       API.get("/posts/feed").then(r => {
@@ -95,7 +98,7 @@ export default function Profile() {
           avatar: reader.result,
         });
         if (setUser) setUser(prev => ({...prev, avatar: res.data.avatar}));
-        localStorage.setItem("luciagram_user", JSON.stringify({...user, avatar: res.data.avatar}));
+        // Avatar updated via API
       } catch {}
       setUploading(false);
       setShowAvatarMenu(false);
@@ -107,7 +110,7 @@ export default function Profile() {
     try {
       await API.put("/users/remove-avatar");
       if (setUser) setUser(prev => ({...prev, avatar: ""}));
-      localStorage.setItem("luciagram_user", JSON.stringify({...user, avatar: ""}));
+      // Avatar removed via API
     } catch {}
     setShowAvatarMenu(false);
   };
