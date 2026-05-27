@@ -46,6 +46,8 @@ export default function Notifications() {
     setNotifs(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
     if (notif.postId) navigate("/comments/" + notif.postId);
     else if (notif.type === "follow") navigate("/user/" + notif.fromUsername);
+    else if (notif.type === "message") navigate("/chat/" + notif.fromUserId + "?username=" + notif.fromUsername);
+    else if (notif.type === "group_message") navigate("/groupchat");
   };
 
   const deleteNotif = async (e, id) => {
@@ -66,7 +68,21 @@ export default function Notifications() {
     if (type === "comment") return "💬";
     if (type === "follow") return "👤";
     if (type === "mention") return "📣";
+    if (type === "message") return "💌";
+    if (type === "group_message") return "👥";
+    if (type === "story_like") return "🌟";
+    if (type === "story_view") return "👁️";
     return "🔔";
+  };
+
+  const typeColor = (type) => {
+    if (type === "like") return "#ef4444";
+    if (type === "comment") return "#3b82f6";
+    if (type === "follow") return "#22c55e";
+    if (type === "mention") return "#f59e0b";
+    if (type === "message") return "#7c3aed";
+    if (type === "group_message") return "#db2777";
+    return "#888";
   };
 
   const formatTime = (dateStr) => {
@@ -101,6 +117,10 @@ export default function Notifications() {
           </div>
         )}
 
+        {/* Group by Today */}
+        {notifs.filter(n => Date.now() - new Date(n.createdAt) < 86400000).length > 0 && (
+          <div style={{padding:"0.5rem 1rem",color:"#888",fontSize:"0.75rem",fontWeight:"bold",letterSpacing:"0.05em",borderBottom:"1px solid #1e1e2e"}}>TODAY</div>
+        )}
         {notifs.map((n, i) => (
           <div key={n.id || i} onClick={() => handleTap(n)} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.85rem 1rem", borderBottom: "1px solid #1e1e2e", cursor: "pointer", background: n.isRead ? "transparent" : "rgba(124,58,237,0.07)", transition: "background 0.2s" }}>
 
