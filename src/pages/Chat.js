@@ -96,9 +96,6 @@ export default function Chat() {
       if (data.senderId === userId) setIsTyping(false);
     });
 
-    socket.on("call:incoming", (data) => {
-      setIncomingCall({ ...data, isIncoming: true });
-    });
     socketRef.current = socket;
     return () => socket.disconnect();
   }, [userId]);
