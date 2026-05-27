@@ -35,7 +35,7 @@ export default function Reels() {
   }, [muted]);
 
   useEffect(() => {
-    API.get("/posts/feed").then(r => {
+    API.get("/posts/reels").then(r => {
       const all = r.data;
       setPosts(all);
       all.forEach(p => {

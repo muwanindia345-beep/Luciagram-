@@ -335,7 +335,7 @@ export default function Home() {
                   muted={p.mediaType==="video"}
                   playsInline={p.mediaType==="video"}
                 />
-                {p.mediaType==="video" && (
+                {p.mediaType==="video" && (<span style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,0.6)",borderRadius:"6px",padding:"2px 6px",fontSize:"0.7rem",color:"white"}}>🎬 Reel</span>)}{p.mediaType==="video" && (
                   <div style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.6)",borderRadius:"20px",padding:"0.2rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
                     <span style={{fontSize:"0.8rem"}}>🎬</span>
                     <span style={{color:"white",fontSize:"0.8rem",fontWeight:"bold"}}>Reel</span>
