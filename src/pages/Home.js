@@ -34,17 +34,12 @@ export default function Home() {
   const [storyDuration, setStoryDuration] = useState(5000);
   const [storyViews, setStoryViews] = useState({});
   const [storyLikes, setStoryLikes] = useState({});
-  const [showViewsTab, setShowViewsTab] = useState(false);
   const [showStoryShareSheet, setShowStoryShareSheet] = useState(false);
   const [storySentTo, setStorySentTo] = useState({});
   const [storyDMSearch, setStoryDMSearch] = useState("");
-  const [storyDMUsers, setStoryDMUsers] = useState([]);
   const [storyLikes, setStoryLikes] = useState({});
   const [storyReplyText, setStoryReplyText] = useState("");
   const [storySent, setStorySent] = useState(false);
-  const [showStoryShareSheet, setShowStoryShareSheet] = useState(false);
-  const [storySentTo, setStorySentTo] = useState({});
-  const [storyDMSearch, setStoryDMSearch] = useState("");
   const [storyDMUsers, setStoryDMUsers] = useState([]);
   const [showViewsTab, setShowViewsTab] = useState(false);
   const [showStoryMusicPicker, setShowStoryMusicPicker] = useState(false);
