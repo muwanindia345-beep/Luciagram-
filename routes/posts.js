@@ -14,12 +14,12 @@ router.get("/feed", auth, async (req, res) => {
     const limit = 10;
     const skip = (page - 1) * limit;
     // Get suspended user IDs to exclude
-    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspended = await User.find({ isSuspended: true }).select("id");
     const suspendedIds = suspended.map(u => u.id);
     // Get private accounts the user does NOT follow
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
-    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id");
     const privateIds = privateUsers.map(u => u.id);
     const excludeIds = [...new Set([...suspendedIds, ...privateIds])];
     const posts = await Post.find({ mediaType: { $in: ["image", null] }, userId: { $nin: excludeIds } })
@@ -27,7 +27,7 @@ router.get("/feed", auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip)
-      .lean();
+      ;
     res.json({ posts, hasMore: posts.length === limit, page });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -40,18 +40,18 @@ router.get("/reels", auth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const skip = (page - 1) * limit;
-    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspended = await User.find({ isSuspended: true }).select("id");
     const suspendedIds = suspended.map(u => u.id);
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
-    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id");
     const excludeIds = [...new Set([...suspendedIds, ...privateUsers.map(u => u.id)])];
     const posts = await Post.find({ mediaType: "video", userId: { $nin: excludeIds } })
       .select("id userId username mediaUrl mediaType caption location createdAt")
       .sort({ createdAt: -1 })
       .limit(limit)
       .skip(skip)
-      .lean();
+      ;
     res.json({ posts, hasMore: posts.length === limit, page });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -61,17 +61,17 @@ router.get("/reels", auth, async (req, res) => {
 // Explore - recent posts grid
 router.get("/explore", auth, async (req, res) => {
   try {
-    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspended = await User.find({ isSuspended: true }).select("id");
     const suspendedIds = suspended.map(u => u.id);
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
-    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id");
     const excludeIds = [...new Set([...suspendedIds, ...privateUsers.map(u => u.id)])];
     const posts = await Post.find({ mediaType: { $in: ["image", "video"] }, userId: { $nin: excludeIds } })
       .select("id userId username mediaUrl mediaType caption createdAt")
       .sort({ createdAt: -1 })
       .limit(30)
-      .lean();
+      ;
     res.json(posts);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -82,9 +82,9 @@ router.get("/explore", auth, async (req, res) => {
 router.get("/saved", auth, async (req, res) => {
   try {
     const { User } = require("../models");
-    const user = await User.findOne({ id: req.user.id }).lean();
+    const user = await User.findOne({ id: req.user.id });
     if (!user?.savedPosts?.length) return res.json([]);
-    const posts = await Post.find({ id: { $in: user.savedPosts } }).lean();
+    const posts = await Post.find({ id: { $in: user.savedPosts } });
     res.json(posts);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -98,7 +98,7 @@ router.get("/user/:username", auth, async (req, res) => {
       .select("id userId username mediaUrl mediaFileName mediaType caption location music createdAt")
       .sort({ createdAt: -1 })
       .limit(30)
-      .lean();
+      ;
     res.json(posts);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -116,7 +116,7 @@ router.get("/hashtag/:tag", auth, async (req, res) => {
       .select("id userId username mediaUrl mediaType caption createdAt")
       .sort({ createdAt: -1 })
       .limit(30)
-      .lean();
+      ;
     res.json(posts);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -165,7 +165,7 @@ router.post("/:id/like", auth, async (req, res) => {
       return res.json({ liked: false });
     }
     await Like.create({ postId: req.params.id, userId: req.user.id });
-    const post = await Post.findOne({ id: req.params.id }).lean();
+    const post = await Post.findOne({ id: req.params.id });
     if (post && post.userId !== req.user.id) {
       await notifRouter.createNotif({
         userId: post.userId,
@@ -239,7 +239,7 @@ router.post("/bulk-meta", auth, async (req, res) => {
         { $match: { postId: { $in: postIds } } },
         { $group: { _id: "$postId", count: { $sum: 1 } } }
       ]),
-      Like.find({ postId: { $in: postIds }, userId: req.user.id }).lean(),
+      Like.find({ postId: { $in: postIds }, userId: req.user.id }),
       require("../models").Comment.aggregate([
         { $match: { postId: { $in: postIds } } },
         { $group: { _id: "$postId", count: { $sum: 1 } } }

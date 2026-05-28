@@ -9,7 +9,7 @@ router.get("/", auth, async (req, res) => {
     await Note.deleteMany({ expiresAt: { $lt: new Date() } });
     
     // Get list of people you follow
-    const following = await Follow.find({ followerId: req.user.id }).lean();
+    const following = await Follow.find({ followerId: req.user.id });
     const followingIds = following.map(f => f.followingId);
     
     // Include your own note too

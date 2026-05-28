@@ -9,7 +9,7 @@ router.get("/", auth, async (req, res) => {
     const notifs = await Notification.find({ userId: req.user.id })
       .sort({ createdAt: -1 })
       .limit(50)
-      .lean();
+      ;
     res.json(notifs);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

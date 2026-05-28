@@ -12,7 +12,7 @@ router.get("/", auth, async (req, res) => {
         { "members.id": userId },
         { createdById: userId }
       ]
-    }).sort({ updatedAt: -1 }).lean();
+    }).sort({ updatedAt: -1 });
     res.json(Array.isArray(groups) ? groups : []);
   } catch (err) {
     console.error("Groups fetch error:", err);
@@ -51,7 +51,7 @@ router.post("/upload", auth, async (req, res) => {
 
 router.get("/:id", auth, async (req, res) => {
   try {
-    const group = await Group.findOne({ id: req.params.id }).lean();
+    const group = await Group.findOne({ id: req.params.id });
     if (!group) return res.status(404).json({ message: "Not found" });
     res.json(group);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -124,8 +124,8 @@ router.post("/:id/messages", auth, async (req, res) => {
     if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
     const { User } = require("../models");
     const [sender, grp] = await Promise.all([
-      User.findOne({ id: req.user.id }).select("avatar").lean(),
-      Group.findOne({ id: req.params.id }).lean(),
+      User.findOne({ id: req.user.id }).select("avatar"),
+      Group.findOne({ id: req.params.id }),
     ]);
     if (!grp) return res.status(404).json({ message: "Group not found" });
     const msg = await GroupMessage.create({

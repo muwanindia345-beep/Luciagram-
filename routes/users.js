@@ -24,42 +24,42 @@ router.get("/search", auth, async (req, res) => {
         { username: { $regex: escaped, $options: "i" } },
         { fullName: { $regex: escaped, $options: "i" } }
       ]
-    }).select("-password").limit(10).lean();
+    }).select("-password").limit(10);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 router.get("/following-list", auth, async (req, res) => {
   try {
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     const ids = follows.map(f => f.followingId);
     const users = await User.find({ id: { $in: ids }, isSuspended: { $ne: true } })
-      .select("id username avatar fullName isVerified").lean();
+      .select("id username avatar fullName isVerified");
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 router.get("/my/following-ids", auth, async (req, res) => {
   try {
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     res.json(follows.map(f => f.followingId));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 router.get("/:id/followers/list", auth, async (req, res) => {
   try {
-    const follows = await Follow.find({ followingId: req.params.id }).lean();
+    const follows = await Follow.find({ followingId: req.params.id });
     const users = await User.find({ id: { $in: follows.map(f => f.followerId) } })
-      .select("id username avatar isVerified").lean();
+      .select("id username avatar isVerified");
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 router.get("/:id/following/list", auth, async (req, res) => {
   try {
-    const follows = await Follow.find({ followerId: req.params.id }).lean();
+    const follows = await Follow.find({ followerId: req.params.id });
     const users = await User.find({ id: { $in: follows.map(f => f.followingId) } })
-      .select("id username avatar isVerified").lean();
+      .select("id username avatar isVerified");
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -69,7 +69,7 @@ router.get("/:id/followers", auth, async (req, res) => {
     const followers = await Follow.countDocuments({ followingId: req.params.id });
     const following = await Follow.countDocuments({ followerId: req.params.id });
     const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
-    const targetUser = await User.findOne({ id: req.params.id }).lean();
+    const targetUser = await User.findOne({ id: req.params.id });
     const isPending = !!(targetUser?.followRequests || []).find(r => r.userId === req.user.id);
     res.json({ followers, following, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -86,7 +86,7 @@ router.put("/profile", auth, async (req, res) => {
     if (existing) return res.status(400).json({ message: "Username taken" });
     const update = { fullName, username, bio, website, avatar };
     if (song !== undefined) update.song = song;
-    const oldUser = await User.findOne({ id: req.user.id }).lean();
+    const oldUser = await User.findOne({ id: req.user.id });
     const user = await User.findOneAndUpdate(
       { id: req.user.id },
       update,
@@ -134,7 +134,7 @@ router.post("/:id/follow", auth, async (req, res) => {
   try {
     const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
-    const followedUser = await User.findOne({ id: req.params.id }).lean();
+    const followedUser = await User.findOne({ id: req.params.id });
     await Follow.create({
       followerId: req.user.id,
       followerUsername: req.user.username,
@@ -204,7 +204,7 @@ router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
     const user = await User.findOne({ id: req.user.id });
     user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
     await user.save();
-    const requester = await User.findOne({ id: req.params.requesterId }).lean();
+    const requester = await User.findOne({ id: req.params.requesterId });
     await Follow.create({
       followerId: req.params.requesterId,
       followerUsername: requester?.username || "",
@@ -234,7 +234,7 @@ router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
 
 router.get("/:username", auth, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username }).select("-password").lean();
+    const user = await User.findOne({ username: req.params.username }).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.isSuspended) return res.status(404).json({ message: "User not found", suspended: true });
     const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));

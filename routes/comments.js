@@ -10,7 +10,7 @@ router.get("/:postId", async (req, res) => {
     const comments = await Comment.find({ postId: req.params.postId })
       .sort({ createdAt: 1 })
       .limit(100)
-      .lean();
+      ;
     res.json(comments);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -38,7 +38,7 @@ router.post("/:postId", auth, async (req, res) => {
     // Notifications (after response sent)
     try {
       const { Post, User } = require("../models");
-      const post = await Post.findOne({ id: req.params.postId }).lean();
+      const post = await Post.findOne({ id: req.params.postId });
       if (post) {
         // Notify post owner (not self)
         if (post.userId !== req.user.id) {
@@ -58,7 +58,7 @@ router.post("/:postId", auth, async (req, res) => {
         const mentioned = text.match(/@([a-zA-Z0-9_]+)/g);
         if (mentioned) {
           for (const m of mentioned) {
-            const mentionedUser = await User.findOne({ username: m.slice(1) }).lean();
+            const mentionedUser = await User.findOne({ username: m.slice(1) });
             if (mentionedUser && mentionedUser.id !== req.user.id) {
               await notifRouter.createNotif({
                 userId: mentionedUser.id,

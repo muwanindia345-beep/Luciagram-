@@ -29,7 +29,7 @@ router.get("/admin/all", async (req, res) => {
   try {
     if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
     const status = req.query.status || "pending";
-    const reports = await Report.find(status === "all" ? {} : { status }).sort({ createdAt: -1 }).limit(200).lean();
+    const reports = await Report.find(status === "all" ? {} : { status }).sort({ createdAt: -1 }).limit(200);
     res.json(reports);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

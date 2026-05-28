@@ -6,7 +6,7 @@ const { v4: uuidv4 } = require("uuid");
 router.get("/cleanup", async (req, res) => {
   try {
     // Find posts with base64 data (starts with data:)
-    const allPosts = await Post.find().lean();
+    const allPosts = await Post.find();
     let cleaned = 0;
     let spaceSaved = 0;
 
@@ -19,7 +19,7 @@ router.get("/cleanup", async (req, res) => {
     }
 
     // Clean stories too
-    const allStories = await Story.find().lean();
+    const allStories = await Story.find();
     let storiesCleaned = 0;
     for (const story of allStories) {
       if (story.mediaUrl && story.mediaUrl.startsWith("data:")) {
@@ -206,7 +206,7 @@ router.delete("/delete/:username", async (req, res) => {
 router.get("/check/:username", async (req, res) => {
   try {
     if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
-    const user = await User.findOne({ username: req.params.username }).select("-password").lean();
+    const user = await User.findOne({ username: req.params.username }).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
     const { Report } = require("../models");
     const reportCount = await Report.countDocuments({ targetUserId: user.id, status: "pending" });
@@ -239,7 +239,7 @@ router.delete("/stories/:username", async (req, res) => {
 router.delete("/nuke/:username", async (req, res) => {
   try {
     if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
-    const user = await User.findOne({ username: req.params.username }).lean();
+    const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
     const [posts, stories, msgs, follows] = await Promise.all([
       Post.deleteMany({ userId: user.id }),

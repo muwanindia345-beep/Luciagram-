@@ -48,7 +48,7 @@ router.get("/conversations", auth, async (req, res) => {
   try {
     const msgs = await Message.find({
       $or: [{ senderId: req.user.id }, { receiverId: req.user.id }]
-    }).sort({ createdAt: -1 }).limit(200).lean();
+    }).sort({ createdAt: -1 }).limit(200);
     const conversations = {};
     msgs.forEach(m => {
       const otherId = m.senderId === req.user.id ? m.receiverId : m.senderId;
@@ -71,7 +71,7 @@ router.get("/conversations", auth, async (req, res) => {
     });
     const { User } = require("../models");
     const userIds = Object.keys(conversations);
-    const users = await User.find({ id: { $in: userIds } }).select("id avatar").lean();
+    const users = await User.find({ id: { $in: userIds } }).select("id avatar");
     users.forEach(u => { if (conversations[u.id]) conversations[u.id].avatar = u.avatar || ""; });
     res.json(Object.values(conversations));
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -97,7 +97,7 @@ router.post("/", auth, async (req, res) => {
     if (!receiverId) return res.status(400).json({ message: "receiverId required" });
     if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
     const { User } = require("../models");
-    const receiver = await User.findOne({ id: receiverId }).lean();
+    const receiver = await User.findOne({ id: receiverId });
     if (!receiver) return res.status(404).json({ message: "User not found" });
     if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
     const msg = await Message.create({

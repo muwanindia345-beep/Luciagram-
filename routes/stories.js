@@ -18,7 +18,7 @@ setInterval(async () => {
 router.get("/", auth, async (req, res) => {
   try {
     // Get list of userIds the current user follows
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
     // Include own stories too
     followingIds.push(req.user.id);
@@ -29,7 +29,7 @@ router.get("/", auth, async (req, res) => {
     })
       .select("id userId username mediaUrl mediaType music caption expiresAt createdAt")
       .sort({ createdAt: -1 })
-      .lean();
+      ;
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -106,7 +106,7 @@ router.get("/:id/views", auth, async (req, res) => {
     const story = await Story.findOne({ id: req.params.id });
     if (!story) return res.status(404).json({ message: "Not found" });
     if (story.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
-    const views = await StoryView.find({ storyId: req.params.id }).sort({ createdAt: -1 }).lean();
+    const views = await StoryView.find({ storyId: req.params.id }).sort({ createdAt: -1 });
     res.json({ count: views.length, viewers: views });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -114,7 +114,7 @@ router.get("/:id/views", auth, async (req, res) => {
 router.get("/user/:username", auth, async (req, res) => {
   try {
     const now = new Date();
-    const storyUser = await User.findOne({ username: req.params.username }).lean();
+    const storyUser = await User.findOne({ username: req.params.username });
     if (!storyUser) return res.json([]);
 
     // If private, only owner or followers can see stories
@@ -126,7 +126,7 @@ router.get("/user/:username", auth, async (req, res) => {
     const stories = await Story.find({
       username: req.params.username,
       expiresAt: { $gt: now }
-    }).sort({ createdAt: -1 }).lean();
+    }).sort({ createdAt: -1 });
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
