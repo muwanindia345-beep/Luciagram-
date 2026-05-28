@@ -14,6 +14,8 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const { name, avatarBase64 } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ message: "Group name required" });
+    if (name.length > 50) return res.status(400).json({ message: "Group name max 50 chars" });
     let avatarUrl = "";
     if (avatarBase64) {
       const result = await SupaStore.upload(avatarBase64, "image", req.user.id);
@@ -26,6 +28,15 @@ router.post("/", auth, async (req, res) => {
       members: [{ id: req.user.id, username: req.user.username, avatar: req.user.avatar || "" }],
     });
     res.status(201).json(group);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.post("/upload", auth, async (req, res) => {
+  try {
+    const { mediaBase64, mediaType } = req.body;
+    if (!mediaBase64) return res.status(400).json({ message: "mediaBase64 required" });
+    const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
+    res.json({ url: result.url });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -101,6 +112,7 @@ router.get("/:id/messages", auth, async (req, res) => {
 router.post("/:id/messages", auth, async (req, res) => {
   try {
     const { text, mediaUrl, mediaType, replyTo, music } = req.body;
+    if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
     const { User } = require("../models");
     const [sender, grp] = await Promise.all([
       User.findOne({ id: req.user.id }).select("avatar").lean(),
@@ -122,13 +134,7 @@ router.post("/:id/messages", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.post("/upload", auth, async (req, res) => {
-  try {
-    const { mediaBase64, mediaType } = req.body;
-    const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
-    res.json({ url: result.url });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
+
 
 const groupTyping = {};
 router.post("/:id/typing", auth, (req, res) => {

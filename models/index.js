@@ -13,7 +13,7 @@ const PostSchema = new mongoose.Schema({
   mediaUrl: String,
   mediaFileName: String,
   mediaType: { type: String, default: "image" }, 
-  caption: String, location: String, tags: [String] 
+  caption: String, location: String, tags: [String], music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number } 
 }, { timestamps: true });
 PostSchema.index({ createdAt: -1 });
 
@@ -48,18 +48,24 @@ const MessageSchema = new mongoose.Schema({
   reactions: [{ userId: String, username: String, emoji: String }],
 }, { timestamps: true });
 
+MessageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
+MessageSchema.index({ receiverId: 1, isRead: 1 });
+
 const NotificationSchema = new mongoose.Schema({
   id: String,
   userId: String,
   fromUserId: String,
   fromUsername: String,
   fromAvatar: String,
-  type: { type: String, enum: ["like", "comment", "follow", "mention"] },
+  type: { type: String, enum: ["like", "comment", "follow", "mention", "message", "group_message", "story_like", "story_view"] },
   postId: String,
   postThumb: String,
   text: String,
   isRead: { type: Boolean, default: false },
 }, { timestamps: true });
+
+NotificationSchema.index({ userId: 1, createdAt: -1 });
+NotificationSchema.index({ userId: 1, isRead: 1 });
 
 const GroupSchema = new mongoose.Schema({
   id: String,
