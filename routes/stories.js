@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Story, StoryView } = require("../models");
+const { Story, StoryView, Follow, User } = require("../models");
 const SupaStore = require("../supastore");
 const { v4: uuidv4 } = require("uuid");
 
@@ -17,7 +17,16 @@ setInterval(async () => {
 
 router.get("/", auth, async (req, res) => {
   try {
-    const stories = await Story.find({ expiresAt: { $gt: new Date() } })
+    // Get list of userIds the current user follows
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const followingIds = follows.map(f => f.followingId);
+    // Include own stories too
+    followingIds.push(req.user.id);
+
+    const stories = await Story.find({
+      expiresAt: { $gt: new Date() },
+      userId: { $in: followingIds }
+    })
       .select("id userId username mediaUrl mediaType music caption expiresAt createdAt")
       .sort({ createdAt: -1 })
       .lean();
@@ -105,6 +114,15 @@ router.get("/:id/views", auth, async (req, res) => {
 router.get("/user/:username", auth, async (req, res) => {
   try {
     const now = new Date();
+    const storyUser = await User.findOne({ username: req.params.username }).lean();
+    if (!storyUser) return res.json([]);
+
+    // If private, only owner or followers can see stories
+    if (storyUser.isPrivate && storyUser.id !== req.user.id) {
+      const isFollowing = await Follow.findOne({ followerId: req.user.id, followingId: storyUser.id });
+      if (!isFollowing) return res.json([]);
+    }
+
     const stories = await Story.find({
       username: req.params.username,
       expiresAt: { $gt: now }
