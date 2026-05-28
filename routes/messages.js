@@ -62,9 +62,19 @@ router.get("/conversations", auth, async (req, res) => {
           lastMedia: m.mediaUrl,
           createdAt: m.createdAt,
           unread: !m.isRead && m.receiverId === req.user.id ? 1 : 0,
+          avatar: "",
         };
+      } else {
+        if (!m.isRead && m.receiverId === req.user.id) {
+          conversations[otherId].unread = (conversations[otherId].unread || 0) + 1;
+        }
       }
     });
+    // Attach avatars from User collection
+    const { User } = require("../models");
+    const userIds = Object.keys(conversations);
+    const users = await User.find({ id: { $in: userIds } }).select("id avatar").lean();
+    users.forEach(u => { if (conversations[u.id]) conversations[u.id].avatar = u.avatar || ""; });
     res.json(Object.values(conversations));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

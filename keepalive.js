@@ -14,9 +14,9 @@ const ping = () => {
   });
 };
 
-// Ping every 14 minutes
+// Ping every 5 minutes to prevent Render cold start + socket drops
 ping();
-setInterval(ping, 14 * 60 * 1000);
+setInterval(ping, 5 * 60 * 1000);
 
 console.log('🤖 Luciagram Keep-Alive Bot started!');
-console.log('⏰ Pinging every 14 minutes...');
+console.log('⏰ Pinging every 5 minutes...');
