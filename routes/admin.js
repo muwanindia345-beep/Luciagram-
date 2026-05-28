@@ -214,4 +214,15 @@ router.get("/check/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+// Delete all posts by username
+// curl -X DELETE https://your-api/api/admin/posts/USERNAME -H "x-admin-key: YOUR_KEY"
+router.delete("/posts/:username", async (req, res) => {
+  try {
+    if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
+    const result = await Post.deleteMany({ username: req.params.username });
+    res.json({ message: "✅ Deleted " + result.deletedCount + " posts by @" + req.params.username });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
