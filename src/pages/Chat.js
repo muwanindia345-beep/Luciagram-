@@ -59,8 +59,9 @@ export default function Chat() {
   const recordingTimerRef = useRef(null);
 
   // Wallpaper
-  const [wallpaper, setWallpaper] = useState("");
+  const [wallpaper, setWallpaper] = useState(() => localStorage.getItem("chat_wallpaper_"+userId) || "");
   useEffect(() => {
+    if (!userId) return;
     const loadWallpaper = async () => {
       try {
         const db = await new Promise((res, rej) => {
@@ -324,7 +325,8 @@ const sendMessage = async () => {
     }
     setGifLoading(true);
     try {
-        const res = await fetch("https://g.tenor.com/v1/search?limit=20&q="+encodeURIComponent(q));
+        const TKEY = process.env.REACT_APP_TENOR_KEY || "LIVDSRZULELA";
+      const res = await fetch(`https://g.tenor.com/v1/search?limit=20&key=${TKEY}&q=`+encodeURIComponent(q));
       const data = await res.json();
       setGifs(data.results || []);
     } catch {} finally { setGifLoading(false); }
@@ -333,7 +335,8 @@ const sendMessage = async () => {
   const loadTrendingGifs = async () => {
     setGifLoading(true);
     try {
-        const res = await fetch("https://g.tenor.com/v1/trending?limit=20");
+        const TKEY2 = process.env.REACT_APP_TENOR_KEY || "LIVDSRZULELA";
+      const res = await fetch(`https://g.tenor.com/v1/trending?limit=20&key=${TKEY2}`);
       const data = await res.json();
       setGifs(data.results || []);
     } catch {} finally { setGifLoading(false); }
@@ -687,13 +690,44 @@ const sendMessage = async () => {
       <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:"rgba(10,10,15,0.92)",flexShrink:0,backdropFilter:"blur(10px)"}}>
         <span onClick={()=>setShowAttachMenu(v=>!v)} style={{fontSize:"1.3rem",cursor:"pointer"}}>➕</span>
         <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎵</span>
-        <input
-          value={text}
-          onChange={e=>{setText(e.target.value);handleTyping();}}
-          onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
-          placeholder="Message..."
-          style={{flex:1,background:"#1e1e2e",border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0}}
-        />
+        <div style={{flex:1,position:"relative",display:"flex",alignItems:"center"}}>
+          <div
+            ref={inputDivRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={e => {
+              // Gboard GIF/sticker handling
+              const event = e.nativeEvent;
+              if (event.inputType === 'insertContent' || event.inputType === 'insertFromPaste') {
+                const dt = event.dataTransfer;
+                if (dt && dt.files && dt.files.length > 0) {
+                  const file = dt.files[0];
+                  if (file.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      setMediaData(reader.result);
+                      setMediaPreview(reader.result);
+                      setMediaType(file.type === 'image/gif' ? 'gif' : 'image');
+                    };
+                    reader.readAsDataURL(file);
+                    inputDivRef.current.textContent = '';
+                    return;
+                  }
+                }
+              }
+              const val = e.currentTarget.textContent || '';
+              setText(val);
+              handleTyping();
+            }}
+            onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),sendMessage())}
+            onPaste={handlePaste}
+            data-placeholder="Message..."
+            style={{flex:1,background:"#1e1e2e",border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0,minHeight:"36px",maxHeight:"100px",overflowY:"auto",wordBreak:"break-word",display:"flex",alignItems:"center"}}
+          />
+          <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#666;pointer-events:none;position:absolute;left:0.9rem}`}</style>
+        </div>
+        <span onClick={openGifPicker} style={{fontSize:"1.2rem",cursor:"pointer",flexShrink:0}} title="GIF">🎞️</span>
         <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleMedia} style={{display:"none"}} />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleMedia} style={{display:"none"}} />
         {text || mediaData || audioUrl ? (
