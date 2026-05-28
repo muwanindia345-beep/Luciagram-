@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { User, Follow } = require("../models");
+const { User, Follow, Post, Story, Message, Comment } = require("../models");
 const notifRouter = require("./notifications");
 
 router.get("/search", auth, async (req, res) => {
@@ -15,6 +15,16 @@ router.get("/search", auth, async (req, res) => {
         { fullName: { $regex: escaped, $options: "i" } }
       ]
     }).select("-password").limit(10).lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/following-list", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const ids = follows.map(f => f.followingId);
+    const users = await User.find({ id: { $in: ids }, isSuspended: { $ne: true } })
+      .select("id username avatar fullName isVerified").lean();
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -66,11 +76,26 @@ router.put("/profile", auth, async (req, res) => {
     if (existing) return res.status(400).json({ message: "Username taken" });
     const update = { fullName, username, bio, website, avatar };
     if (song !== undefined) update.song = song;
+    const oldUser = await User.findOne({ id: req.user.id }).lean();
     const user = await User.findOneAndUpdate(
       { id: req.user.id },
       update,
       { new: true }
     ).select("-password");
+    // If username changed, update all posts, stories, messages, comments
+    if (username && username !== oldUser.username) {
+      await Promise.all([
+        Post.updateMany({ userId: req.user.id }, { username }),
+        Story.updateMany({ userId: req.user.id }, { username }),
+        Message.updateMany({ senderId: req.user.id }, { senderUsername: username }),
+        Message.updateMany({ receiverId: req.user.id }, { receiverUsername: username }),
+        Comment.updateMany({ userId: req.user.id }, { username }),
+      ]);
+    }
+    // If avatar changed, update stories and posts author avatar reference
+    if (avatar !== undefined && avatar !== oldUser.avatar) {
+      await Story.updateMany({ userId: req.user.id }, { avatar });
+    }
     res.json(user);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
