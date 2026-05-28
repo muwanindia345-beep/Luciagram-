@@ -73,7 +73,13 @@ class QueryBuilder {
   sort(s) { this._sort = s; return this; }
   limit(n) { this._limit = n; return this; }
   skip(n) { this._skip = n; return this; }
-  select(f) { return this; }
+  select(f) {
+    if (f && typeof f === 'string') {
+      this._excludeFields = f.split(' ').filter(x => x.startsWith('-')).map(x => x.slice(1));
+      this._includeFields = f.split(' ').filter(x => !x.startsWith('-'));
+    }
+    return this;
+  }
   async exec() {
     let q = supabase.from(this.table).select("*");
     q = applyFilter(q, this.filter);
@@ -89,7 +95,11 @@ class QueryBuilder {
     }
     const { data, error } = await q;
     if (error) throw error;
-    return fromRows(data, this.table);
+    const rows = fromRows(data, this.table);
+    if (this._excludeFields?.length) {
+      return rows.map(r => { const obj = {...r}; this._excludeFields.forEach(f => delete obj[f]); return obj; });
+    }
+    return rows;
   }
   then(res, rej) { return this.exec().then(res, rej); }
 }

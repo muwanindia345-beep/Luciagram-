@@ -6,7 +6,7 @@ const notifRouter = require("./notifications");
 
 router.get("/me", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findOne({ id: req.user.id });
     if (!user) return res.status(404).json({ message: "User not found" });
     const { password, ...safe } = user;
     res.json(safe);
