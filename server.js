@@ -123,6 +123,7 @@ const noteRoutes = require('./routes/notes');
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/auth', authRoutes);
+app.use('/api/settings', require('./routes/settings'));
 app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/stories', storyRoutes);
