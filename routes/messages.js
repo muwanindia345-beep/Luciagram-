@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Message, User } = require("../models");
+const { Message } = require("../models");
 const notifRouter = require("./notifications");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
@@ -49,7 +49,6 @@ router.get("/conversations", auth, async (req, res) => {
     const msgs = await Message.find({
       $or: [{ senderId: req.user.id }, { receiverId: req.user.id }]
     }).sort({ createdAt: -1 }).limit(200).lean();
-    
     const conversations = {};
     msgs.forEach(m => {
       const otherId = m.senderId === req.user.id ? m.receiverId : m.senderId;
@@ -70,7 +69,6 @@ router.get("/conversations", auth, async (req, res) => {
         }
       }
     });
-    // Attach avatars from User collection
     const { User } = require("../models");
     const userIds = Object.keys(conversations);
     const users = await User.find({ id: { $in: userIds } }).select("id avatar").lean();
@@ -95,20 +93,13 @@ router.get("/:userId", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const receiver = await User.findOne({ id: req.body.receiverId }).lean();
-    if (!receiver) return res.status(404).json({ message: "User not found" });
-    if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
-    const sender = await User.findOne({ id: req.user.id }).lean();
-    if (sender?.isSuspended) return res.status(403).json({ message: "Your account has been suspended" });
-  } catch {}
-  // original handler below
-  const _unused = null;
-  try { const _skip = null; } catch {}
-router.post("/_internal_messages", auth, async (req, res) => {
-  try {
     const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo, music } = req.body;
     if (!receiverId) return res.status(400).json({ message: "receiverId required" });
     if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
+    const { User } = require("../models");
+    const receiver = await User.findOne({ id: receiverId }).lean();
+    if (!receiver) return res.status(404).json({ message: "User not found" });
+    if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
     const msg = await Message.create({
       id: uuidv4(),
       senderId: req.user.id,
@@ -123,13 +114,11 @@ router.post("/_internal_messages", auth, async (req, res) => {
       reactions: [],
       music: music || null,
     });
-    // Emit real-time with decrypted text
     const msgObj = msg.toObject();
     const decryptedMsg = { ...msgObj, text: decryptText(msgObj.text) };
     if (global.io) {
-      global.io.to('user_' + receiverId).emit('new_message', decryptedMsg);
+      global.io.to("user_" + receiverId).emit("new_message", decryptedMsg);
     }
-    // DM notification
     await notifRouter.createNotif({
       userId: receiverId,
       fromUserId: req.user.id,
@@ -150,7 +139,7 @@ router.delete("/:id", auth, async (req, res) => {
     const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
     await msg.deleteOne();
     if (global.io) {
-      global.io.to('user_' + otherId).emit('dm_unsend', { msgId: req.params.id });
+      global.io.to("user_" + otherId).emit("dm_unsend", { msgId: req.params.id });
     }
     res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -174,32 +163,28 @@ router.post("/:id/react", auth, async (req, res) => {
     await msg.save();
     const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
     if (global.io) {
-      global.io.to('user_' + otherId).emit('dm_reaction', { msgId: req.params.id, reactions: msg.reactions });
+      global.io.to("user_" + otherId).emit("dm_reaction", { msgId: req.params.id, reactions: msg.reactions });
     }
     res.json({ reactions: msg.reactions });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// In-memory typing status
 const typingStatus = {};
 
-// POST /messages/typing
-router.post('/typing', auth, (req, res) => {
-  const key = req.user.id + '_' + req.body.receiverId;
+router.post("/typing", auth, (req, res) => {
+  const key = req.user.id + "_" + req.body.receiverId;
   typingStatus[key] = Date.now();
   res.json({ ok: true });
 });
 
-// POST /messages/typing/stop
-router.post('/typing/stop', auth, (req, res) => {
-  const key = req.user.id + '_' + req.body.receiverId;
+router.post("/typing/stop", auth, (req, res) => {
+  const key = req.user.id + "_" + req.body.receiverId;
   delete typingStatus[key];
   res.json({ ok: true });
 });
 
-// GET /messages/typing/:userId
-router.get('/typing/:userId', auth, (req, res) => {
-  const key = req.params.userId + '_' + req.user.id;
+router.get("/typing/:userId", auth, (req, res) => {
+  const key = req.params.userId + "_" + req.user.id;
   const lastTyped = typingStatus[key];
   const isTyping = lastTyped && (Date.now() - lastTyped < 3000);
   res.json({ isTyping: !!isTyping });
