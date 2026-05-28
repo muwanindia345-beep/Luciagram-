@@ -8,8 +8,7 @@ router.get("/search", auth, async (req, res) => {
     const q = (req.query.q || "").trim();
     if (!q || q.length < 1) return res.json([]);
     if (q.length > 30) return res.status(400).json({ message: "Search query too long" });
-    // Escape special regex chars to prevent ReDoS
-    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const users = await User.find({
       $or: [
         { username: { $regex: escaped, $options: "i" } },
@@ -20,11 +19,37 @@ router.get("/search", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/:username", async (req, res) => {
+router.get("/my/following-ids", auth, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username }).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    res.json(follows.map(f => f.followingId));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:id/followers/list", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followingId: req.params.id }).lean();
+    const users = await User.find({ id: { $in: follows.map(f => f.followerId) } })
+      .select("id username avatar isVerified").lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:id/following/list", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followerId: req.params.id }).lean();
+    const users = await User.find({ id: { $in: follows.map(f => f.followingId) } })
+      .select("id username avatar isVerified").lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:id/followers", auth, async (req, res) => {
+  try {
+    const followers = await Follow.countDocuments({ followingId: req.params.id });
+    const following = await Follow.countDocuments({ followerId: req.params.id });
+    const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
+    res.json({ followers, following, isFollowing });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -48,13 +73,37 @@ router.put("/profile", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+router.put("/remove-avatar", auth, async (req, res) => {
+  try {
+    const user = await User.findOneAndUpdate(
+      { id: req.user.id },
+      { avatar: "" },
+      { new: true }
+    ).select("-password");
+    res.json(user);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.put("/privacy", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.user.id });
+    user.isPrivate = !user.isPrivate;
+    await user.save();
+    res.json({ isPrivate: user.isPrivate });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.post("/:id/follow", auth, async (req, res) => {
   try {
     const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
-    await Follow.create({ followerId: req.user.id, followerUsername: req.user.username, followingId: req.params.id });
-    // Notify followed user
     const followedUser = await User.findOne({ id: req.params.id }).lean();
+    await Follow.create({
+      followerId: req.user.id,
+      followerUsername: req.user.username,
+      followingId: req.params.id,
+      followingUsername: followedUser?.username || ""
+    });
     await notifRouter.createNotif({
       userId: req.params.id,
       fromUserId: req.user.id,
@@ -67,90 +116,31 @@ router.post("/:id/follow", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get followers list
-router.get("/:id/followers/list", auth, async (req, res) => {
-  try {
-    const follows = await Follow.find({ followingId: req.params.id }).lean();
-    const { User } = require("../models");
-    const users = await User.find({ id: { $in: follows.map(f => f.followerId) } })
-      .select("id username avatar isVerified").lean();
-    res.json(users);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// Get following list
-router.get("/:id/following/list", auth, async (req, res) => {
-  try {
-    const follows = await Follow.find({ followerId: req.params.id }).lean();
-    const { User } = require("../models");
-    const users = await User.find({ id: { $in: follows.map(f => f.followingId) } })
-      .select("id username avatar isVerified").lean();
-    res.json(users);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// Get my following IDs (for follow map)
-router.get("/my/following-ids", auth, async (req, res) => {
-  try {
-    const follows = await Follow.find({ followerId: req.user.id }).lean();
-    res.json(follows.map(f => f.followingId));
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-router.get("/:id/followers", auth, async (req, res) => {
-  try {
-    const followers = await Follow.countDocuments({ followingId: req.params.id });
-    const following = await Follow.countDocuments({ followerId: req.params.id });
-    const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
-    res.json({ followers, following, isFollowing });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// Remove profile picture
-router.put("/remove-avatar", auth, async (req, res) => {
-  try {
-    const user = await User.findOneAndUpdate(
-      { id: req.user.id },
-      { avatar: "" },
-      { new: true }
-    ).select("-password");
-    res.json(user);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// Toggle private account
-router.put("/privacy", auth, async (req, res) => {
-  try {
-    const user = await User.findOne({ id: req.user.id });
-    user.isPrivate = !user.isPrivate;
-    await user.save();
-    res.json({ isPrivate: user.isPrivate });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// Follow request system
 router.post("/:id/follow-request", auth, async (req, res) => {
   try {
     const targetUser = await User.findOne({ id: req.params.id });
     if (!targetUser) return res.status(404).json({ message: "User not found" });
-    
+
     if (!targetUser.isPrivate) {
-      // Public account — direct follow
       const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
       if (existing) { await existing.deleteOne(); return res.json({ status: "unfollowed" }); }
-      await Follow.create({ followerId: req.user.id, followerUsername: req.user.username, followingId: req.params.id });
-      const notifRouter = require("./notifications");
+      await Follow.create({
+        followerId: req.user.id,
+        followerUsername: req.user.username,
+        followingId: req.params.id,
+        followingUsername: targetUser.username
+      });
       await notifRouter.createNotif({
         userId: req.params.id,
         fromUserId: req.user.id,
         fromUsername: req.user.username,
+        fromAvatar: targetUser?.avatar || "",
         type: "follow",
         text: req.user.username + " started following you",
       });
       return res.json({ status: "following" });
     }
-    
-    // Private account — send request
+
     if (!targetUser.followRequests) targetUser.followRequests = [];
     const alreadyRequested = targetUser.followRequests.find(r => r.userId === req.user.id);
     if (alreadyRequested) {
@@ -160,12 +150,11 @@ router.post("/:id/follow-request", auth, async (req, res) => {
     }
     targetUser.followRequests.push({ userId: req.user.id, username: req.user.username });
     await targetUser.save();
-    // Notify
-    const notifRouter = require("./notifications");
     await notifRouter.createNotif({
       userId: req.params.id,
       fromUserId: req.user.id,
       fromUsername: req.user.username,
+      fromAvatar: targetUser?.avatar || "",
       type: "follow",
       text: req.user.username + " requested to follow you",
     });
@@ -173,18 +162,23 @@ router.post("/:id/follow-request", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Accept/decline follow request
 router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
     user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
     await user.save();
-    await Follow.create({ followerId: req.params.requesterId, followingId: req.user.id });
-    const notifRouter = require("./notifications");
+    const requester = await User.findOne({ id: req.params.requesterId }).lean();
+    await Follow.create({
+      followerId: req.params.requesterId,
+      followerUsername: requester?.username || "",
+      followingId: req.user.id,
+      followingUsername: user.username
+    });
     await notifRouter.createNotif({
       userId: req.params.requesterId,
       fromUserId: req.user.id,
       fromUsername: req.user.username,
+      fromAvatar: user?.avatar || "",
       type: "follow",
       text: req.user.username + " accepted your follow request",
     });
@@ -198,6 +192,14 @@ router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
     user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
     await user.save();
     res.json({ message: "Declined" });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:username", async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username }).select("-password");
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

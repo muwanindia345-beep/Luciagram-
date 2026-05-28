@@ -102,4 +102,15 @@ router.get("/:id/views", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+router.get("/user/:username", auth, async (req, res) => {
+  try {
+    const now = new Date();
+    const stories = await Story.find({
+      username: req.params.username,
+      expiresAt: { $gt: now }
+    }).sort({ createdAt: -1 }).lean();
+    res.json(stories);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
