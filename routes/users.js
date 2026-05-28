@@ -5,13 +5,17 @@ const notifRouter = require("./notifications");
 
 router.get("/search", auth, async (req, res) => {
   try {
-    const q = req.query.q;
+    const q = (req.query.q || "").trim();
+    if (!q || q.length < 1) return res.json([]);
+    if (q.length > 30) return res.status(400).json({ message: "Search query too long" });
+    // Escape special regex chars to prevent ReDoS
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const users = await User.find({
       $or: [
-        { username: { $regex: q, $options: "i" } },
-        { fullName: { $regex: q, $options: "i" } }
+        { username: { $regex: escaped, $options: "i" } },
+        { fullName: { $regex: escaped, $options: "i" } }
       ]
-    }).select("-password").limit(10);
+    }).select("-password").limit(10).lean();
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -27,6 +31,10 @@ router.get("/:username", async (req, res) => {
 router.put("/profile", auth, async (req, res) => {
   try {
     const { fullName, username, bio, website, avatar, song } = req.body;
+    if (username && username.length < 3) return res.status(400).json({ message: "Username too short" });
+    if (username && !/^[a-zA-Z0-9_.]+$/.test(username)) return res.status(400).json({ message: "Invalid username format" });
+    if (bio && bio.length > 150) return res.status(400).json({ message: "Bio max 150 characters" });
+    if (website && website.length > 100) return res.status(400).json({ message: "Website URL too long" });
     const existing = await User.findOne({ username, id: { $ne: req.user.id } });
     if (existing) return res.status(400).json({ message: "Username taken" });
     const update = { fullName, username, bio, website, avatar };

@@ -21,7 +21,11 @@ bot.start();
 
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: { origin: '*', methods: ['GET', 'POST'] },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling'],
+  upgradeTimeout: 30000,
 });
 
 io.on('connection', (socket) => {
@@ -32,10 +36,12 @@ io.on('connection', (socket) => {
   });
 
   socket.on('send_message', (data) => {
+    if (!data?.receiverId) return;
     io.to('user_' + data.receiverId).emit('new_message', data);
   });
 
   socket.on('typing', (data) => {
+    if (!data?.receiverId) return;
     io.to('user_' + data.receiverId).emit('typing', { senderId: data.senderId });
   });
 
@@ -81,6 +87,7 @@ io.on('connection', (socket) => {
 
   // ===== CALL SIGNALING =====
   socket.on('call:initiate', (data) => {
+    if (!data?.receiverId || !data?.callerId) return;
     io.to('user_' + data.receiverId).emit('call:incoming', data);
   });
   socket.on('call:accept', (data) => {
