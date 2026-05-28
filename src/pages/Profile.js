@@ -35,7 +35,7 @@ export default function Profile() {
     if (!user?.id) return;
     API.get("/posts/user/" + user.username).then(r => setPosts(r.data)).catch(()=>{});
     API.get("/stories").then(r => setStories(r.data.filter(s => s.userId === user?.id))).catch(()=>{});
-    API.get("/users/" + user.id + "/followers").then(r => setStats(r.data)).catch(()=>{});
+    API.get("/users/" + user.username + "/followers").then(r => setStats(r.data)).catch(()=>{});
     API.get("/posts/saved").then(r => setSavedPosts(r.data || [])).catch(()=>{});
     setIsPrivate(user?.isPrivate || false);
   }, [user?.id]);

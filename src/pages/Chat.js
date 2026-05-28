@@ -130,7 +130,7 @@ export default function Chat() {
       API.get("/users/" + username).then(r => setOtherUser(r.data)).catch(()=>{});
     }
     const socket = io("https://luciagram-backend.onrender.com", { transports: ["websocket"] });
-    socket.on("connect", () => socket.emit("join", user?.id));
+    const uid = user?.id; socket.on("connect", () => { if(uid) socket.emit("join", uid); });
     socket.on("new_message", (msg) => {
       if (msg.senderId === userId || msg.receiverId === userId) {
         setMessages(prev => {

@@ -99,7 +99,7 @@ useEffect(() => {
         setUserProfiles(prev => ({...prev, [username]: res.data}));
       }).catch(()=>{});
     });
-  }, [posts, stories]);
+  }, [posts]); // stories removed to prevent infinite loop
 
   useEffect(() => {
     if (!activeStory || storyPaused) return;

@@ -33,6 +33,8 @@ export default function Reels() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const videoRefs = useRef({});
+  // Cleanup old refs
+  React.useEffect(() => { const keys = Object.keys(videoRefs.current); keys.forEach(k => { if(parseInt(k) < current - 5) delete videoRefs.current[k]; }); }, [current]);
 
   // When muted toggles, apply to current video immediately
   React.useEffect(() => {

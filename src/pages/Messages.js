@@ -41,7 +41,7 @@ export default function Messages() {
         const newIds = ids.filter(id => !convIds.has(id));
         if (newIds.length > 0) {
           // Fetch all followed user profiles
-          const profileRes = await API.get("/users/following-list");
+          const profileRes = await API.get("/users/my/following-ids");
           followedUsers = (profileRes.data || []).filter(u => !convIds.has(u.id));
         }
       } catch {}
