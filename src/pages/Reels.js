@@ -378,7 +378,7 @@ export default function Reels() {
                 <span onClick={()=>openProfileCard(p.username)} style={{color:"white",fontWeight:"bold",fontSize:"0.95rem",cursor:"pointer"}}>@{p.username||"user"}</span>
                 {p.username !== user?.username && (
                   <button
-                    onClick={()=>openProfileCard(p.username)}
+                    onClick={()=>{ if(profileData[p.username]) handleFollow(profileData[p.username]); else openProfileCard(p.username); }}
                     style={{background:"transparent",border:"1px solid white",color:"white",borderRadius:"6px",padding:"0.2rem 0.6rem",fontSize:"0.8rem",cursor:"pointer",marginLeft:"0.3rem"}}
                   >
                     {followingMap[profileData[p.username]?.id] ? "Following ✓" : "Follow"}

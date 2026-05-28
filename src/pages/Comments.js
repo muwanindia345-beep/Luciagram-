@@ -63,7 +63,7 @@ export default function Comments() {
   const handleHoldStart = (comment) => {
     const t = setTimeout(() => {
       setHoldMenu(comment);
-    }, 500);
+    }, 600);
     setHoldTimer(t);
   };
 
@@ -144,7 +144,8 @@ export default function Comments() {
             <div
               key={c.id||i}
               style={{display:"flex",gap:"0.75rem",marginBottom:"1rem",alignItems:"flex-start",animation:"slideUp 0.2s ease",position:"relative"}}
-              onTouchStart={()=>handleHoldStart(c)}
+              onTouchStart={(e)=>{handleHoldStart(c);}}
+              onTouchMove={handleHoldEnd}
               onTouchEnd={handleHoldEnd}
               onMouseDown={()=>handleHoldStart(c)}
               onMouseUp={handleHoldEnd}

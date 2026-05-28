@@ -29,6 +29,30 @@ export default function Home() {
   const navigate = useNavigate();
 
   const storyTimer = useRef(null);
+  const loaderRef = React.useRef(null);
+
+  // Infinite scroll observer
+  React.useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && hasMore && !loadingFeed) {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        API.get("/posts/feed?page=" + nextPage).then(r => {
+          const newPosts = r.data.posts || r.data;
+          setHasMore(r.data.hasMore !== false);
+          setPosts(prev => [...prev, ...(Array.isArray(newPosts) ? newPosts : [])]);
+          (Array.isArray(newPosts) ? newPosts : []).forEach(p => {
+            API.get("/posts/" + p.id + "/likes").then(res => {
+              setLikeCounts(prev => ({...prev, [p.id]: res.data.count}));
+              setLiked(prev => ({...prev, [p.id]: res.data.liked}));
+            }).catch(()=>{});
+          });
+        }).catch(()=>{});
+      }
+    }, { threshold: 0.1 });
+    if (loaderRef.current) observer.observe(loaderRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingFeed, page]);
   const storyMusicRef = useRef(null);
   const storyVideoRef = useRef(null);
   const [storyDuration, setStoryDuration] = useState(5000);
@@ -422,6 +446,7 @@ const groupedStories = stories.reduce((acc, s) => {
         ))}
       </div>
 
+<div ref={loaderRef} style={{height:"20px",margin:"1rem"}}>{hasMore && <div style={{textAlign:"center",color:"#555",fontSize:"0.8rem"}}>Loading...</div>}</div>
 <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
         <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>🏠</span>
         <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>

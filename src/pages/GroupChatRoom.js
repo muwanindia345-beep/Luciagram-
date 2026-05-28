@@ -639,17 +639,17 @@ export default function GroupChatRoom() {
                       </div>
                     </div>
                   )}
-                  {m.text && (
-                    <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4,fontFamily:currentFont}}>
-                      <MessageText text={m.text} />
-                    </div>
-                  )}
                   {m.replyTo && (
                     <div style={{background:"rgba(255,255,255,0.05)",borderLeft:"3px solid #7c3aed",borderRadius:"8px",padding:"0.3rem 0.6rem",marginBottom:"0.25rem",fontSize:"0.75rem",color:"#888"}}>
                       <span style={{color:"#a78bfa"}}>@{m.replyTo.senderUsername}</span>
                       <div style={{marginTop:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"200px"}}>
                         {m.replyTo.mediaType ? "📎 Media" : m.replyTo.text}
                       </div>
+                    </div>
+                  )}
+                  {m.text && (
+                    <div style={{background:mine?theme.mine:theme.bubble,padding:"0.55rem 0.9rem",borderRadius:mine?"18px 18px 4px 18px":"18px 18px 18px 4px",fontSize:"0.95rem",wordBreak:"break-word",lineHeight:1.4,fontFamily:currentFont}}>
+                      <MessageText text={m.text} />
                     </div>
                   )}
                   {m.reactions?.length > 0 && (

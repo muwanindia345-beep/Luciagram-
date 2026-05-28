@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "./api";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -27,6 +27,7 @@ function PrivateRoute({ children }) {
 function NotifBadge() {
   const [count, setCount] = React.useState(0);
   const { user } = useAuth();
+  try { const loc = useLocation(); if (loc.pathname.startsWith('/chat/') || loc.pathname.startsWith('/group/')) return null; } catch {}
   useEffect(() => {
     if (!user) return;
     const load = async () => {
