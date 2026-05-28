@@ -124,8 +124,7 @@ router.put("/remove-avatar", auth, async (req, res) => {
 router.put("/privacy", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    user.isPrivate = !user.isPrivate;
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { "isPrivate": !user.isPrivate });
     res.json({ isPrivate: user.isPrivate });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -202,8 +201,7 @@ router.post("/:id/follow-request", auth, async (req, res) => {
 router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { "followRequests": (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) });
     const requester = await User.findOne({ id: req.params.requesterId });
     await Follow.create({
       followerId: req.params.requesterId,
@@ -226,8 +224,7 @@ router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
 router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    user.followRequests = (user.followRequests || []).filter(r => r.userId !== req.params.requesterId);
-    await user.save();
+    await User.findByIdAndUpdate(user.id, { "followRequests": (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) });
     res.json({ message: "Declined" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -249,3 +246,4 @@ router.get("/:username", auth, async (req, res) => {
 });
 
 module.exports = router;
+
