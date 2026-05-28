@@ -142,6 +142,30 @@ function makeModel(table) {
       return fromRow(data);
     },
 
+    updateOne: async (filter, update) => {
+      const existing = await makeModel(table).findOne(filter);
+      if (!existing) return null;
+      const set = update.$set || update;
+      const push = update.$push;
+      let finalUpdate = { ...toRow(set) };
+      if (push) {
+        for (const [k, v] of Object.entries(push)) {
+          const col = snk(k);
+          const current = existing[k] || [];
+          finalUpdate[col] = [...current, v];
+        }
+      }
+      const { data } = await supabase.from(table).update(finalUpdate).eq('id', existing.id).select().single();
+      return fromRow(data);
+    },
+
+    updateMany: async (filter, update) => {
+      const set = update.$set || update;
+      let q = supabase.from(table).update(toRow(set));
+      q = applyFilter(q, filter);
+      await q;
+    },
+
     deleteOne: async (filter) => {
       const doc = await makeModel(table).findOne(filter);
       if (doc) await supabase.from(table).delete().eq("id", doc.id);
