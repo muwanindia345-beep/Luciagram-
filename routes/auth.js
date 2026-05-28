@@ -90,35 +90,27 @@ router.post("/login", async (req, res) => {
     }
 
     const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      user.failedLogins = (user.failedLogins || 0) + 1;
-      if (user.failedLogins >= 5) {
-        user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
-        user.failedLogins = 0;
-        await user.save();
-        return res.status(400).json({ message: "Too many attempts. Account locked for 15 mins." });
+      const fails = (user.failedLogins || 0) + 1;
+      if (fails >= 5) {
+        await User.findByIdAndUpdate(user.id, { failedLogins: 0, lockedUntil: new Date(Date.now() + 15*60*1000) });
+        return res.status(400).json({ message: 'Too many attempts. Account locked for 15 mins.' });
       }
-      await user.save();
-      const remaining = 5 - user.failedLogins;
-      return res.status(400).json({ message: "Invalid password. " + remaining + " attempts left." });
+      await User.findByIdAndUpdate(user.id, { failedLogins: fails });
+      return res.status(400).json({ message: 'Invalid password. ' + (5-fails) + ' attempts left.' });
     }
 
-    // Reset failed logins
-    user.failedLogins = 0;
-    user.lockedUntil = null;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const device = (req.headers['user-agent'] || 'unknown').slice(0, 100);
+    const loginHistory = [{ ip, device, time: new Date() }, ...(user.loginHistory || [])].slice(0, 10);
+    await User.findByIdAndUpdate(user.id, {
+      failedLogins: 0,
+      lockedUntil: null,
+      loginHistory,
+      ...(publicKey ? { publicKey } : {}),
+    });
 
-    // Save public key for E2E encryption
-    if (publicKey) user.publicKey = publicKey;
-
-    // Save login history
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-    const device = (req.headers["user-agent"] || "unknown").slice(0, 100);
-    user.loginHistory = [
-      { ip, device, time: new Date() },
-      ...(user.loginHistory || []),
-    ].slice(0, 10);
-
-    await user.save();
 
     const token = jwt.sign(
       { id: user.id, username: user.username },
