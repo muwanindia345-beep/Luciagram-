@@ -113,6 +113,30 @@ export default function GroupChatRoom() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
   useEffect(() => {
+    const handleDocPaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let item of items) {
+        if (item.type.startsWith("image/") || item.type === "image/gif") {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setMediaData(reader.result);
+            setMediaPreview(reader.result);
+            setMediaType(item.type === "image/gif" ? "gif" : "image");
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    };
+    document.addEventListener("paste", handleDocPaste);
+    return () => document.removeEventListener("paste", handleDocPaste);
+  }, []);
+
+  useEffect(() => {
     loadGroup();
     loadMessages();
     const socket = io(SOCKET_URL, { transports: ["websocket"] });

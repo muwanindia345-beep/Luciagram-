@@ -6,9 +6,9 @@ import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
-// GIF via Giphy public beta - no key needed for limited use
-const GIF_SEARCH_URL = "https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&limit=20&q=";
-const GIF_TRENDING_URL = "https://api.giphy.com/v1/gifs/trending?api_key=dc6zaTOxFJmzC&limit=20";
+// Tenor v1 - completely free, no API key needed
+const GIF_SEARCH_URL = "https://g.tenor.com/v1/search?limit=20&q=";
+const GIF_TRENDING_URL = "https://g.tenor.com/v1/trending?limit=20";
 
 export default function Chat() {
   const { userId } = useParams();
@@ -116,6 +116,30 @@ export default function Chat() {
     { value: 86400, label: "24 hours" },
     { value: 604800, label: "7 days" },
   ];
+
+  useEffect(() => {
+    const handleDocPaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let item of items) {
+        if (item.type.startsWith("image/") || item.type === "image/gif") {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setMediaData(reader.result);
+            setMediaPreview(reader.result);
+            setMediaType(item.type === "image/gif" ? "gif" : "image");
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+      }
+    };
+    document.addEventListener("paste", handleDocPaste);
+    return () => document.removeEventListener("paste", handleDocPaste);
+  }, []);
 
   useEffect(() => {
     loadMessages();
@@ -724,7 +748,7 @@ const sendMessage = async () => {
             ) : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"4px",overflowY:"auto",flex:1}}>
                 {gifs.map((gif, i) => {
-                  const url = gif.images?.fixed_height?.url || gif.images?.downsized?.url || gif.images?.original?.url || "";
+                  const url = gif.media?.[0]?.gif?.url || gif.media?.[0]?.tinygif?.url || "";
                   return url ? (
                     <img key={i} src={url} alt="gif" onClick={()=>sendGif(url)}
                       style={{width:"100%",height:"100px",objectFit:"cover",borderRadius:"8px",cursor:"pointer"}} />
