@@ -95,12 +95,6 @@ router.get("/:userId", auth, async (req, res) => {
 
 router.post("/", auth, async (req, res) => {
   try {
-    const { User: U } = require("../models");
-    const recv = await U.findOne({ id: req.body.receiverId }).lean();
-    if (!recv) return res.status(404).json({ message: "User not found" });
-    if (recv.isSuspended) return res.status(403).json({ message: "Account suspended" });
-  } catch {}
-  try {
     const receiver = await User.findOne({ id: req.body.receiverId }).lean();
     if (!receiver) return res.status(404).json({ message: "User not found" });
     if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
