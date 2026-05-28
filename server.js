@@ -135,8 +135,7 @@ app.use('/api/music', require('./routes/music'));
 app.use('/api/reports', require('./routes/reports'));
 
 // LuciaStore Media Server
-const { LuciaStore } = require('./luciastore');
-
+const { LuciaStore } = 
 app.get('/media/:mediaId', async (req, res) => {
   try {
     const media = await LuciaStore.retrieve(req.params.mediaId);
