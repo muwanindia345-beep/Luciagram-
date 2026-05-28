@@ -4,6 +4,7 @@ import CallScreen from "./CallScreen";
 import API from "../api";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
+import GboardInput from "../components/GboardInput";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
 // Tenor v1 - completely free, no API key needed
