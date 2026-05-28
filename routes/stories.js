@@ -49,19 +49,15 @@ router.post("/", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.post("/share", async (req, res) => {
+router.post("/share", auth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ message: "No token" });
-    const jwt = require("jsonwebtoken");
-    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
-    const { v4: uuidv4 } = require("uuid");
     const { mediaUrl, mediaType } = req.body;
+    if (!mediaUrl) return res.status(400).json({ message: "mediaUrl required" });
     const story = await Story.create({
       id: uuidv4(),
-      userId: decoded.id,
-      username: decoded.username,
-      mediaUrl: mediaUrl || "",
+      userId: req.user.id,
+      username: req.user.username,
+      mediaUrl,
       mediaType: mediaType || "video",
       expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     });
