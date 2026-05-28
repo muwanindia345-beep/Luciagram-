@@ -6,7 +6,30 @@ mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
   .catch(err => console.error("❌ MongoDB error:", err));
 
 const SongField = { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number };
-const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date, song: SongField }, { timestamps: true });
+const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date, song: SongField,
+  isSuspended: { type: Boolean, default: false },
+  suspendedAt: Date,
+  suspendReason: String,
+  suspendedBy: { type: String, default: "system" },
+  warnings: [{ reason: String, issuedBy: String, issuedAt: { type: Date, default: Date.now } }],
+}, { timestamps: true });
+
+const ReportSchema = new mongoose.Schema({
+  id: String,
+  reporterId: String,
+  reporterUsername: String,
+  targetUserId: String,
+  targetUsername: String,
+  targetId: String,
+  type: { type: String, enum: ["profile", "post", "story", "reel"] },
+  reason: { type: String, enum: ["spam", "harassment", "fake_account", "nudity", "violence", "hate_speech", "other"] },
+  details: String,
+  status: { type: String, enum: ["pending", "reviewed", "actioned", "dismissed"], default: "pending" },
+  reviewedBy: String,
+  actionTaken: String,
+}, { timestamps: true });
+ReportSchema.index({ targetUserId: 1, status: 1 });
+ReportSchema.index({ createdAt: -1 });
 
 const PostSchema = new mongoose.Schema({ 
   id: String, userId: String, username: String, 
@@ -115,6 +138,7 @@ const NoteSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = {
+  Report: mongoose.model("Report", ReportSchema),
   User: mongoose.model("User", UserSchema),
   Post: mongoose.model("Post", PostSchema),
   Story: mongoose.model("Story", StorySchema),

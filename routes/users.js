@@ -199,6 +199,7 @@ router.get("/:username", async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username }).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.isSuspended) return res.status(404).json({ message: "User not found", suspended: true });
     res.json(user);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

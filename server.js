@@ -131,6 +131,7 @@ app.use('/api/comments', commentRoutes);
 app.use('/api/groups', require('./routes/groups'));
 app.use('/api/notes', noteRoutes);
 app.use('/api/music', require('./routes/music'));
+app.use('/api/reports', require('./routes/reports'));
 
 // LuciaStore Media Server
 const { LuciaStore } = require('./luciastore');
@@ -165,6 +166,11 @@ app.get('/', (req, res) => {
 
 // Smart Keep-Alive Bot
 require('./keepalive');
+
+// SuspendBot — auto-detects suspicious activity
+const SuspendBot = require('./suspendbot');
+const suspendBot = new SuspendBot();
+suspendBot.start();
 
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
