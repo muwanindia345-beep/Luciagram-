@@ -24,9 +24,33 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/login" />;
 }
 
+function NotifBadge() {
+  const [count, setCount] = React.useState(0);
+  const { user } = useAuth();
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      try {
+        const res = await API.get("/notifications/unread");
+        setCount(res.data.count || 0);
+      } catch {}
+    };
+    load();
+    const interval = setInterval(load, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+  if (count === 0) return null;
+  return (
+    <div style={{position:"fixed",top:8,right:8,background:"linear-gradient(135deg,#7c3aed,#db2777)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold",color:"white",zIndex:9999,pointerEvents:"none"}}>
+      {count > 99 ? "99+" : count}
+    </div>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
+      <NotifBadge />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
