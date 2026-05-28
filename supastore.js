@@ -11,12 +11,15 @@ class SupaStore {
     try {
       const { v4: uuidv4 } = require("uuid");
       const fileId = uuidv4();
-      const ext = mediaType === "video" ? "mp4" : "jpg";
+      const extMap = { video: "mp4", audio: "webm", gif: "gif", image: "jpg" };
+      const mimeMap = { video: "video/mp4", audio: "audio/webm", gif: "image/gif", image: "image/jpeg" };
+      const ext = extMap[mediaType] || "jpg";
+      const mime = mimeMap[mediaType] || "image/jpeg";
       const fileName = `${userId}/${fileId}.${ext}`;
 
       // Convert base64 to buffer
-      const base64Clean = base64Data.includes(",") 
-        ? base64Data.split(",")[1] 
+      const base64Clean = base64Data.includes(",")
+        ? base64Data.split(",")[1]
         : base64Data;
       const buffer = Buffer.from(base64Clean, "base64");
 
@@ -24,7 +27,7 @@ class SupaStore {
       const { data, error } = await supabase.storage
         .from("luciagram-media")
         .upload(fileName, buffer, {
-          contentType: mediaType === "video" ? "video/mp4" : "image/jpeg",
+          contentType: mime,
           upsert: false,
         });
 
