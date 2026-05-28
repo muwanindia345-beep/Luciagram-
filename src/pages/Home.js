@@ -54,7 +54,7 @@ export default function Home() {
   const [storyUploading, setStoryUploading] = useState(false);
   const [storyUploadText, setStoryUploadText] = useState("");
 
-  useEffect(() => {
+useEffect(() => {
     API.get("/posts/saved").then(r => {
       const savedMap = {};
       (r.data || []).forEach(p => { savedMap[p.id] = true; });
@@ -103,12 +103,8 @@ export default function Home() {
       if (storyIndex < items.length - 1) setStoryIndex(i => i + 1);
       else closeStory();
     };
-    if (isVideo) {
-      setStoryDuration(null);
-    } else {
-      setStoryDuration(5000);
-      storyTimer.current = setTimeout(advance, 5000);
-    }
+    if (isVideo) { setStoryDuration(null); }
+    else { setStoryDuration(5000); storyTimer.current = setTimeout(advance, 5000); }
     return () => clearTimeout(storyTimer.current);
   }, [activeStory, storyIndex, storyPaused]);
 
@@ -189,23 +185,26 @@ export default function Home() {
     setStoryLikes(prev => ({...prev, [key]: true}));
     try {
       const profile = userProfiles[activeStory.username] || {};
-      await API.post("/messages", { receiverId: currentItem.userId || profile.id, receiverUsername: activeStory.username, text: "\u2764\uFE0F liked your story", mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image" });
+      await API.post("/messages", { receiverId: currentItem.userId || profile.id, receiverUsername: activeStory.username, text: "❤️ liked your story", mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image" });
     } catch {}
   };
 
-  const sendStoryViaDM = async (toUser) => {
+const sendStoryViaDM = async (toUser) => {
     const items = activeStory?.items || [];
     const currentItem = items[storyIndex];
     if (!currentItem) return;
     try {
-      await API.post("/messages", { receiverId: toUser.id, receiverUsername: toUser.username, text: "\uD83D\uDCD6 Shared a Story", mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image" });
+      await API.post("/messages", { receiverId: toUser.id, receiverUsername: toUser.username, text: "📖 Shared a Story", mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image" });
       setStorySentTo(prev => ({...prev, [toUser.id]: true}));
     } catch {}
   };
 
   const searchStoryDMUsers = async (q) => {
     setStoryDMSearch(q);
-    if (q.length < 1) { API.get("/messages/conversations").then(r => setStoryDMUsers(r.data.map(c => ({ id: c.userId, username: c.username })))).catch(()=>{}); return; }
+    if (q.length < 1) {
+      API.get("/messages/conversations").then(r => setStoryDMUsers(r.data.map(c => ({ id: c.userId, username: c.username })))).catch(()=>{});
+      return;
+    }
     try {
       const res = await API.get("/users/search?q=" + q);
       setStoryDMUsers(res.data.filter(u => u.id !== user?.id).map(u => ({ id: u.id, username: u.username, avatar: u.avatar })));
@@ -219,7 +218,7 @@ export default function Home() {
     if (!currentItem) return;
     try {
       const profile = userProfiles[activeStory.username] || {};
-      await API.post("/messages", { receiverId: currentItem.userId || profile.id, receiverUsername: activeStory.username, text: "Replied to your story: " + storyReplyText, mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image", replyTo: { id: currentItem.id, text: "\uD83D\uDCD6 Story", senderUsername: activeStory.username, mediaType: currentItem.mediaType || "image" } });
+      await API.post("/messages", { receiverId: currentItem.userId || profile.id, receiverUsername: activeStory.username, text: "Replied to your story: " + storyReplyText, mediaUrl: currentItem.mediaUrl || "", mediaType: currentItem.mediaType || "image", replyTo: { id: currentItem.id, text: "📖 Story", senderUsername: activeStory.username, mediaType: currentItem.mediaType || "image" } });
       setStoryReplyText(""); setStorySent(true);
       setTimeout(() => setStorySent(false), 2000);
     } catch {}
@@ -250,7 +249,10 @@ export default function Home() {
     else { setDoubleTapTimer(p => ({...p, [postId]: now})); }
   };
 
-  const handleSave = (postId) => { setSaved(prev => ({...prev, [postId]: !prev[postId]})); API.post("/posts/" + postId + "/save").catch(()=>{}); };
+  const handleSave = (postId) => {
+    setSaved(prev => ({...prev, [postId]: !prev[postId]}));
+    API.post("/posts/" + postId + "/save").catch(()=>{});
+  };
 
   const handleFollow = async (userId, username) => {
     try { const res = await API.post("/users/" + userId + "/follow"); setFollowingMap(p => ({...p, [userId]: res.data.following})); } catch {}
@@ -268,7 +270,10 @@ export default function Home() {
   };
 
   const sendPostViaDM = async (post, toUser) => {
-    try { await API.post("/messages", { receiverId: toUser.id, receiverUsername: toUser.username, text: (post.caption ? post.caption + "\n" : "") + "\uD83D\uDCF8 Shared a Post", mediaUrl: post.mediaUrl || "" }); setSentTo(p => ({...p, [toUser.id]: true})); } catch {}
+    try {
+      await API.post("/messages", { receiverId: toUser.id, receiverUsername: toUser.username, text: (post.caption ? post.caption + "\n" : "") + "📸 Shared a Post", mediaUrl: post.mediaUrl || "" });
+      setSentTo(p => ({...p, [toUser.id]: true}));
+    } catch {}
   };
 
   const getTimeLeft = (expiresAt) => {
@@ -299,19 +304,19 @@ const groupedStories = stories.reduce((acc, s) => {
 
   return (
     <div style={{background:"#0a0a0f",minHeight:"100vh",color:"white",paddingBottom:"70px"}}>
-      <style>{\`
+      <style>{`
         @keyframes progress { from { width: 0% } to { width: 100% } }
         @keyframes heartPop { 0% { transform:scale(1) } 50% { transform:scale(1.5) } 100% { transform:scale(1) } }
         @keyframes fadeIn { from { opacity:0;transform:scale(0.8) } to { opacity:1;transform:scale(1) } }
         @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
-      \`}</style>
+      `}</style>
 
       <div style={{background:"#0a0a0f",borderBottom:"1px solid #1e1e2e",padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:100}}>
         <div style={{display:"flex",alignItems:"center",gap:"0.4rem"}}>
           <img src="https://i.ibb.co/WWjtyhvX/file-00000000a5f0720bb84b412a53d8b399.png" alt="L" style={{width:"32px",height:"32px",borderRadius:"8px"}} />
           <span style={{color:"white",fontSize:"1.4rem",fontFamily:"serif",fontWeight:"bold"}}>Luciagram</span>
         </div>
-        <span onClick={()=>navigate("/messages")} style={{fontSize:"1.3rem",cursor:"pointer"}}>\uD83D\uDCAC</span>
+        <span onClick={()=>navigate("/messages")} style={{fontSize:"1.3rem",cursor:"pointer"}}>💬</span>
       </div>
 
       <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",padding:"0.75rem 1rem",borderBottom:"1px solid #1e1e2e",scrollbarWidth:"none"}}>
@@ -350,7 +355,7 @@ const groupedStories = stories.reduce((acc, s) => {
                 <AvatarImg username={p.username} size={36} />
                 <div>
                   <div style={{fontWeight:"bold",fontSize:"0.9rem"}}>@{p.username||"user"}</div>
-                  {p.location && <div style={{fontSize:"0.75rem",color:"#888"}}>\uD83D\uDCCD{p.location}</div>}
+                  {p.location && <div style={{fontSize:"0.75rem",color:"#888"}}>📍{p.location}</div>}
                 </div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
@@ -361,7 +366,7 @@ const groupedStories = stories.reduce((acc, s) => {
                   </button>
                 )}
                 {p.userId === user?.id && (
-                  <span style={{color:"#888",cursor:"pointer",fontSize:"1.2rem"}} onClick={()=>{ if(window.confirm("Delete this post?")) { API.delete("/posts/"+p.id).then(()=>setPosts(prev=>prev.filter(x=>x.id!==p.id))).catch(()=>{}); } }}>\uD83D\uDDD1\uFE0F</span>
+                  <span style={{color:"#888",cursor:"pointer",fontSize:"1.2rem"}} onClick={()=>{ if(window.confirm("Delete this post?")) { API.delete("/posts/"+p.id).then(()=>setPosts(prev=>prev.filter(x=>x.id!==p.id))).catch(()=>{}); } }}>🗑️</span>
                 )}
               </div>
             </div>
@@ -370,7 +375,7 @@ const groupedStories = stories.reduce((acc, s) => {
                 <MediaLoader mediaUrl={p.mediaUrl} mediaType={p.mediaType} style={{width:"100%",maxHeight:"600px",minHeight:"200px",objectFit:p.mediaType==="video"?"cover":"contain",display:"block",background:"#000"}} controls={p.mediaType==="video"} loop={p.mediaType==="video"} muted={p.mediaType==="video"} playsInline={p.mediaType==="video"} />
                 {p.mediaType==="video" && (
                   <div style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.6)",borderRadius:"20px",padding:"0.2rem 0.6rem",display:"flex",alignItems:"center",gap:"0.3rem"}}>
-                    <span style={{fontSize:"0.8rem"}}>\uD83C\uDFAC</span>
+                    <span style={{fontSize:"0.8rem"}}>🎬</span>
                     <span style={{color:"white",fontSize:"0.8rem",fontWeight:"bold"}}>Reel</span>
                   </div>
                 )}
@@ -379,11 +384,11 @@ const groupedStories = stories.reduce((acc, s) => {
             <div style={{padding:"0.6rem 1rem"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:"0.4rem"}}>
                 <div style={{display:"flex",gap:"1rem",alignItems:"center"}}>
-                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.6rem",display:"inline-block",animation:liked[p.id]?"heartPop 0.3s ease":"none"}}>{liked[p.id]?"\u2764\uFE0F":"\uD83E\uDD0D"}</span>
-                  <span onClick={()=>navigate("/comments/"+p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>\uD83D\uDCAC</span>
-                  <span onClick={()=>openShareSheet(p)} style={{cursor:"pointer",fontSize:"1.5rem"}}>\uD83D\uDCE4</span>
+                  <span onClick={()=>handleLike(p.id)} style={{cursor:"pointer",fontSize:"1.6rem",display:"inline-block",animation:liked[p.id]?"heartPop 0.3s ease":"none"}}>{liked[p.id]?"❤️":"🤍"}</span>
+                  <span onClick={()=>navigate("/comments/"+p.id)} style={{cursor:"pointer",fontSize:"1.5rem"}}>💬</span>
+                  <span onClick={()=>openShareSheet(p)} style={{cursor:"pointer",fontSize:"1.5rem"}}>📤</span>
                 </div>
-                <span onClick={()=>handleSave(p.id)} style={{cursor:"pointer",fontSize:"1.5rem",color:saved[p.id]?"#7c3aed":"white"}}>\uD83D\uDD16</span>
+                <span onClick={()=>handleSave(p.id)} style={{cursor:"pointer",fontSize:"1.5rem",color:saved[p.id]?"#7c3aed":"white"}}>🔖</span>
               </div>
               <div style={{fontSize:"0.9rem",fontWeight:"bold",marginBottom:"0.2rem"}}>{likeCounts[p.id]||0} likes</div>
               {p.caption && <div style={{fontSize:"0.9rem"}}><span onClick={()=>navigate("/user/"+p.username)} style={{fontWeight:"bold",cursor:"pointer"}}>@{p.username}</span> {p.caption}</div>}
@@ -404,11 +409,11 @@ const groupedStories = stories.reduce((acc, s) => {
         ))}
       </div>
 
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
-        <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>\uD83C\uDFE0</span>
-        <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>\uD83D\uDD0D</span>
+<div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
+        <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>🏠</span>
+        <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
         <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
-        <span onClick={()=>navigate("/reels")} style={{fontSize:"1.5rem",cursor:"pointer"}}>\uD83C\uDFAC</span>
+        <span onClick={()=>navigate("/reels")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🎬</span>
         <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",cursor:"pointer",border:"2px solid #7c3aed"}}>
           {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="p"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold"}}>{avatar(user?.username)}</div>}
         </div>
@@ -422,7 +427,7 @@ const groupedStories = stories.reduce((acc, s) => {
               <div style={{width:"40px",height:"4px",borderRadius:"2px",background:"#444",margin:"0 auto 1rem"}} />
               <div style={{fontWeight:"bold",color:"white",fontSize:"1rem",textAlign:"center",marginBottom:"0.75rem"}}>Send to...</div>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"#13131a",borderRadius:"12px",padding:"0.6rem 1rem"}}>
-                <span style={{color:"#888"}}>\uD83D\uDD0D</span>
+                <span style={{color:"#888"}}>🔍</span>
                 <input value={dmSearch} onChange={e=>searchDMUsers(e.target.value)} placeholder="Search people..." style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}} autoFocus />
               </div>
             </div>
@@ -432,7 +437,7 @@ const groupedStories = stories.reduce((acc, s) => {
                   <AvatarImg username={u.username} size={44} />
                   <div style={{flex:1}}><div style={{fontWeight:"bold",color:"white",fontSize:"0.95rem"}}>@{u.username}</div></div>
                   <button onClick={()=>sendPostViaDM(showShareSheet,u)} disabled={sentTo[u.id]} style={{padding:"0.4rem 1rem",background:sentTo[u.id]?"#2a2a3a":"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"20px",color:"white",cursor:sentTo[u.id]?"default":"pointer",fontSize:"0.85rem",fontWeight:"bold",flexShrink:0}}>
-                    {sentTo[u.id] ? "\u2713 Sent" : "Send"}
+                    {sentTo[u.id] ? "✓ Sent" : "Send"}
                   </button>
                 </div>
               ))}
@@ -448,14 +453,14 @@ const groupedStories = stories.reduce((acc, s) => {
           )}
           <div style={{position:"fixed",inset:0,zIndex:500,background:"#0a0a0f",display:"flex",flexDirection:"column"}}>
             <div style={{padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid #1e1e2e"}}>
-              <span onClick={()=>{setShowStoryUpload(false);setStoryMedia(null);setStoryMediaPreview(null);setStoryUploadText("");setStoryMusic(null);}} style={{color:"#c084fc",cursor:"pointer",fontSize:"1.5rem"}}>&times;</span>
+              <span onClick={()=>{setShowStoryUpload(false);setStoryMedia(null);setStoryMediaPreview(null);setStoryUploadText("");setStoryMusic(null);}} style={{color:"#c084fc",cursor:"pointer",fontSize:"1.5rem"}}>✕</span>
               <span style={{fontWeight:"bold",fontSize:"1.1rem"}}>New Story</span>
               <span onClick={handleStoryUpload} style={{color:"#c084fc",fontWeight:"bold",cursor:"pointer",opacity:storyUploading?0.5:1}}>{storyUploading?"Posting...":"Share"}</span>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"1rem"}}>
               {!storyMediaPreview ? (
                 <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"300px",border:"2px dashed #2a2a3a",borderRadius:"16px",cursor:"pointer",gap:"1rem"}}>
-                  <div style={{fontSize:"3rem"}}>\uD83D\uDCD6</div>
+                  <div style={{fontSize:"3rem"}}>📖</div>
                   <p style={{color:"#888",margin:0}}>Tap to select photo or video</p>
                   <p style={{color:"#7c3aed",margin:0,fontSize:"0.85rem"}}>Supports JPG, PNG, MP4, MOV</p>
                   <input type="file" accept="image/*,video/*" onChange={e=>{ const file=e.target.files[0]; if(!file) return; const isVid=file.type.startsWith("video/"); setStoryMediaType(isVid?"video":"image"); const reader=new FileReader(); reader.onloadend=()=>{setStoryMediaPreview(reader.result);setStoryMedia(reader.result);}; reader.readAsDataURL(file); }} style={{display:"none"}} />
@@ -463,7 +468,7 @@ const groupedStories = stories.reduce((acc, s) => {
               ) : (
                 <div style={{position:"relative",borderRadius:"16px",overflow:"hidden",maxHeight:"400px"}}>
                   {storyMediaType==="video" ? <video src={storyMediaPreview} controls style={{width:"100%",maxHeight:"400px",borderRadius:"16px"}} /> : <img src={storyMediaPreview} alt="preview" style={{width:"100%",maxHeight:"400px",objectFit:"cover",borderRadius:"16px"}} />}
-                  <button onClick={()=>{setStoryMedia(null);setStoryMediaPreview(null);}} style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.7)",border:"none",color:"white",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer"}}>&times;</button>
+                  <button onClick={()=>{setStoryMedia(null);setStoryMediaPreview(null);}} style={{position:"absolute",top:"0.5rem",right:"0.5rem",background:"rgba(0,0,0,0.7)",border:"none",color:"white",borderRadius:"50%",width:"32px",height:"32px",cursor:"pointer"}}>✕</button>
                 </div>
               )}
               <input placeholder="Add text to your story..." value={storyUploadText} onChange={e=>setStoryUploadText(e.target.value)} style={{width:"100%",background:"#13131a",border:"1px solid #2a2a3a",borderRadius:"12px",padding:"0.75rem 1rem",color:"white",fontSize:"0.95rem",marginTop:"1rem",boxSizing:"border-box"}} />
@@ -472,21 +477,21 @@ const groupedStories = stories.reduce((acc, s) => {
                   <>
                     {storyMusic.albumArt && <img src={storyMusic.albumArt} alt={storyMusic.title} style={{width:"40px",height:"40px",borderRadius:"8px",objectFit:"cover",flexShrink:0}} />}
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:"0.88rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>\uD83C\uDFB5 {storyMusic.title}</div>
+                      <div style={{fontSize:"0.88rem",fontWeight:"bold",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>🎵 {storyMusic.title}</div>
                       <div style={{fontSize:"0.75rem",color:"#888"}}>{storyMusic.artist}</div>
                     </div>
-                    <span onClick={e=>{e.stopPropagation();setStoryMusic(null);}} style={{color:"#f87171",cursor:"pointer",fontSize:"1.1rem"}}>&times;</span>
+                    <span onClick={e=>{e.stopPropagation();setStoryMusic(null);}} style={{color:"#f87171",cursor:"pointer",fontSize:"1.1rem"}}>✕</span>
                   </>
                 ) : (
-                  <><span style={{fontSize:"1.3rem"}}>\uD83C\uDFB5</span><span style={{color:"#555",fontSize:"0.9rem"}}>Add music to your story</span></>
+                  <><span style={{fontSize:"1.3rem"}}>🎵</span><span style={{color:"#555",fontSize:"0.9rem"}}>Add music to your story</span></>
                 )}
               </div>
               <div style={{background:"#13131a",borderRadius:"12px",padding:"1rem",marginTop:"0.75rem",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-                <span style={{fontSize:"1.5rem"}}>\u23F0</span>
+                <span style={{fontSize:"1.5rem"}}>⏰</span>
                 <div><div style={{fontWeight:"bold",fontSize:"0.9rem"}}>24 Hour Story</div><div style={{color:"#888",fontSize:"0.8rem"}}>Auto-deletes after 24 hours</div></div>
               </div>
               {storyMediaPreview && !storyUploading && (
-                <button onClick={handleStoryUpload} style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",fontSize:"1rem",fontWeight:"bold",cursor:"pointer",marginTop:"1.5rem"}}>\uD83D\uDCD6 Share Story</button>
+                <button onClick={handleStoryUpload} style={{width:"100%",padding:"0.85rem",background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"12px",color:"white",fontSize:"1rem",fontWeight:"bold",cursor:"pointer",marginTop:"1.5rem"}}>📖 Share Story</button>
               )}
             </div>
           </div>
@@ -498,7 +503,7 @@ const groupedStories = stories.reduce((acc, s) => {
           <div style={{position:"absolute",top:0,left:0,right:0,padding:"0.5rem",display:"flex",gap:"3px",zIndex:10}}>
             {currentStoryItems.map((_,idx) => (
               <div key={idx} style={{flex:1,height:"3px",background:"rgba(255,255,255,0.3)",borderRadius:"2px",overflow:"hidden"}}>
-                <div style={{height:"100%",background:"white",borderRadius:"2px",width:idx<storyIndex?"100%":"0%",animation:idx===storyIndex&&storyDuration?\`progress \${storyDuration/1000}s linear forwards\`:"none"}} />
+                <div style={{height:"100%",background:"white",borderRadius:"2px",width:idx<storyIndex?"100%":"0%",animation:idx===storyIndex&&storyDuration?`progress ${storyDuration/1000}s linear forwards`:"none"}} />
               </div>
             ))}
           </div>
@@ -509,19 +514,19 @@ const groupedStories = stories.reduce((acc, s) => {
                 <div style={{fontWeight:"bold",fontSize:"0.9rem",color:"white"}}>@{activeStory.username}</div>
                 <div style={{color:"rgba(255,255,255,0.7)",fontSize:"0.75rem"}}>
                   {currentStoryItem.expiresAt ? getTimeLeft(currentStoryItem.expiresAt)+" left" : "24h"} · {storyIndex+1}/{currentStoryItems.length}
-                  {activeStory.userId===user?.id && storyViews[currentStoryItem?.id] && <span style={{marginLeft:"0.5rem"}}>· \uD83D\uDC41 {storyViews[currentStoryItem.id].count}</span>}
+                  {activeStory.userId===user?.id && storyViews[currentStoryItem?.id] && <span style={{marginLeft:"0.5rem"}}>· 👁 {storyViews[currentStoryItem.id].count}</span>}
                 </div>
               </div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:"0.75rem"}}>
-              {activeStory.userId===user?.id && <span onClick={e=>{e.stopPropagation();setShowViewsTab(v=>!v);}} style={{fontSize:"1.2rem",cursor:"pointer"}}>\uD83D\uDC41</span>}
-              <span onClick={closeStory} style={{color:"white",cursor:"pointer",fontSize:"1.5rem"}}>&times;</span>
+              {activeStory.userId===user?.id && <span onClick={e=>{e.stopPropagation();setShowViewsTab(v=>!v);}} style={{fontSize:"1.2rem",cursor:"pointer"}}>👁</span>}
+              <span onClick={closeStory} style={{color:"white",cursor:"pointer",fontSize:"1.5rem"}}>✕</span>
             </div>
-</div>
+          </div>
           {currentMusic && (
             <div style={{position:"absolute",top:"4.5rem",left:"1rem",right:"1rem",zIndex:10,display:"flex",alignItems:"center",gap:"0.5rem",background:"rgba(0,0,0,0.5)",borderRadius:"20px",padding:"0.35rem 0.75rem"}}>
               {currentMusic.albumArt && <img src={currentMusic.albumArt} alt="" style={{width:"24px",height:"24px",borderRadius:"4px",objectFit:"cover",flexShrink:0}} />}
-              <span style={{fontSize:"0.78rem",color:"white",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>\uD83C\uDFB5 {currentMusic.title} — {currentMusic.artist}</span>
+              <span style={{fontSize:"0.78rem",color:"white",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>🎵 {currentMusic.title} — {currentMusic.artist}</span>
             </div>
           )}
           {currentStoryItem.caption && (
@@ -535,14 +540,14 @@ const groupedStories = stories.reduce((acc, s) => {
             ) : currentStoryItem.mediaUrl ? (
               <img src={currentStoryItem.mediaUrl} alt="story" style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",maxWidth:"100%",maxHeight:"100%",objectFit:"contain"}} />
             ) : (
-              <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",position:"absolute",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:"4rem"}}>\uD83E\uDD8B</div></div>
+              <div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#1a0533,#2d0a4e)",position:"absolute",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{fontSize:"4rem"}}>🦋</div></div>
             )}
           </div>
           {showViewsTab && activeStory.userId===user?.id && (
             <div style={{position:"absolute",bottom:"5rem",left:0,right:0,zIndex:20,animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
               <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1rem",maxHeight:"50vh",overflowY:"auto"}}>
                 <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 0.75rem"}} />
-                <div style={{fontWeight:"bold",marginBottom:"0.75rem",fontSize:"0.95rem"}}>\uD83D\uDC41 {storyViews[currentStoryItem?.id]?.count || 0} views</div>
+                <div style={{fontWeight:"bold",marginBottom:"0.75rem",fontSize:"0.95rem"}}>👁 {storyViews[currentStoryItem?.id]?.count || 0} views</div>
                 {(storyViews[currentStoryItem?.id]?.viewers || []).map((v,i) => (
                   <div key={i} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.5rem 0",borderBottom:"1px solid #1e1e2e"}}>
                     <div style={{width:"36px",height:"36px",borderRadius:"50%",background:gradients[i%4],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"0.85rem",color:"white",flexShrink:0}}>{(v.username||"U")[0].toUpperCase()}</div>
@@ -557,9 +562,9 @@ const groupedStories = stories.reduce((acc, s) => {
             <div style={{position:"absolute",bottom:"5rem",left:0,right:0,zIndex:20,animation:"slideUp 0.3s ease"}} onClick={e=>e.stopPropagation()}>
               <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1rem",maxHeight:"55vh",display:"flex",flexDirection:"column"}}>
                 <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 0.75rem"}} />
-                <div style={{fontWeight:"bold",marginBottom:"0.75rem",fontSize:"0.95rem"}}>\uD83D\uDCE4 Share Story</div>
+                <div style={{fontWeight:"bold",marginBottom:"0.75rem",fontSize:"0.95rem"}}>📤 Share Story</div>
                 <div style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"#1e1e2e",borderRadius:"12px",padding:"0.5rem 0.75rem",marginBottom:"0.75rem"}}>
-                  <span style={{color:"#888"}}>\uD83D\uDD0D</span>
+                  <span style={{color:"#888"}}>🔍</span>
                   <input value={storyDMSearch} onChange={e=>searchStoryDMUsers(e.target.value)} placeholder="Search people..." style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.9rem",outline:"none"}} autoFocus />
                 </div>
                 <div style={{flex:1,overflowY:"auto"}}>
@@ -568,7 +573,7 @@ const groupedStories = stories.reduce((acc, s) => {
                       <AvatarImg username={u.username} size={40} />
                       <div style={{flex:1,fontSize:"0.9rem",color:"white"}}>@{u.username}</div>
                       <button onClick={()=>sendStoryViaDM(u)} disabled={storySentTo[u.id]} style={{padding:"0.35rem 0.9rem",background:storySentTo[u.id]?"#2a2a3a":"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"20px",color:"white",cursor:storySentTo[u.id]?"default":"pointer",fontSize:"0.82rem",fontWeight:"bold",flexShrink:0}}>
-                        {storySentTo[u.id]?"\u2713 Sent":"Send"}
+                        {storySentTo[u.id]?"✓ Sent":"Send"}
                       </button>
                     </div>
                   ))}
@@ -578,7 +583,7 @@ const groupedStories = stories.reduce((acc, s) => {
           )}
           <div style={{padding:"0.75rem 1rem",display:"flex",alignItems:"center",gap:"0.6rem",zIndex:10}} onClick={e=>e.stopPropagation()}>
             {storySent ? (
-              <div style={{flex:1,textAlign:"center",color:"#a78bfa",fontWeight:"bold",animation:"fadeIn 0.3s ease"}}>\u2705 Reply sent!</div>
+              <div style={{flex:1,textAlign:"center",color:"#a78bfa",fontWeight:"bold",animation:"fadeIn 0.3s ease"}}>✅ Reply sent!</div>
             ) : (
               <>
                 {activeStory.userId!==user?.id && (
@@ -586,13 +591,13 @@ const groupedStories = stories.reduce((acc, s) => {
                 )}
                 {activeStory.userId===user?.id && <div style={{flex:1}} />}
                 {storyReplyText.trim() ? (
-                  <button onClick={sendStoryReply} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>&#10148;</button>
+                  <button onClick={sendStoryReply} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>➤</button>
                 ) : (
                   <span onClick={sendStoryLike} style={{fontSize:"1.5rem",cursor:"pointer",flexShrink:0,opacity:storyLikes[currentStoryItem?.id]?0.5:1,transition:"opacity 0.2s"}}>
-                    {storyLikes[currentStoryItem?.id]?"\u2764\uFE0F":"\uD83E\uDD0D"}
+                    {storyLikes[currentStoryItem?.id]?"❤️":"🤍"}
                   </span>
                 )}
-                <span onClick={()=>{setShowStoryShareSheet(v=>!v);setShowViewsTab(false);}} style={{fontSize:"1.5rem",cursor:"pointer",flexShrink:0}}>\uD83D\uDCE4</span>
+                <span onClick={()=>{setShowStoryShareSheet(v=>!v);setShowViewsTab(false);}} style={{fontSize:"1.5rem",cursor:"pointer",flexShrink:0}}>📤</span>
               </>
             )}
           </div>
