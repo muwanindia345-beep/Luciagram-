@@ -87,8 +87,14 @@ router.delete("/:id/admins/:userId", auth, async (req, res) => {
 
 router.get("/:id/messages", auth, async (req, res) => {
   try {
-    const msgs = await GroupMessage.find({ groupId: req.params.id }).sort({ createdAt: 1 });
-    res.json(msgs);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 30;
+    const skip = (page - 1) * limit;
+    const msgs = await GroupMessage.find({ groupId: req.params.id })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+    res.json({ messages: msgs.reverse() });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
