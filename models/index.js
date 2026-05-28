@@ -1,154 +1,138 @@
-const mongoose = require("mongoose");
+const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
 
-mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost/luciagram")
-  .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => console.error("❌ MongoDB error:", err));
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
 
-const SongField = { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number };
-const UserSchema = new mongoose.Schema({ id: String, username: { type: String, unique: true }, email: { type: String, unique: true }, password: String, fullName: String, bio: String, avatar: String, website: String, isPrivate: Boolean, isVerified: Boolean, savedPosts: [String], followRequests: [{ userId: String, username: String }], publicKey: String, loginHistory: [{ ip: String, device: String, time: Date }], failedLogins: { type: Number, default: 0 }, lockedUntil: Date, song: SongField,
-  isSuspended: { type: Boolean, default: false },
-  suspendedAt: Date,
-  suspendReason: String,
-  suspendedBy: { type: String, default: "system" },
-  warnings: [{ reason: String, issuedBy: String, issuedAt: { type: Date, default: Date.now } }],
-}, { timestamps: true });
+const snk = (k) => k.replace(/([A-Z])/g, "_$1").toLowerCase();
+const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+const toRow = (doc) => {
+  const row = {};
+  for (const [k, v] of Object.entries(doc)) {
+    if (v !== undefined) row[snk(k)] = v;
+  }
+  return row;
+};
+const fromRow = (row) => {
+  if (!row) return null;
+  const doc = {};
+  for (const [k, v] of Object.entries(row)) doc[cam(k)] = v;
+  return doc;
+};
+const fromRows = (rows) => (rows || []).map(fromRow);
 
-const ReportSchema = new mongoose.Schema({
-  id: String,
-  reporterId: String,
-  reporterUsername: String,
-  targetUserId: String,
-  targetUsername: String,
-  targetId: String,
-  type: { type: String, enum: ["profile", "post", "story", "reel"] },
-  reason: { type: String, enum: ["spam", "harassment", "fake_account", "nudity", "violence", "hate_speech", "other"] },
-  details: String,
-  status: { type: String, enum: ["pending", "reviewed", "actioned", "dismissed"], default: "pending" },
-  reviewedBy: String,
-  actionTaken: String,
-}, { timestamps: true });
-ReportSchema.index({ targetUserId: 1, status: 1 });
-ReportSchema.index({ createdAt: -1 });
+class QueryBuilder {
+  constructor(table, filter = {}) {
+    this.table = table;
+    this.filter = filter;
+    this._limit = null;
+    this._skip = null;
+    this._sort = null;
+  }
+  sort(s) { this._sort = s; return this; }
+  limit(n) { this._limit = n; return this; }
+  skip(n) { this._skip = n; return this; }
+  select(f) { return this; }
+  async exec() {
+    let q = supabase.from(this.table).select("*");
+    for (const [k, v] of Object.entries(this.filter)) {
+      if (Array.isArray(v)) q = q.in(snk(k), v);
+      else q = q.eq(snk(k), v);
+    }
+    if (this._sort) {
+      for (const [k, dir] of Object.entries(this._sort)) {
+        q = q.order(snk(k), { ascending: dir === 1 });
+      }
+    }
+    if (this._skip != null) {
+      q = q.range(this._skip, this._skip + (this._limit || 100) - 1);
+    } else if (this._limit) {
+      q = q.limit(this._limit);
+    }
+    const { data, error } = await q;
+    if (error) throw error;
+    return fromRows(data);
+  }
+  then(res, rej) { return this.exec().then(res, rej); }
+}
 
-const PostSchema = new mongoose.Schema({ 
-  id: String, userId: String, username: String, 
-  mediaUrl: String,
-  mediaFileName: String,
-  mediaType: { type: String, default: "image" }, 
-  caption: String, location: String, tags: [String], music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number } 
-}, { timestamps: true });
-PostSchema.index({ createdAt: -1 });
+function makeModel(table) {
+  return {
+    find: (filter = {}) => new QueryBuilder(table, filter),
 
-const StorySchema = new mongoose.Schema({ 
-  id: String, userId: String, username: String, 
-  mediaUrl: String,
-  mediaFileName: String,
-  mediaType: { type: String, default: "image" }, 
-  expiresAt: Date,
-  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number } 
-}, { timestamps: true });
+    findOne: async (filter) => {
+      let q = supabase.from(table).select("*");
+      for (const [k, v] of Object.entries(filter)) {
+        if (Array.isArray(v)) q = q.in(snk(k), v);
+        else q = q.eq(snk(k), v);
+      }
+      const { data } = await q.limit(1);
+      return fromRow(data?.[0]);
+    },
 
-const CommentSchema = new mongoose.Schema({ id: String, postId: String, userId: String, username: String, text: String }, { timestamps: true });
-const LikeSchema = new mongoose.Schema({ postId: String, userId: String, username: String }, { timestamps: true });
-const FollowSchema = new mongoose.Schema({ followerId: String, followerUsername: String, followingId: String, followingUsername: String }, { timestamps: true });
-const MessageSchema = new mongoose.Schema({
-  id: String,
-  senderId: String,
-  senderUsername: String,
-  receiverId: String,
-  receiverUsername: String,
-  text: String,
-  mediaUrl: String,
-  mediaType: String,
-  isRead: Boolean,
-  replyTo: {
-    id: String,
-    text: String,
-    senderUsername: String,
-    mediaType: String,
-  },
-  reactions: [{ userId: String, username: String, emoji: String }],
-}, { timestamps: true });
+    findById: async (id) => {
+      const { data } = await supabase.from(table).select("*").eq("id", id).limit(1);
+      return fromRow(data?.[0]);
+    },
 
-MessageSchema.index({ senderId: 1, receiverId: 1, createdAt: -1 });
-MessageSchema.index({ receiverId: 1, isRead: 1 });
+    create: async (doc) => {
+      const { data, error } = await supabase.from(table).insert(toRow(doc)).select().single();
+      if (error) throw error;
+      return fromRow(data);
+    },
 
-const NotificationSchema = new mongoose.Schema({
-  id: String,
-  userId: String,
-  fromUserId: String,
-  fromUsername: String,
-  fromAvatar: String,
-  type: { type: String, enum: ["like", "comment", "follow", "mention", "message", "group_message", "story_like", "story_view"] },
-  postId: String,
-  postThumb: String,
-  text: String,
-  isRead: { type: Boolean, default: false },
-}, { timestamps: true });
+    findByIdAndUpdate: async (id, update) => {
+      const set = update.$set || update;
+      const { data, error } = await supabase.from(table).update(toRow(set)).eq("id", id).select().single();
+      if (error) throw error;
+      return fromRow(data);
+    },
 
-NotificationSchema.index({ userId: 1, createdAt: -1 });
-NotificationSchema.index({ userId: 1, isRead: 1 });
+    findOneAndUpdate: async (filter, update) => {
+      const existing = await makeModel(table).findOne(filter);
+      if (!existing) return null;
+      return makeModel(table).findByIdAndUpdate(existing.id, update);
+    },
 
-const GroupSchema = new mongoose.Schema({
-  id: String,
-  name: String,
-  avatar: String,
-  createdBy: String,
-  createdById: String,
-  admins: [String],
-  members: [{ id: String, username: String, avatar: String }],
-  pendingMembers: [{ id: String, username: String, avatar: String, addedBy: String }],
-  requireApproval: { type: Boolean, default: false },
-}, { timestamps: true });
+    findByIdAndDelete: async (id) => {
+      const { data } = await supabase.from(table).delete().eq("id", id).select().single();
+      return fromRow(data);
+    },
 
-const GroupMessageSchema = new mongoose.Schema({
-  id: String,
-  groupId: String,
-  senderId: String,
-  senderUsername: String,
-  senderAvatar: String,
-  text: String,
-  mediaUrl: String,
-  mediaType: String,
-  replyTo: {
-    id: String,
-    text: String,
-    senderUsername: String,
-    mediaType: String,
-  },
-  reactions: [{ userId: String, username: String, emoji: String }],
-  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number },
-}, { timestamps: true });
+    deleteOne: async (filter) => {
+      const doc = await makeModel(table).findOne(filter);
+      if (doc) await supabase.from(table).delete().eq("id", doc.id);
+    },
 
-const StoryViewSchema = new mongoose.Schema({
-  storyId: String,
-  userId: String,
-  username: String,
-}, { timestamps: true });
+    deleteMany: async (filter = {}) => {
+      let q = supabase.from(table).delete();
+      for (const [k, v] of Object.entries(filter)) q = q.eq(snk(k), v);
+      await q;
+    },
 
-const NoteSchema = new mongoose.Schema({
-  id: String,
-  userId: String,
-  username: String,
-  avatar: String,
-  text: String,
-  music: { id: String, title: String, artist: String, albumArt: String, previewUrl: String, duration: Number },
-  expiresAt: Date,
-}, { timestamps: true });
+    countDocuments: async (filter = {}) => {
+      let q = supabase.from(table).select("id", { count: "exact", head: true });
+      for (const [k, v] of Object.entries(filter)) q = q.eq(snk(k), v);
+      const { count } = await q;
+      return count || 0;
+    },
+  };
+}
 
 module.exports = {
-  Report: mongoose.model("Report", ReportSchema),
-  User: mongoose.model("User", UserSchema),
-  Post: mongoose.model("Post", PostSchema),
-  Story: mongoose.model("Story", StorySchema),
-  Comment: mongoose.model("Comment", CommentSchema),
-  Like: mongoose.model("Like", LikeSchema),
-  Follow: mongoose.model("Follow", FollowSchema),
-  Message: mongoose.model("Message", MessageSchema),
-  Notification: mongoose.model("Notification", NotificationSchema),
-  Group: mongoose.model("Group", GroupSchema),
-  GroupMessage: mongoose.model("GroupMessage", GroupMessageSchema),
-  Note: mongoose.model("Note", NoteSchema),
-  StoryView: mongoose.model("StoryView", StoryViewSchema),
+  User:         makeModel("users"),
+  Post:         makeModel("posts"),
+  Story:        makeModel("stories"),
+  Comment:      makeModel("comments"),
+  Like:         makeModel("likes"),
+  Follow:       makeModel("follows"),
+  Message:      makeModel("messages"),
+  Notification: makeModel("notifications"),
+  Group:        makeModel("groups"),
+  GroupMessage: makeModel("group_messages"),
+  Note:         makeModel("notes"),
+  StoryView:    makeModel("story_views"),
+  Report:       makeModel("reports"),
 };
