@@ -49,7 +49,9 @@ router.get("/:id/followers", auth, async (req, res) => {
     const followers = await Follow.countDocuments({ followingId: req.params.id });
     const following = await Follow.countDocuments({ followerId: req.params.id });
     const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
-    res.json({ followers, following, isFollowing });
+    const targetUser = await User.findOne({ id: req.params.id }).lean();
+    const isPending = !!(targetUser?.followRequests || []).find(r => r.userId === req.user.id);
+    res.json({ followers, following, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
