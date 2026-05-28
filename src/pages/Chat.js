@@ -324,7 +324,7 @@ const sendMessage = async () => {
     }
     setGifLoading(true);
     try {
-      const res = await fetch("https://tenor.googleapis.com/v2/search?q="+encodeURIComponent(q)+"&key="+TENOR_KEY+"&limit=20&media_filter=gif");
+        const res = await fetch("https://g.tenor.com/v1/search?limit=20&q="+encodeURIComponent(q));
       const data = await res.json();
       setGifs(data.results || []);
     } catch {} finally { setGifLoading(false); }
@@ -333,7 +333,7 @@ const sendMessage = async () => {
   const loadTrendingGifs = async () => {
     setGifLoading(true);
     try {
-      const res = await fetch("https://tenor.googleapis.com/v2/featured?key="+TENOR_KEY+"&limit=20&media_filter=gif");
+        const res = await fetch("https://g.tenor.com/v1/trending?limit=20");
       const data = await res.json();
       setGifs(data.results || []);
     } catch {} finally { setGifLoading(false); }
