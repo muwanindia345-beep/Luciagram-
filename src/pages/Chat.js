@@ -6,7 +6,9 @@ import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 
-const TENOR_KEY = "AIzaSyAyimkuYQYF_y8TVOuCQBdqF9PFAP3bRLM";
+// GIF via Giphy public beta - no key needed for limited use
+const GIF_SEARCH_URL = "https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&limit=20&q=";
+const GIF_TRENDING_URL = "https://api.giphy.com/v1/gifs/trending?api_key=dc6zaTOxFJmzC&limit=20";
 
 export default function Chat() {
   const { userId } = useParams();
@@ -56,7 +58,23 @@ export default function Chat() {
   const recordingTimerRef = useRef(null);
 
   // Wallpaper
-  const [wallpaper, setWallpaper] = useState(() => localStorage.getItem("chat_wallpaper_"+userId) || "");
+  const [wallpaper, setWallpaper] = useState("");
+  useEffect(() => {
+    const loadWallpaper = async () => {
+      try {
+        const db = await new Promise((res, rej) => {
+          const req = indexedDB.open("luciagram_wallpapers", 1);
+          req.onupgradeneeded = e => e.target.result.createObjectStore("wallpapers", { keyPath: "id" });
+          req.onsuccess = e => res(e.target.result);
+          req.onerror = rej;
+        });
+        const tx = db.transaction("wallpapers","readonly");
+        const req = tx.objectStore("wallpapers").get("chat_wallpaper_"+userId);
+        req.onsuccess = () => { if (req.result?.url) setWallpaper(req.result.url); };
+      } catch { setWallpaper(localStorage.getItem("chat_wallpaper_"+userId) || ""); }
+    };
+    if (userId) loadWallpaper();
+  }, [userId]);
   const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
   const wallpaperInputRef = useRef();
 
@@ -301,11 +319,22 @@ const sendMessage = async () => {
     loadTrendingGifs();
   };
 
-  const setWallpaperAndSave = (url) => {
+  const setWallpaperAndSave = async (url) => {
     setWallpaper(url);
-    localStorage.setItem("chat_wallpaper_"+userId, url);
     setShowWallpaperPicker(false);
+    try {
+      const db = await openWallpaperDB();
+      const tx = db.transaction("wallpapers","readwrite");
+      tx.objectStore("wallpapers").put({ id: "chat_wallpaper_"+userId, url });
+    } catch { localStorage.setItem("chat_wallpaper_"+userId, url); }
   };
+
+  const openWallpaperDB = () => new Promise((res, rej) => {
+    const req = indexedDB.open("luciagram_wallpapers", 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore("wallpapers", { keyPath: "id" });
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = rej;
+  });
 
   const setDisappearAndSave = (val) => {
     setDisappearTimer(val);
@@ -685,7 +714,7 @@ const sendMessage = async () => {
                 style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}} autoFocus />
             </div>
             <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
-              {["😂 Meme","🎉 Party","❤️ Love","😍 Cute","🔥 Fire","😭 Cry"].map(tag => (
+              {["😂 Meme","💀 Skull","🤣 Funny","🎉 Party","❤️ Love","🔥 Fire","😭 Sad","🐱 Cat","🐶 Dog","💅 Slay"].map(tag => (
                 <span key={tag} onClick={()=>searchGifs(tag.split(" ")[1])}
                   style={{background:"#1e1e2e",borderRadius:"20px",padding:"0.25rem 0.75rem",fontSize:"0.8rem",cursor:"pointer",color:"#a78bfa"}}>{tag}</span>
               ))}
@@ -695,7 +724,7 @@ const sendMessage = async () => {
             ) : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"4px",overflowY:"auto",flex:1}}>
                 {gifs.map((gif, i) => {
-                  const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || "";
+                  const url = gif.images?.fixed_height?.url || gif.images?.downsized?.url || gif.images?.original?.url || "";
                   return url ? (
                     <img key={i} src={url} alt="gif" onClick={()=>sendGif(url)}
                       style={{width:"100%",height:"100px",objectFit:"cover",borderRadius:"8px",cursor:"pointer"}} />
