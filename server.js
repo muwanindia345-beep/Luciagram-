@@ -11,7 +11,12 @@ const app = express();
 const httpServer = http.createServer(app);
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: "https://luciagram.onrender.com",
+  credentials: true,
+  methods: ["GET","POST","PUT","DELETE","PATCH"],
+  allowedHeaders: ["Content-Type","Authorization"]
+}));
 app.use(morgan('dev'));
 app.use(cookieParser());
 app.use(express.json({ limit: "50mb" }));
@@ -23,7 +28,7 @@ bot.start();
 
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: 'https://luciagram.onrender.com', credentials: true, methods: ['GET','POST'] },
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling'],
