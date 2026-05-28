@@ -67,6 +67,36 @@ router.post("/:id/follow", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Get followers list
+router.get("/:id/followers/list", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followingId: req.params.id }).lean();
+    const { User } = require("../models");
+    const users = await User.find({ id: { $in: follows.map(f => f.followerId) } })
+      .select("id username avatar isVerified").lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get following list
+router.get("/:id/following/list", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followerId: req.params.id }).lean();
+    const { User } = require("../models");
+    const users = await User.find({ id: { $in: follows.map(f => f.followingId) } })
+      .select("id username avatar isVerified").lean();
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Get my following IDs (for follow map)
+router.get("/my/following-ids", auth, async (req, res) => {
+  try {
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    res.json(follows.map(f => f.followingId));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.get("/:id/followers", auth, async (req, res) => {
   try {
     const followers = await Follow.countDocuments({ followingId: req.params.id });
