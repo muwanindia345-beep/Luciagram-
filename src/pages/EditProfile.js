@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function EditProfile() {
-  const { user, login } = useAuth();
+  const { user, setUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [form, setForm] = useState({
@@ -30,9 +30,12 @@ export default function EditProfile() {
     setLoading(true);
     try {
       const res = await API.put("/users/profile", { ...form, avatar });
-      login({ ...user, ...res.data }, localStorage.getItem("token"));
-      const stored = JSON.parse(localStorage.getItem("user") || "{}");
-      localStorage.setItem("user", JSON.stringify({...stored, ...res.data}));
+      // Update auth context and localStorage immediately
+      const updated = { ...user, ...res.data };
+      setUser(updated);
+      localStorage.setItem("user", JSON.stringify(updated));
+      // Also refresh from server to get latest data
+      await refreshUser();
       navigate("/profile");
     } catch (err) {
       alert(err.response?.data?.message || "Update failed");
@@ -64,9 +67,9 @@ export default function EditProfile() {
               <div style={{width:"96px",height:"96px",borderRadius:"50%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"2.5rem",fontWeight:"bold"}}>{avatarLetter}</div>
             )}
             <div style={{position:"absolute",bottom:0,right:0,background:"#7c3aed",borderRadius:"50%",width:"28px",height:"28px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.8rem"}}>📷</div>
-            <input type="file" accept="image/*" onChange={handleAvatar} style={{display:"none"}} />
+            <input type="file" accept="image/*,image/gif" onChange={handleAvatar} style={{display:"none"}} />
           </label>
-          <span style={{color:"#c084fc",marginTop:"0.75rem",cursor:"pointer",fontSize:"0.95rem"}}>Change profile photo</span>
+          <span style={{color:"#c084fc",marginTop:"0.75rem",cursor:"pointer",fontSize:"0.95rem"}}>Change photo or GIF</span>
         </div>
 
         {fields.map(f => (

@@ -7,6 +7,7 @@ import { io } from "socket.io-client";
 
 export default function Messages() {
   const [conversations, setConversations] = useState([]);
+  const [followedPeople, setFollowedPeople] = useState([]);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [userProfiles, setUserProfiles] = useState({});
@@ -29,7 +30,24 @@ export default function Messages() {
     try {
       const r = await API.get("/messages/conversations");
       const convs = Array.isArray(r.data) ? r.data : [];
+
+      // Also load followed users who haven't messaged yet
+      let followedUsers = [];
+      try {
+        const followRes = await API.get("/users/my/following-ids");
+        const ids = followRes.data || [];
+        // Get usernames for followed ids not already in conversations
+        const convIds = new Set(convs.map(c => c.userId));
+        const newIds = ids.filter(id => !convIds.has(id));
+        if (newIds.length > 0) {
+          // Fetch all followed user profiles
+          const profileRes = await API.get("/users/following-list");
+          followedUsers = (profileRes.data || []).filter(u => !convIds.has(u.id));
+        }
+      } catch {}
+
       setConversations(convs);
+      setFollowedPeople(followedUsers);
       const unread = convs.reduce((sum, c) => sum + (c.unread || 0), 0);
       setTotalUnread(unread);
       document.title = unread > 0 ? "(" + unread + ") Luciagram" : "Luciagram";
@@ -199,6 +217,25 @@ export default function Messages() {
         {/* Conversations */}
         <div style={{padding:"0 1rem"}}>
           {!search && <div style={{color:"#888",fontSize:"0.78rem",marginBottom:"0.5rem",fontWeight:"bold",letterSpacing:"0.05em"}}>MESSAGES</div>}
+          {/* Followed people who you haven't messaged yet */}
+          {followedPeople.length > 0 && !search && (
+            <div style={{padding:"0 1rem",marginBottom:"0.5rem"}}>
+              <div style={{color:"#888",fontSize:"0.78rem",marginBottom:"0.75rem",fontWeight:"bold",letterSpacing:"0.05em"}}>FOLLOWING</div>
+              <div style={{display:"flex",gap:"1rem",overflowX:"auto",paddingBottom:"0.75rem",scrollbarWidth:"none"}}>
+                {followedPeople.map((u,i) => (
+                  <div key={u.id||i} onClick={()=>navigate("/chat/"+u.id+"?username="+u.username)}
+                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"60px",cursor:"pointer"}}>
+                    {u.avatar
+                      ? <img src={u.avatar} alt={u.username} style={{width:"52px",height:"52px",borderRadius:"50%",objectFit:"cover",border:"2px solid #7c3aed"}} />
+                      : <div style={{width:"52px",height:"52px",borderRadius:"50%",background:["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"][i%3],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:"bold",fontSize:"1.2rem",color:"white"}}>{(u.username||"U").slice(0,1).toUpperCase()}</div>
+                    }
+                    <span style={{fontSize:"0.7rem",color:"#aaa",maxWidth:"60px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"center"}}>@{u.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {conversations.length === 0 && !search ? (
             <div style={{textAlign:"center",color:"#888",marginTop:"4rem"}}>
               <div style={{fontSize:"3rem",marginBottom:"1rem"}}>💬</div>
