@@ -39,9 +39,12 @@ export default function UserProfile() {
       }
       const postsRes = await API.get("/posts/user/" + username);
       setPosts(postsRes.data);
-      const storiesRes = await API.get("/stories");
-      setStories(storiesRes.data.filter(s => s.username === username));
-    } catch {} finally { setLoading(false); }
+      const storiesRes = await API.get("/stories/user/" + username);
+      setStories(storiesRes.data || []);
+    } catch (err) {
+      console.error("Profile load error:", err?.response?.data || err.message);
+      setProfile(null);
+    } finally { setLoading(false); }
   };
 
   // Story auto advance
