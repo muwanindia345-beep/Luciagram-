@@ -119,29 +119,7 @@ export default function Chat() {
     { value: 604800, label: "7 days" },
   ];
 
-  useEffect(() => {
-    const handleDocPaste = (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (let item of items) {
-        if (item.type.startsWith("image/") || item.type === "image/gif") {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setMediaData(reader.result);
-            setMediaPreview(reader.result);
-            setMediaType(item.type === "image/gif" ? "gif" : "image");
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-      }
-    };
-    document.addEventListener("paste", handleDocPaste);
-    return () => document.removeEventListener("paste", handleDocPaste);
-  }, []);
+  // paste handled by div onPaste directly
 
   useEffect(() => {
     loadMessages();
@@ -305,6 +283,7 @@ const sendMessage = async () => {
   };
 
   const sendGif = async (gifUrl) => {
+    if (sending) return;
     setShowGifPicker(false);
     setSending(true);
     try {
