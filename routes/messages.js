@@ -48,7 +48,7 @@ router.get("/conversations", auth, async (req, res) => {
   try {
     const msgs = await Message.find({
       $or: [{ senderId: req.user.id }, { receiverId: req.user.id }]
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 }).limit(200).lean();
     
     const conversations = {};
     msgs.forEach(m => {
@@ -86,6 +86,8 @@ router.get("/:userId", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo, music } = req.body;
+    if (!receiverId) return res.status(400).json({ message: "receiverId required" });
+    if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
     const msg = await Message.create({
       id: uuidv4(),
       senderId: req.user.id,
