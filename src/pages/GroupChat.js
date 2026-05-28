@@ -19,7 +19,10 @@ export default function GroupChat() {
   useEffect(() => { loadGroups(); }, []);
 
   const loadGroups = async () => {
-    try { const r = await API.get("/groups"); setGroups(r.data); } catch {}
+    try {
+      const r = await API.get("/groups");
+      setGroups(Array.isArray(r.data) ? r.data : []);
+    } catch (e) { console.log("Groups load error:", e); }
   };
 
   const searchMembers = async (q) => {
