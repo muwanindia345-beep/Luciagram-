@@ -1,3 +1,4 @@
+import { clearSettingsCache } from '../hooks/useSettings';
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import API from "../api";
 
@@ -29,7 +30,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = null;
     const savedUser = localStorage.getItem("user");
 
     if (!token || !savedUser) {
@@ -40,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       if (payload.exp * 1000 < Date.now()) {
-        localStorage.removeItem("token");
+        
         localStorage.removeItem("user");
         setLoading(false);
         return;
@@ -56,15 +57,15 @@ export const AuthProvider = ({ children }) => {
         }
       }).catch(() => {});
     } catch {
-      localStorage.removeItem("token");
+      
       localStorage.removeItem("user");
     }
     setLoading(false);
   }, []);
 
   const login = (userData, token) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("user", JSON.stringify(userData));
+    
+    
     setUserState(userData);
     // Fetch fresh profile after login
     setTimeout(() => {
@@ -79,7 +80,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    clearSettingsCache();
+    
     localStorage.removeItem("user");
     setUserState(null);
   };

@@ -3,6 +3,7 @@ import MusicPicker from "../components/MusicPicker";
 import CallScreen from "./CallScreen";
 import API from "../api";
 import { io } from "socket.io-client";
+import { useSettings } from '../hooks/useSettings';
 import { useAuth } from "../context/AuthContext";
 import GboardInput from "../components/GboardInput";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
@@ -27,6 +28,7 @@ export default function Chat() {
   const [showThemes, setShowThemes] = useState(false);
   const [otherUser, setOtherUser] = useState(null);
   const { user } = useAuth();
+  const { getSetting, setSetting, removeSetting } = useSettings();
   const navigate = useNavigate();
   const bottomRef = useRef();
   const fileRef = useRef();

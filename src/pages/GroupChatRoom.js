@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { io } from "socket.io-client";
+import { useSettings } from '../hooks/useSettings';
 import { useAuth } from "../context/AuthContext";
 import GboardInput from "../components/GboardInput";
 import { useNavigate, useParams } from "react-router-dom";
@@ -94,6 +95,7 @@ export default function GroupChatRoom() {
     return THEMES.find(t => t.id === saved) || THEMES[0];
   });
   const { user } = useAuth();
+  const { getSetting, setSetting, removeSetting } = useSettings();
   const navigate = useNavigate();
   const bottomRef = useRef();
   const fileRef = useRef();

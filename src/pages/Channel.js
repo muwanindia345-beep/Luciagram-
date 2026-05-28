@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../api";
+import { useSettings } from '../hooks/useSettings';
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -11,6 +12,7 @@ export default function Channel() {
   const [view, setView] = useState("list");
   const [activeChannel, setActiveChannel] = useState(null);
   const { user } = useAuth();
+  const { getSetting, setSetting, removeSetting } = useSettings();
   const navigate = useNavigate();
 
   const isAdmin = activeChannel?.adminId === user?.id;
@@ -36,7 +38,7 @@ export default function Channel() {
     };
     const updated = [...channels, channel];
     setChannels(updated);
-    localStorage.setItem("luciagram_channels", JSON.stringify(updated));
+    setSetting("luciagram_channels", updated);
     setActiveChannel(channel);
     setView("channel");
   };
