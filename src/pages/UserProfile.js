@@ -22,6 +22,11 @@ export default function UserProfile() {
   const [storyReply, setStoryReply] = useState("");
   const [storySent, setStorySent] = useState(false);
   const storyTimer = useRef(null);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSent, setReportSent] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
 
@@ -99,6 +104,25 @@ export default function UserProfile() {
     } catch {}
   };
 
+  const submitReport = async () => {
+    if (!reportReason) return;
+    setReportLoading(true);
+    try {
+      await API.post("/reports", {
+        targetUserId: profile.id,
+        targetUsername: profile.username,
+        targetId: profile.id,
+        type: "profile",
+        reason: reportReason,
+        details: reportDetails,
+      });
+      setReportSent(true);
+      setTimeout(() => { setShowReport(false); setReportSent(false); setReportReason(""); setReportDetails(""); }, 2000);
+    } catch (err) {
+      alert(err?.response?.data?.message || "Failed to submit report");
+    } finally { setReportLoading(false); }
+  };
+
   const followBtnLabel = () => {
     if (followStatus === "following") return "Following ✓";
     if (followStatus === "requested") return "Requested ⏳";
@@ -125,11 +149,12 @@ export default function UserProfile() {
   );
 
   if (!profile) return (
-    <div style={{background:"#0a0a0f",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{textAlign:"center",color:"white"}}>
-        <div style={{fontSize:"2rem"}}>👤</div>
-        <p>User not found</p>
-        <button onClick={()=>navigate(-1)} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"8px",color:"white",padding:"0.5rem 1rem",cursor:"pointer"}}>Go Back</button>
+    <div style={{background:"#0a0a0f",height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:"1rem"}}>
+      <div style={{textAlign:"center",color:"white",padding:"2rem"}}>
+        <div style={{fontSize:"3rem",marginBottom:"1rem"}}>🚫</div>
+        <div style={{fontWeight:"bold",fontSize:"1.2rem",marginBottom:"0.5rem"}}>This page isn't available</div>
+        <div style={{color:"#888",fontSize:"0.85rem",marginBottom:"1.5rem"}}>The link you followed may be broken, or the account may have been removed.</div>
+        <button onClick={()=>navigate(-1)} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"8px",color:"white",padding:"0.6rem 1.5rem",cursor:"pointer",fontWeight:"bold"}}>Go Back</button>
       </div>
     </div>
   );
@@ -213,6 +238,9 @@ export default function UserProfile() {
             </button>
             <button onClick={()=>navigate("/chat/"+profile.id+"?username="+profile.username)} style={{flex:1,padding:"0.5rem",background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"8px",color:"white",cursor:"pointer",fontWeight:"bold",fontSize:"0.9rem"}}>
               💬 Message
+            </button>
+            <button onClick={()=>setShowReport(true)} style={{padding:"0.5rem 0.75rem",background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"8px",color:"#f87171",cursor:"pointer",fontSize:"1rem"}} title="Report">
+              🚩
             </button>
           </div>
         )}
@@ -358,6 +386,43 @@ export default function UserProfile() {
                 {storyReply.trim() ? (
                   <button onClick={sendStoryReply} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>➤</button>
                 ) : <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+
+      {/* Report Modal */}
+      {showReport && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowReport(false)}>
+          <div style={{background:"#12121a",borderRadius:"20px 20px 0 0",padding:"1.5rem",width:"100%",maxWidth:"480px",maxHeight:"80vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+            {reportSent ? (
+              <div style={{textAlign:"center",padding:"2rem 0"}}>
+                <div style={{fontSize:"2.5rem",marginBottom:"0.75rem"}}>✅</div>
+                <div style={{fontWeight:"bold",fontSize:"1rem"}}>Report Submitted</div>
+                <div style={{color:"#888",fontSize:"0.85rem",marginTop:"0.4rem"}}>Thanks. We'll review @{profile.username}'s account.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{fontWeight:"bold",fontSize:"1.1rem",marginBottom:"0.5rem",textAlign:"center"}}>🚩 Report @{profile.username}</div>
+                <div style={{color:"#888",fontSize:"0.8rem",textAlign:"center",marginBottom:"1.25rem"}}>Why are you reporting this account?</div>
+                {["spam","harassment","fake_account","nudity","violence","hate_speech","other"].map(r => (
+                  <div key={r} onClick={()=>setReportReason(r)}
+                    style={{padding:"0.75rem 1rem",borderRadius:"10px",marginBottom:"0.5rem",cursor:"pointer",border:"1px solid",borderColor:reportReason===r?"#7c3aed":"#2a2a3a",background:reportReason===r?"rgba(124,58,237,0.12)":"transparent",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{textTransform:"capitalize",fontSize:"0.9rem"}}>{r.replace("_"," ")}</span>
+                    {reportReason===r && <span style={{color:"#7c3aed"}}>✓</span>}
+                  </div>
+                ))}
+                <textarea value={reportDetails} onChange={e=>setReportDetails(e.target.value)} placeholder="Add details (optional)..." rows={3}
+                  style={{width:"100%",background:"#1e1e2e",border:"1px solid #2a2a3a",borderRadius:"10px",padding:"0.75rem",color:"white",fontSize:"0.85rem",resize:"none",outline:"none",marginTop:"0.5rem",boxSizing:"border-box"}} />
+                <button onClick={submitReport} disabled={!reportReason||reportLoading}
+                  style={{width:"100%",marginTop:"1rem",padding:"0.75rem",borderRadius:"10px",border:"none",background:reportReason?"linear-gradient(135deg,#7c3aed,#db2777)":"#2a2a3a",color:"white",fontWeight:"bold",cursor:reportReason?"pointer":"not-allowed",fontSize:"0.95rem"}}>
+                  {reportLoading ? "Submitting..." : "Submit Report"}
+                </button>
+                <button onClick={()=>setShowReport(false)} style={{width:"100%",marginTop:"0.5rem",padding:"0.6rem",borderRadius:"10px",border:"none",background:"transparent",color:"#888",cursor:"pointer",fontSize:"0.9rem"}}>
+                  Cancel
+                </button>
               </>
             )}
           </div>
