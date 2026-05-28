@@ -11,7 +11,9 @@ export const AuthProvider = ({ children }) => {
   const setUser = useCallback((updater) => {
     setUserState(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      return next;
+      if (!next) return next;
+      const { password, ...safe } = next; // password kabhi state mein nahi
+      return safe;
     });
   }, []);
 
@@ -29,13 +31,18 @@ export const AuthProvider = ({ children }) => {
 
   const login = (userData) => {
     setUserState(userData);
-    // Fresh profile fetch
-    setTimeout(() => {
-      API.get("/users/me").then(res => {
-        if (res.data) setUserState(res.data);
-      }).catch(() => {});
-    }, 500);
   };
+
+  // Global 401 event sun lo
+  useEffect(() => {
+    const handler = () => {
+      clearSettingsCache();
+      setUserState(null);
+      API.post("/auth/logout").catch(() => {});
+    };
+    window.addEventListener("auth:logout", handler);
+    return () => window.removeEventListener("auth:logout", handler);
+  }, []);
 
   const logout = () => {
     clearSettingsCache();
