@@ -299,7 +299,7 @@ const sendMessage = async () => {
       setMessages(p => [...p, res.data]);
       socketRef.current?.emit("send_message", res.data);
       setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null); setChatMusic(null);
-      if(inputDivRef.current) inputDivRef.current.textContent = "";
+      if(inputDivRef.current){inputDivRef.current.textContent='';} setText('');
     } catch {}
     setSending(false);
   };
@@ -464,6 +464,54 @@ const sendMessage = async () => {
         return;
       }
     }
+  };
+
+
+  // Gboard GIF/Sticker handler
+  const handleInputDiv = (e) => {
+    const div = inputDivRef.current;
+    if (!div) return;
+
+    // Gboard <img> insert karta hai contenteditable mein
+    const imgs = div.querySelectorAll('img');
+    if (imgs.length > 0) {
+      const img = imgs[0];
+      const src = img.src;
+      imgs.forEach(i => i.remove()); // div se img hatao
+      div.textContent = '';
+      setText('');
+
+      // blob: ya data: url handle karo
+      if (src.startsWith('data:')) {
+        setMediaData(src);
+        setMediaPreview(src);
+        setMediaType(src.includes('image/gif') ? 'gif' : 'image');
+      } else if (src.startsWith('blob:') || src.startsWith('http')) {
+        // blob URL ko fetch karke base64 banao
+        fetch(src)
+          .then(r => r.blob())
+          .then(blob => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setMediaData(reader.result);
+              setMediaPreview(reader.result);
+              setMediaType(blob.type === 'image/gif' ? 'gif' : 'image');
+            };
+            reader.readAsDataURL(blob);
+          }).catch(() => {
+            // fallback: directly use src as mediaUrl
+            setMediaData(src);
+            setMediaPreview(src);
+            setMediaType('gif');
+          });
+      }
+      return;
+    }
+
+    // Normal text
+    const val = div.textContent || '';
+    setText(val);
+    handleTyping();
   };
 
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
