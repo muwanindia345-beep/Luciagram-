@@ -3,6 +3,7 @@ import MusicPicker from "../components/MusicPicker";
 import API from "../api";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
+import GboardInput from "../components/GboardInput";
 import { useNavigate, useParams } from "react-router-dom";
 
 const SOCKET_URL = "https://luciagram-backend.onrender.com";
@@ -93,8 +94,9 @@ export default function GroupChatRoom() {
   const bottomRef = useRef();
   const fileRef = useRef();
   const socketRef = useRef(null);
+  const inputDivRef = useRef(null);
   const typingTimerRef = useRef(null);
-  const TENOR_KEY = "AIzaSyAyimkuYQYF_y8TVOuCQBdqF9PFAP3bRLM";
+  const TENOR_KEY = process.env.REACT_APP_TENOR_KEY || "LIVDSRZULELA";
   const WALLPAPERS = [
     {id:"none",label:"None",color:"#0a0a0f"},
     {id:"galaxy",label:"Galaxy",url:"https://images.unsplash.com/photo-1464802686167-b939a6910659?w=600&q=80"},
@@ -112,33 +114,10 @@ export default function GroupChatRoom() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-  useEffect(() => {
-    const handleDocPaste = (e) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (let item of items) {
-        if (item.type.startsWith("image/") || item.type === "image/gif") {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            setMediaData(reader.result);
-            setMediaPreview(reader.result);
-            setMediaType(item.type === "image/gif" ? "gif" : "image");
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-      }
-    };
-    document.addEventListener("paste", handleDocPaste);
-    return () => document.removeEventListener("paste", handleDocPaste);
-  }, []);
+  // paste handled by GboardInput
 
   useEffect(() => {
-    loadGroup();
-    loadMessages();
+    loadAll();
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socket.on("connect", () => {
       socket.emit("join", user?.id);
@@ -210,6 +189,7 @@ export default function GroupChatRoom() {
   };
 
   const sendGif = async (gifUrl) => {
+    if (sending) return;
     setShowGifPicker(false); setSending(true);
     try {
       const r = await API.post("/groups/"+groupId+"/messages", { text: "", mediaUrl: gifUrl, mediaType: "gif" });
@@ -223,7 +203,7 @@ export default function GroupChatRoom() {
     if (!q.trim()) { loadTrendingGifs(); return; }
     setGifLoading(true);
     try {
-      const res = await fetch("https://tenor.googleapis.com/v2/search?q="+encodeURIComponent(q)+"&key="+TENOR_KEY+"&limit=20&media_filter=gif");
+      const res = await fetch(`https://g.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=20`);
       const data = await res.json(); setGifs(data.results||[]);
     } catch {} finally { setGifLoading(false); }
   };
@@ -231,7 +211,7 @@ export default function GroupChatRoom() {
   const loadTrendingGifs = async () => {
     setGifLoading(true);
     try {
-      const res = await fetch("https://tenor.googleapis.com/v2/featured?key="+TENOR_KEY+"&limit=20&media_filter=gif");
+      const res = await fetch(`https://g.tenor.com/v1/trending?key=${TENOR_KEY}&limit=20`);
       const data = await res.json(); setGifs(data.results||[]);
     } catch {} finally { setGifLoading(false); }
   };
@@ -245,6 +225,11 @@ export default function GroupChatRoom() {
       const r = await API.get("/groups/" + groupId + "/messages");
       setMessages(r.data);
     } catch {} finally { setLoading(false); }
+  };
+
+  const loadAll = async () => {
+    setLoading(true);
+    await Promise.all([loadGroup(), loadMessages()]);
   };
 
   const loadPending = async () => {
@@ -289,21 +274,35 @@ export default function GroupChatRoom() {
   const sendMessage = async () => {
     if ((!text.trim() && !mediaData) || sending) return;
     setSending(true);
+    const tempId = "temp_" + Date.now();
+    const optimistic = {
+      id: tempId, groupId, text: text.trim(),
+      senderUsername: user?.username, senderAvatar: user?.avatar || "",
+      senderId: user?.id, mediaUrl: mediaPreview || "",
+      mediaType: mediaType || "", createdAt: new Date().toISOString(),
+      _sending: true,
+    };
+    setMessages(prev => [...prev, optimistic]);
+    setText(""); setMediaPreview(null);
+    if (inputDivRef.current) inputDivRef.current.clear?.();
+    const savedMedia = mediaData; const savedType = mediaType;
+    setMediaData(null); setMediaType(null); setReplyTo(null); setChatMusic(null);
     try {
       let mediaUrl = "";
-      if (mediaData) {
-        const r = await API.post("/groups/upload", { mediaBase64: mediaData, mediaType });
+      if (savedMedia) {
+        const r = await API.post("/groups/upload", { mediaBase64: savedMedia, mediaType: savedType });
         mediaUrl = r.data.url;
       }
       const r = await API.post("/groups/" + groupId + "/messages", {
-        text: text.trim(), mediaUrl, mediaType: mediaType || "",
+        text: optimistic.text, mediaUrl, mediaType: savedType || "",
         music: chatMusic || null,
         replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderUsername: replyTo.senderUsername, mediaType: replyTo.mediaType } : null,
       });
-      setMessages(prev => [...prev, r.data]);
+      setMessages(prev => prev.map(m => m.id === tempId ? r.data : m));
       socketRef.current?.emit("group_message", r.data);
-      setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null); setChatMusic(null);
-    } catch {}
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+    }
     setSending(false);
   };
 
@@ -491,6 +490,14 @@ export default function GroupChatRoom() {
   const av = (n) => (n || "U").slice(0, 1).toUpperCase();
   const grads = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
+  if (loading) return (
+    <div style={{background:"#0a0a0f",height:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1rem"}}>
+      <div style={{width:"48px",height:"48px",border:"3px solid #7c3aed",borderTop:"3px solid transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}} />
+      <div style={{color:"#888",fontSize:"0.9rem"}}>Loading group...</div>
+      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+    </div>
+  );
+
   return (
     <div style={{background:theme.bg,height:"100vh",color:"white",display:"flex",flexDirection:"column",overflow:"hidden",backgroundImage:wallpaper?`url(${wallpaper})`:"none",backgroundSize:"cover",backgroundPosition:"center"}}>
 
@@ -674,8 +681,14 @@ export default function GroupChatRoom() {
         backgroundImage:wallpaper?undefined:"none"}}>
         <span onClick={()=>setShowAttachMenu(v=>!v)} style={{fontSize:"1.3rem",cursor:"pointer"}}>➕</span>
         <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎵</span>
-        <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()} onPaste={handlePaste}
-          placeholder="Message..." style={{flex:1,background:theme.bubble,border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0}} />
+        <GboardInput
+          ref={inputDivRef}
+          onText={(t)=>{setText(t);handleTyping();}}
+          onMedia={(data,type)=>{setMediaData(data);setMediaPreview(data);setMediaType(type);}}
+          onSend={sendMessage}
+          onPaste={handlePaste}
+          style={{background:theme.bubble}}
+        />
         <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleMedia} style={{display:"none"}} />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleMedia} style={{display:"none"}} />
         {(text||mediaData||audioUrl)
