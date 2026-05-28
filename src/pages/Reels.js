@@ -25,6 +25,7 @@ export default function Reels() {
   const [commentLikes, setCommentLikes] = useState({});
   const [replyTo, setReplyTo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState({});
   const [progress, setProgress] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
@@ -41,6 +42,11 @@ export default function Reels() {
 
   useEffect(() => {
     // Pre-populate followingMap
+    API.get("/posts/saved").then(r => {
+      const map = {};
+      (r.data || []).forEach(p => { map[p.id] = true; });
+      setSaved(map);
+    }).catch(()=>{});
     API.get("/users/my/following-ids").then(r => {
       const map = {};
       (r.data || []).forEach(id => { map[id] = true; });
@@ -146,16 +152,26 @@ export default function Reels() {
 
   const handleFollow = async (profile) => {
     try {
-      const res = await API.post("/users/" + profile.id + "/follow");
-      setFollowingMap(p => ({...p, [profile.id]: res.data.following}));
-      setProfileStats(p => ({
-        ...p,
-        [profile.username]: {
-          ...p[profile.username],
-          followers: (p[profile.username]?.followers || 0) + (res.data.following ? 1 : -1)
-        }
-      }));
+      const res = await API.post("/users/" + profile.id + "/follow-request");
+      if (res.data.status === "following") {
+        setFollowingMap(p => ({...p, [profile.id]: "following"}));
+        setProfileStats(p => ({...p, [profile.username]: {...p[profile.username], followers: (p[profile.username]?.followers||0)+1}}));
+      } else if (res.data.status === "unfollowed") {
+        setFollowingMap(p => ({...p, [profile.id]: false}));
+        setProfileStats(p => ({...p, [profile.username]: {...p[profile.username], followers: (p[profile.username]?.followers||0)-1}}));
+      } else if (res.data.status === "requested") {
+        setFollowingMap(p => ({...p, [profile.id]: "requested"}));
+      } else if (res.data.status === "request_cancelled") {
+        setFollowingMap(p => ({...p, [profile.id]: false}));
+      }
     } catch {}
+  };
+
+  const handleSave = async (postId) => {
+    setSaved(p => ({...p, [postId]: !p[postId]}));
+    try { await API.post("/posts/" + postId + "/save"); } catch {
+      setSaved(p => ({...p, [postId]: !p[postId]}));
+    }
   };
 
   const loadComments = async (postId) => {
