@@ -37,6 +37,10 @@ export default function GroupChatRoom() {
   const { groupId } = useParams();
   const [group, setGroup] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [msgPage, setMsgPage] = useState(1);
+  const [hasMoreMsgs, setHasMoreMsgs] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const chatBoxRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -147,7 +151,20 @@ export default function GroupChatRoom() {
     return () => socket.disconnect();
   }, [groupId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  const isNearBottom = () => {
+    const box = chatBoxRef.current;
+    if (!box) return true;
+    return box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  };
+
+  useEffect(() => {
+    if (msgPage === 1) {
+      // first load — seedha bottom pe
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 80);
+    } else if (isNearBottom()) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
   useEffect(() => {
     if (!disappearTimer) return;
@@ -222,9 +239,32 @@ export default function GroupChatRoom() {
 
   const loadMessages = async () => {
     try {
-      const r = await API.get("/groups/" + groupId + "/messages");
-      setMessages(r.data);
+      const r = await API.get(`/groups/${groupId}/messages?limit=30&page=1`);
+      const data = r.data?.messages || r.data || [];
+      setMessages(data);
+      setHasMoreMsgs(data.length === 30);
+      setMsgPage(1);
     } catch {} finally { setLoading(false); }
+  };
+
+  const loadMoreMessages = async () => {
+    if (loadingMore || !hasMoreMsgs) return;
+    setLoadingMore(true);
+    const box = chatBoxRef.current;
+    const prevHeight = box?.scrollHeight || 0;
+    try {
+      const nextPage = msgPage + 1;
+      const r = await API.get(`/groups/${groupId}/messages?limit=30&page=${nextPage}`);
+      const data = r.data?.messages || r.data || [];
+      if (data.length === 0) { setHasMoreMsgs(false); return; }
+      setMessages(prev => [...data, ...prev]);
+      setMsgPage(nextPage);
+      setHasMoreMsgs(data.length === 30);
+      // scroll position fix — jump nahi karega
+      setTimeout(() => {
+        if (box) box.scrollTop = box.scrollHeight - prevHeight;
+      }, 50);
+    } catch {} finally { setLoadingMore(false); }
   };
 
   const loadAll = async () => {
@@ -742,7 +782,7 @@ export default function GroupChatRoom() {
             {gifLoading ? <div style={{textAlign:"center",padding:"2rem",color:"#888"}}>Loading...</div> : (
               <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"4px",overflowY:"auto",flex:1}}>
                 {gifs.map((gif,i) => {
-                  const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || "";
+                  const url = gif.media?.[0]?.gif?.url || gif.media?.[0]?.tinygif?.url || gif.media_formats?.gif?.url || "";
                   return url ? <img key={i} src={url} alt="gif" onClick={()=>sendGif(url)} style={{width:"100%",height:"100px",objectFit:"cover",borderRadius:"8px",cursor:"pointer"}} /> : null;
                 })}
               </div>
