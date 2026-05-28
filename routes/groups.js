@@ -6,9 +6,18 @@ const SupaStore = require("../supastore");
 
 router.get("/", auth, async (req, res) => {
   try {
-    const groups = await Group.find({ "members.id": req.user.id }).sort({ updatedAt: -1 }).lean();
-    res.json(groups);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const userId = req.user.id;
+    const groups = await Group.find({
+      $or: [
+        { "members.id": userId },
+        { createdById: userId }
+      ]
+    }).sort({ updatedAt: -1 }).lean();
+    res.json(Array.isArray(groups) ? groups : []);
+  } catch (err) {
+    console.error("Groups fetch error:", err);
+    res.status(500).json({ message: err.message });
+  }
 });
 
 router.post("/", auth, async (req, res) => {

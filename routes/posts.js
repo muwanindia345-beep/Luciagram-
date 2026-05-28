@@ -208,4 +208,34 @@ router.delete("/:id", auth, async (req, res) => {
   }
 });
 
+// Bulk get likes and comment counts for multiple posts
+router.post("/bulk-meta", auth, async (req, res) => {
+  try {
+    const { postIds } = req.body;
+    if (!Array.isArray(postIds) || postIds.length === 0) return res.json({});
+    const [likes, liked, comments] = await Promise.all([
+      Like.aggregate([
+        { $match: { postId: { $in: postIds } } },
+        { $group: { _id: "$postId", count: { $sum: 1 } } }
+      ]),
+      Like.find({ postId: { $in: postIds }, userId: req.user.id }).lean(),
+      require("../models").Comment.aggregate([
+        { $match: { postId: { $in: postIds } } },
+        { $group: { _id: "$postId", count: { $sum: 1 } } }
+      ])
+    ]);
+    const result = {};
+    postIds.forEach(id => {
+      const likeData = likes.find(l => l._id === id);
+      const commentData = comments.find(c => c._id === id);
+      result[id] = {
+        likes: likeData?.count || 0,
+        liked: !!liked.find(l => l.postId === id),
+        comments: commentData?.count || 0,
+      };
+    });
+    res.json(result);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
