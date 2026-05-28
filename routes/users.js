@@ -197,12 +197,19 @@ router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.get("/:username", async (req, res) => {
+router.get("/:username", auth, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username }).select("-password");
+    const user = await User.findOne({ username: req.params.username }).select("-password").lean();
     if (!user) return res.status(404).json({ message: "User not found" });
     if (user.isSuspended) return res.status(404).json({ message: "User not found", suspended: true });
-    res.json(user);
+    const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
+    const isPending = !!(user.followRequests || []).find(r => r.userId === req.user.id);
+    // Always return avatar so profile pics show everywhere
+    // Hide sensitive fields for private accounts you don't follow
+    if (user.isPrivate && !isFollowing && user.id !== req.user.id) {
+      return res.json({ id: user.id, username: user.username, fullName: user.fullName, avatar: user.avatar, isPrivate: true, isVerified: user.isVerified, isFollowing, isPending });
+    }
+    res.json({ ...user, followRequests: undefined, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
