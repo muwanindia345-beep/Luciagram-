@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Post, Like } = require("../models");
+const { Post, Like, User, Follow } = require("../models");
 const SupaStore = require("../supastore");
 const { v4: uuidv4 } = require("uuid");
 const notifRouter = require("./notifications");
@@ -13,7 +13,16 @@ router.get("/feed", auth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const skip = (page - 1) * limit;
-    const posts = await Post.find({ mediaType: { $in: ["image", null] } })
+    // Get suspended user IDs to exclude
+    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspendedIds = suspended.map(u => u.id);
+    // Get private accounts the user does NOT follow
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const followingIds = follows.map(f => f.followingId);
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const privateIds = privateUsers.map(u => u.id);
+    const excludeIds = [...new Set([...suspendedIds, ...privateIds])];
+    const posts = await Post.find({ mediaType: { $in: ["image", null] }, userId: { $nin: excludeIds } })
       .select("id userId username mediaUrl mediaFileName mediaType caption location music createdAt")
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -31,7 +40,13 @@ router.get("/reels", auth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = 10;
     const skip = (page - 1) * limit;
-    const posts = await Post.find({ mediaType: "video" })
+    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspendedIds = suspended.map(u => u.id);
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const followingIds = follows.map(f => f.followingId);
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const excludeIds = [...new Set([...suspendedIds, ...privateUsers.map(u => u.id)])];
+    const posts = await Post.find({ mediaType: "video", userId: { $nin: excludeIds } })
       .select("id userId username mediaUrl mediaType caption location createdAt")
       .sort({ createdAt: -1 })
       .limit(limit)
@@ -46,7 +61,13 @@ router.get("/reels", auth, async (req, res) => {
 // Explore - recent posts grid
 router.get("/explore", auth, async (req, res) => {
   try {
-    const posts = await Post.find({ mediaType: { $in: ["image", "video"] } })
+    const suspended = await User.find({ isSuspended: true }).select("id").lean();
+    const suspendedIds = suspended.map(u => u.id);
+    const follows = await Follow.find({ followerId: req.user.id }).lean();
+    const followingIds = follows.map(f => f.followingId);
+    const privateUsers = await User.find({ isPrivate: true, id: { $nin: [...followingIds, req.user.id] } }).select("id").lean();
+    const excludeIds = [...new Set([...suspendedIds, ...privateUsers.map(u => u.id)])];
+    const posts = await Post.find({ mediaType: { $in: ["image", "video"] }, userId: { $nin: excludeIds } })
       .select("id userId username mediaUrl mediaType caption createdAt")
       .sort({ createdAt: -1 })
       .limit(30)
