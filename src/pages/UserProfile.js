@@ -40,7 +40,7 @@ export default function UserProfile() {
       if (res.data.id) {
         const statsRes = await API.get("/users/" + res.data.id + "/followers");
         setStats(statsRes.data);
-        setFollowStatus(statsRes.data.isFollowing ? "following" : "none");
+        setFollowStatus(statsRes.data.isFollowing ? "following" : statsRes.data.isPending ? "requested" : "none");
       }
       const postsRes = await API.get("/posts/user/" + username);
       setPosts(postsRes.data);
@@ -77,13 +77,17 @@ export default function UserProfile() {
 
   const handleFollow = async () => {
     try {
-      if (profile.isPrivate && followStatus === "none") {
-        const res = await API.post("/users/" + profile.id + "/follow-request");
-        setFollowStatus(res.data.status === "following" ? "following" : res.data.status === "requested" ? "requested" : "none");
-      } else {
-        const res = await API.post("/users/" + profile.id + "/follow");
-        setFollowStatus(res.data.following ? "following" : "none");
-        setStats(s => ({...s, followers: s.followers + (res.data.following ? 1 : -1)}));
+      const res = await API.post("/users/" + profile.id + "/follow-request");
+      if (res.data.status === "following") {
+        setFollowStatus("following");
+        setStats(s => ({...s, followers: s.followers + 1}));
+      } else if (res.data.status === "unfollowed") {
+        setFollowStatus("none");
+        setStats(s => ({...s, followers: s.followers - 1}));
+      } else if (res.data.status === "requested") {
+        setFollowStatus("requested");
+      } else if (res.data.status === "request_cancelled") {
+        setFollowStatus("none");
       }
     } catch {}
   };

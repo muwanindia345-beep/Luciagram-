@@ -95,6 +95,7 @@ useEffect(() => {
     ])].filter(u => u && !userProfiles[u] && u !== user?.username);
     usernames.forEach(username => {
       API.get("/users/" + username).then(res => {
+        // Always store avatar even for private accounts so profile pics show
         setUserProfiles(prev => ({...prev, [username]: res.data}));
       }).catch(()=>{});
     });
@@ -262,7 +263,12 @@ const sendStoryViaDM = async (toUser) => {
   };
 
   const handleFollow = async (userId, username) => {
-    try { const res = await API.post("/users/" + userId + "/follow"); setFollowingMap(p => ({...p, [userId]: res.data.following})); } catch {}
+    try {
+      const profile = Object.values(userProfiles).find(u => u.id === userId);
+      const res = await API.post("/users/" + userId + "/follow-request");
+      if (res.data.status === "following") setFollowingMap(p => ({...p, [userId]: true}));
+      else if (res.data.status === "unfollowed") setFollowingMap(p => ({...p, [userId]: false}));
+    } catch {}
   };
 
   const openShareSheet = async (post) => {
