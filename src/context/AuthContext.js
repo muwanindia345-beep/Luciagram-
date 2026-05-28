@@ -11,80 +11,44 @@ export const AuthProvider = ({ children }) => {
   const setUser = useCallback((updater) => {
     setUserState(prev => {
       const next = typeof updater === "function" ? updater(prev) : updater;
-      if (next) localStorage.setItem("user", JSON.stringify(next));
       return next;
     });
   }, []);
 
-  const refreshUser = useCallback(async () => {
-    try {
-      const res = await API.get("/users/me");
-      if (res.data) {
-        setUserState(prev => {
-          const updated = { ...prev, ...res.data };
-          localStorage.setItem("user", JSON.stringify(updated));
-          return updated;
-        });
-      }
-    } catch {}
-  }, []);
-
+  // Refresh pe /users/me call karo — cookie valid hai to user milega
   useEffect(() => {
-    const token = null;
-    const savedUser = localStorage.getItem("user");
-
-    if (!token || !savedUser) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token.split(".")[1]));
-      if (payload.exp * 1000 < Date.now()) {
-        
-        localStorage.removeItem("user");
-        setLoading(false);
-        return;
-      }
-      const parsed = JSON.parse(savedUser);
-      setUserState(parsed);
-      // Always refresh from server on load to get latest avatar/data
-      API.get("/users/me").then(res => {
-        if (res.data) {
-          const updated = { ...parsed, ...res.data };
-          setUserState(updated);
-          localStorage.setItem("user", JSON.stringify(updated));
-        }
-      }).catch(() => {});
-    } catch {
-      
-      localStorage.removeItem("user");
-    }
-    setLoading(false);
+    API.get("/users/me")
+      .then(res => {
+        if (res.data) setUserState(res.data);
+      })
+      .catch(() => {
+        setUserState(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const login = (userData, token) => {
-    
-    
+  const login = (userData) => {
     setUserState(userData);
-    // Fetch fresh profile after login
+    // Fresh profile fetch
     setTimeout(() => {
       API.get("/users/me").then(res => {
-        if (res.data) {
-          const updated = { ...userData, ...res.data };
-          setUserState(updated);
-          localStorage.setItem("user", JSON.stringify(updated));
-        }
+        if (res.data) setUserState(res.data);
       }).catch(() => {});
     }, 500);
   };
 
   const logout = () => {
     clearSettingsCache();
-    
-    localStorage.removeItem("user");
     setUserState(null);
+    API.post("/auth/logout").catch(() => {});
   };
+
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await API.get("/users/me");
+      if (res.data) setUserState(res.data);
+    } catch {}
+  }, []);
 
   if (loading) return (
     <div style={{background:"#0a0a0f",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"1rem"}}>
