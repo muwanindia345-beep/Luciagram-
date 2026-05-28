@@ -111,7 +111,9 @@ const openFollowing = async () => {
     reader.onloadend = async () => {
       try {
         const res = await API.put("/users/profile", { fullName: user.fullName, username: user.username, bio: user.bio, website: user.website, avatar: reader.result });
-        if (setUser) setUser(prev => ({...prev, avatar: res.data.avatar}));
+        const newAvatar = res.data.avatar || reader.result;
+        if (setUser) setUser(prev => ({...prev, avatar: newAvatar}));
+        localStorage.setItem("user", JSON.stringify({...user, avatar: newAvatar}));
       } catch {}
       setUploading(false);
       setShowAvatarMenu(false);

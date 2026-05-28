@@ -31,6 +31,8 @@ export default function EditProfile() {
     try {
       const res = await API.put("/users/profile", { ...form, avatar });
       login({ ...user, ...res.data }, localStorage.getItem("token"));
+      const stored = JSON.parse(localStorage.getItem("user") || "{}");
+      localStorage.setItem("user", JSON.stringify({...stored, ...res.data}));
       navigate("/profile");
     } catch (err) {
       alert(err.response?.data?.message || "Update failed");
