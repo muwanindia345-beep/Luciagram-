@@ -227,6 +227,26 @@ export default function GroupChatRoom() {
     try { const r = await API.get("/groups/" + groupId + "/pending"); setPendingMembers(r.data); } catch {}
   };
 
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
+      if (item.type.startsWith("image/") || item.type === "image/gif") {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaData(reader.result);
+          setMediaPreview(reader.result);
+          setMediaType(item.type === "image/gif" ? "gif" : "image");
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+  };
+
   const handleTyping = () => {
     socketRef.current?.emit("group_typing", { groupId, senderId: user?.id, senderUsername: user?.username, senderAvatar: user?.avatar || "" });
     clearTimeout(typingTimerRef.current);
@@ -630,7 +650,7 @@ export default function GroupChatRoom() {
         backgroundImage:wallpaper?undefined:"none"}}>
         <span onClick={()=>setShowAttachMenu(v=>!v)} style={{fontSize:"1.3rem",cursor:"pointer"}}>➕</span>
         <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎵</span>
-        <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+        <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()} onPaste={handlePaste}
           placeholder="Message..." style={{flex:1,background:theme.bubble,border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0}} />
         <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleMedia} style={{display:"none"}} />
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleMedia} style={{display:"none"}} />

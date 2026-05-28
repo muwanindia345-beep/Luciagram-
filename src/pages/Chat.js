@@ -388,6 +388,26 @@ const sendMessage = async () => {
     return Object.entries(map);
   };
 
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let item of items) {
+      if (item.type.startsWith("image/") || item.type === "image/gif") {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setMediaData(reader.result);
+          setMediaPreview(reader.result);
+          setMediaType(item.type === "image/gif" ? "gif" : "image");
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+    }
+  };
+
   const avatar = (name) => (name||"U").slice(0,1).toUpperCase();
   const currentTheme = themes[theme] || themes.purple;
   const endCall = () => { setActiveCall(null); setIncomingCall(null); };
