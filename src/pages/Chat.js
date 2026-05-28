@@ -29,6 +29,7 @@ export default function Chat() {
   const navigate = useNavigate();
   const bottomRef = useRef();
   const fileRef = useRef();
+  const inputDivRef = useRef();
   const cameraRef = useRef();
   const socketRef = useRef(null);
   const doubleTapRef = useRef({});
@@ -297,6 +298,7 @@ const sendMessage = async () => {
       setMessages(p => [...p, res.data]);
       socketRef.current?.emit("send_message", res.data);
       setText(""); setMediaPreview(null); setMediaData(null); setMediaType(null); setReplyTo(null); setChatMusic(null);
+      if(inputDivRef.current) inputDivRef.current.textContent = "";
     } catch {}
     setSending(false);
   };
@@ -882,6 +884,13 @@ const sendMessage = async () => {
 
       <audio ref={musicAudioRef} />
       {showMusicPicker && <MusicPicker selectedMusic={chatMusic} onSelect={t=>{setChatMusic(t);setShowMusicPicker(false);}} onClose={()=>setShowMusicPicker(false)} />}
+      <style>{`
+        [data-placeholder]:empty:before {
+          content: attr(data-placeholder);
+          color: #555;
+          pointer-events: none;
+        }
+      `}</style>
       <style>{`
         @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
