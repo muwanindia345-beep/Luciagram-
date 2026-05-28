@@ -42,8 +42,9 @@ router.post("/register", async (req, res) => {
       fullName: fullName || username,
     });
 
-    const token = jwt.sign({ id: user.id, username }, process.env.JWT_SECRET, { expiresIn: "24h" });
-    res.status(201).json({ token, user: { id: user.id, username, email: emailLower, fullName: user.fullName } });
+    const token = jwt.sign({ id: user.id, username }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
+    res.status(201).json({ user: { id: user.id, username, email: emailLower, fullName: user.fullName } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -81,8 +82,9 @@ router.post("/login", async (req, res) => {
       ...(publicKey ? { publicKey } : {}),
     });
 
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "24h" });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar, publicKey: user.publicKey } });
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
+    res.json({ user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar, publicKey: user.publicKey } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
