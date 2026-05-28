@@ -724,34 +724,38 @@ const sendMessage = async () => {
             contentEditable
             suppressContentEditableWarning
             onInput={e => {
-              // Gboard GIF/sticker handling
-              const event = e.nativeEvent;
-              if (event.inputType === 'insertContent' || event.inputType === 'insertFromPaste') {
-                const dt = event.dataTransfer;
-                if (dt && dt.files && dt.files.length > 0) {
-                  const file = dt.files[0];
-                  if (file.type.startsWith('image/')) {
-                    e.preventDefault();
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      setMediaData(reader.result);
-                      setMediaPreview(reader.result);
-                      setMediaType(file.type === 'image/gif' ? 'gif' : 'image');
+              // Gboard <img> injection detect karo
+              const div = e.currentTarget;
+              const imgs = div.querySelectorAll('img');
+              if (imgs.length > 0) {
+                const src = imgs[0].src;
+                imgs.forEach(i => i.remove());
+                div.textContent = div.textContent || '';
+                setText(div.textContent);
+                if (src.startsWith('blob:') || src.startsWith('http')) {
+                  fetch(src).then(r => r.blob()).then(blob => {
+                    const rd = new FileReader();
+                    rd.onloadend = () => {
+                      setMediaData(rd.result);
+                      setMediaPreview(rd.result);
+                      setMediaType(blob.type === 'image/gif' ? 'gif' : 'image');
                     };
-                    reader.readAsDataURL(file);
-                    inputDivRef.current.textContent = '';
-                    return;
-                  }
+                    rd.readAsDataURL(blob);
+                  }).catch(() => { setMediaData(src); setMediaPreview(src); setMediaType('gif'); });
+                } else if (src.startsWith('data:')) {
+                  setMediaData(src); setMediaPreview(src);
+                  setMediaType(src.includes('gif') ? 'gif' : 'image');
                 }
+                return;
               }
-              const val = e.currentTarget.textContent || '';
+              const val = div.textContent || '';
               setText(val);
               handleTyping();
             }}
             onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),sendMessage())}
             onPaste={handlePaste}
             data-placeholder="Message..."
-            style={{flex:1,background:"#1e1e2e",border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0,minHeight:"36px",maxHeight:"100px",overflowY:"auto",wordBreak:"break-word",display:"flex",alignItems:"center"}}
+            style={{flex:1,background:"#1e1e2e",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0,minHeight:"36px",maxHeight:"100px",overflowY:"auto",wordBreak:"break-word",display:"block",lineHeight:"1.5"}}
           />
           <style>{`[data-placeholder]:empty:before{content:attr(data-placeholder);color:#666;pointer-events:none;position:absolute;left:0.9rem}`}</style>
         </div>
