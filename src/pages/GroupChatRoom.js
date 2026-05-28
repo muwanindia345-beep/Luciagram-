@@ -65,6 +65,24 @@ export default function GroupChatRoom() {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [chatMusic, setChatMusic] = useState(null);
   const musicAudioRef = useRef(null);
+  const cameraRef = useRef(null);
+  const [recording, setRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingTimerRef = useRef(null);
+  const [wallpaper, setWallpaper] = useState(() => localStorage.getItem("lg_wallpaper_"+groupId) || "");
+  const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
+  const wallpaperInputRef = useRef();
+  const [disappearTimer, setDisappearTimer] = useState(() => parseInt(localStorage.getItem("lg_disappear_"+groupId)||"0"));
+  const [showDisappearPicker, setShowDisappearPicker] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearch, setGifSearch] = useState("");
+  const [gifs, setGifs] = useState([]);
+  const [gifLoading, setGifLoading] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [groupFont, setGroupFont] = useState(() => localStorage.getItem("lg_font_" + groupId) || "default");
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("lg_theme_" + groupId);
@@ -76,6 +94,18 @@ export default function GroupChatRoom() {
   const fileRef = useRef();
   const socketRef = useRef(null);
   const typingTimerRef = useRef(null);
+  const TENOR_KEY = "AIzaSyAyimkuYQYF_y8TVOuCQBdqF9PFAP3bRLM";
+  const WALLPAPERS = [
+    {id:"none",label:"None",color:"#0a0a0f"},
+    {id:"galaxy",label:"Galaxy",url:"https://images.unsplash.com/photo-1464802686167-b939a6910659?w=600&q=80"},
+    {id:"aurora",label:"Aurora",url:"https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=600&q=80"},
+    {id:"city",label:"City",url:"https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=600&q=80"},
+    {id:"forest",label:"Forest",url:"https://images.unsplash.com/photo-1448375240586-882707db888b?w=600&q=80"},
+    {id:"ocean",label:"Ocean",url:"https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=600&q=80"},
+    {id:"neon",label:"Neon",url:"https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&q=80"},
+  ];
+  const DISAPPEAR_OPTIONS = [{value:0,label:"Off"},{value:30,label:"30 seconds"},{value:300,label:"5 minutes"},{value:3600,label:"1 hour"},{value:86400,label:"24 hours"},{value:604800,label:"7 days"}];
+  const fmtTime = (s) => Math.floor(s/60).toString().padStart(2,"0")+":"+(s%60).toString().padStart(2,"0");
 
   const isAdmin = group?.admins?.includes(user?.id);
   const isCreator = group?.createdById === user?.id;
@@ -115,6 +145,72 @@ export default function GroupChatRoom() {
   }, [groupId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  useEffect(() => {
+    if (!disappearTimer) return;
+    const interval = setInterval(() => {
+      const cutoff = Date.now() - disappearTimer * 1000;
+      setMessages(prev => prev.filter(m => new Date(m.createdAt).getTime() > cutoff));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [disappearTimer]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mr.ondataavailable = e => audioChunksRef.current.push(e.data);
+      mr.onstop = () => { const blob = new Blob(audioChunksRef.current,{type:"audio/webm"}); setAudioBlob(blob); setAudioUrl(URL.createObjectURL(blob)); stream.getTracks().forEach(t=>t.stop()); };
+      mr.start(); mediaRecorderRef.current = mr; setRecording(true); setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => setRecordingTime(t=>t+1), 1000);
+    } catch { alert("Microphone access denied"); }
+  };
+  const stopRecording = () => { mediaRecorderRef.current?.stop(); clearInterval(recordingTimerRef.current); setRecording(false); };
+  const cancelRecording = () => { mediaRecorderRef.current?.stop(); clearInterval(recordingTimerRef.current); setRecording(false); setAudioBlob(null); setAudioUrl(null); };
+
+  const sendVoiceMessage = async () => {
+    if (!audioBlob) return;
+    setSending(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const uploadRes = await API.post("/groups/upload", { mediaBase64: reader.result, mediaType: "audio" });
+        const r = await API.post("/groups/"+groupId+"/messages", { text: "🎙️ Voice message", mediaUrl: uploadRes.data.url, mediaType: "audio" });
+        setMessages(prev => [...prev, r.data]);
+        socketRef.current?.emit("group_message", r.data);
+        setAudioBlob(null); setAudioUrl(null);
+      } catch {} finally { setSending(false); }
+    };
+    reader.readAsDataURL(audioBlob);
+  };
+
+  const sendGif = async (gifUrl) => {
+    setShowGifPicker(false); setSending(true);
+    try {
+      const r = await API.post("/groups/"+groupId+"/messages", { text: "", mediaUrl: gifUrl, mediaType: "gif" });
+      setMessages(prev => [...prev, r.data]);
+      socketRef.current?.emit("group_message", r.data);
+    } catch {} finally { setSending(false); }
+  };
+
+  const searchGifs = async (q) => {
+    setGifSearch(q);
+    if (!q.trim()) { loadTrendingGifs(); return; }
+    setGifLoading(true);
+    try {
+      const res = await fetch("https://tenor.googleapis.com/v2/search?q="+encodeURIComponent(q)+"&key="+TENOR_KEY+"&limit=20&media_filter=gif");
+      const data = await res.json(); setGifs(data.results||[]);
+    } catch {} finally { setGifLoading(false); }
+  };
+
+  const loadTrendingGifs = async () => {
+    setGifLoading(true);
+    try {
+      const res = await fetch("https://tenor.googleapis.com/v2/featured?key="+TENOR_KEY+"&limit=20&media_filter=gif");
+      const data = await res.json(); setGifs(data.results||[]);
+    } catch {} finally { setGifLoading(false); }
+  };
 
   const loadGroup = async () => {
     try { const r = await API.get("/groups/" + groupId); setGroup(r.data); } catch {}
@@ -352,7 +448,7 @@ export default function GroupChatRoom() {
   const grads = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)","linear-gradient(135deg,#8b5cf6,#06b6d4)"];
 
   return (
-    <div style={{background:theme.bg,height:"100vh",color:"white",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{background:theme.bg,height:"100vh",color:"white",display:"flex",flexDirection:"column",overflow:"hidden",backgroundImage:wallpaper?`url(${wallpaper})`:"none",backgroundSize:"cover",backgroundPosition:"center"}}>
 
       {toast && (
         <div style={{position:"fixed",top:"1rem",left:"50%",transform:"translateX(-50%)",background:"#1e1e2e",border:"1px solid #7c3aed",borderRadius:"20px",padding:"0.5rem 1.25rem",fontSize:"0.85rem",zIndex:999,whiteSpace:"nowrap"}}>
@@ -417,14 +513,22 @@ export default function GroupChatRoom() {
                   </div>
                 )}
                 <div style={{maxWidth:"72%"}}>
-                  {m.mediaUrl && (
+                  {m.mediaUrl && m.mediaType==="audio" ? (
+                    <div style={{background:mine?theme.mine:theme.bubble,borderRadius:"18px",padding:"0.6rem 1rem",display:"flex",alignItems:"center",gap:"0.75rem",minWidth:"180px",marginBottom:"0.2rem"}}>
+                      <span style={{fontSize:"1.3rem",cursor:"pointer"}} onClick={()=>{const a=new Audio(m.mediaUrl);a.play();}}>▶️</span>
+                      <div style={{flex:1}}><div style={{height:"3px",background:"rgba(255,255,255,0.25)",borderRadius:"2px"}}><div style={{width:"40%",height:"100%",background:"rgba(255,255,255,0.7)",borderRadius:"2px"}} /></div></div>
+                      <span style={{fontSize:"0.72rem",opacity:0.7}}>🎙️</span>
+                    </div>
+                  ) : m.mediaUrl && m.mediaType==="gif" ? (
+                    <img src={m.mediaUrl} alt="gif" style={{maxWidth:"240px",maxHeight:"200px",borderRadius:"12px",display:"block",marginBottom:"0.2rem"}} />
+                  ) : m.mediaUrl ? (
                     <div style={{borderRadius:"12px",overflow:"hidden",marginBottom:"0.2rem"}}>
                       {m.mediaType==="video"
                         ? <video src={m.mediaUrl} controls playsInline style={{width:"100%",maxWidth:"260px",maxHeight:"300px",borderRadius:"12px",background:"#000"}} />
                         : <img src={m.mediaUrl} alt="media" style={{width:"100%",maxWidth:"260px",maxHeight:"300px",objectFit:"cover",borderRadius:"12px"}} />
                       }
                     </div>
-                  )}
+                  ) : null}
                   {m.music && (
                     <div onClick={()=>{if(musicAudioRef.current){musicAudioRef.current.src=m.music.previewUrl;musicAudioRef.current.play().catch(()=>{});}}}
                       style={{background:mine?theme.mine:theme.bubble,borderRadius:"14px",padding:"0.6rem 0.75rem",width:"210px",cursor:"pointer",marginBottom:"0.2rem"}}>
@@ -507,17 +611,129 @@ export default function GroupChatRoom() {
           <span onClick={()=>setChatMusic(null)} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
         </div>
       )}
-      <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:theme.bg,flexShrink:0}}>
-        <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎷</span>
-        <span style={{fontSize:"1.3rem",cursor:"pointer"}}>😊</span>
+      {recording && (
+        <div style={{padding:"0.75rem 1rem",background:"rgba(19,19,26,0.95)",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <div style={{width:"10px",height:"10px",borderRadius:"50%",background:"#ef4444",animation:"pulse 1s infinite"}} />
+          <span style={{color:"#ef4444",fontWeight:"bold",fontSize:"0.95rem"}}>Recording {fmtTime(recordingTime)}</span>
+          <div style={{flex:1}} />
+          <button onClick={cancelRecording} style={{background:"transparent",border:"1px solid #555",borderRadius:"20px",color:"#888",padding:"0.35rem 0.9rem",cursor:"pointer",fontSize:"0.85rem"}}>Cancel</button>
+          <button onClick={stopRecording} style={{background:theme.mine,border:"none",borderRadius:"20px",color:"white",padding:"0.35rem 0.9rem",cursor:"pointer",fontSize:"0.85rem",fontWeight:"bold"}}>Stop ■</button>
+        </div>
+      )}
+      {audioUrl && !recording && (
+        <div style={{padding:"0.75rem 1rem",background:"rgba(19,19,26,0.95)",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+          <audio src={audioUrl} controls style={{flex:1,height:"36px"}} />
+          <span onClick={cancelRecording} style={{color:"#f87171",cursor:"pointer",fontSize:"1.2rem"}}>✕</span>
+        </div>
+      )}
+      <div style={{padding:"0.6rem 0.75rem",borderTop:"1px solid #1e1e2e",display:"flex",alignItems:"center",gap:"0.5rem",background:theme.bg,flexShrink:0,
+        backgroundImage:wallpaper?undefined:"none"}}>
+        <span onClick={()=>setShowAttachMenu(v=>!v)} style={{fontSize:"1.3rem",cursor:"pointer"}}>➕</span>
+        <span onClick={()=>setShowMusicPicker(true)} style={{fontSize:"1.3rem",cursor:"pointer"}}>🎵</span>
         <input value={text} onChange={e=>{setText(e.target.value);handleTyping();}} onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
           placeholder="Message..." style={{flex:1,background:theme.bubble,border:"none",borderRadius:"20px",padding:"0.55rem 0.9rem",color:"white",fontSize:"0.95rem",outline:"none",minWidth:0}} />
         <input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleMedia} style={{display:"none"}} />
-        <span onClick={()=>fileRef.current?.click()} style={{fontSize:"1.3rem",cursor:"pointer"}}>📎</span>
-        {(text||mediaData)
-          ? <button onClick={sendMessage} disabled={sending} style={{background:theme.mine,border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>➤</button>
-          : <span style={{fontSize:"1.3rem",cursor:"pointer"}}>❤️</span>}
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handleMedia} style={{display:"none"}} />
+        {(text||mediaData||audioUrl)
+          ? <button onClick={audioUrl?sendVoiceMessage:sendMessage} disabled={sending} style={{background:theme.mine,border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem",flexShrink:0}}>➤</button>
+          : recording ? null : <span onTouchStart={startRecording} onMouseDown={startRecording} style={{fontSize:"1.4rem",cursor:"pointer",flexShrink:0,userSelect:"none"}}>🎙️</span>}
       </div>
+      {showAttachMenu && (
+        <div style={{position:"fixed",bottom:"70px",left:"0.75rem",zIndex:300,background:"#1a1a2e",borderRadius:"16px",padding:"0.75rem",display:"flex",gap:"0.75rem",flexWrap:"wrap",maxWidth:"280px",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>
+          <div onClick={()=>{fileRef.current?.click();setShowAttachMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:theme.mine,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>📎</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>File</span>
+          </div>
+          <div onClick={()=>{cameraRef.current?.click();setShowAttachMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:"linear-gradient(135deg,#1d4ed8,#06b6d4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>📸</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>Camera</span>
+          </div>
+          <div onClick={()=>{setShowGifPicker(true);setShowAttachMenu(false);loadTrendingGifs();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:"linear-gradient(135deg,#f59e0b,#ef4444)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>😂</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>GIF</span>
+          </div>
+          <div onClick={()=>{setShowMusicPicker(true);setShowAttachMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:"linear-gradient(135deg,#10b981,#06b6d4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>🎵</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>Music</span>
+          </div>
+          <div onClick={()=>{setShowWallpaperPicker(true);setShowAttachMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:"linear-gradient(135deg,#8b5cf6,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>🖼️</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>Wallpaper</span>
+          </div>
+          <div onClick={()=>{setShowDisappearPicker(true);setShowAttachMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer",minWidth:"56px"}}>
+            <div style={{width:"48px",height:"48px",borderRadius:"12px",background:"linear-gradient(135deg,#f59e0b,#6366f1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"1.4rem"}}>⏳</div>
+            <span style={{fontSize:"0.65rem",color:"#888"}}>Disappear</span>
+          </div>
+        </div>
+      )}
+      {showGifPicker && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowGifPicker(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1rem",maxHeight:"65vh",display:"flex",flexDirection:"column"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 0.75rem"}} />
+            <div style={{display:"flex",alignItems:"center",gap:"0.5rem",background:"#1e1e2e",borderRadius:"12px",padding:"0.5rem 0.75rem",marginBottom:"0.75rem"}}>
+              <span style={{color:"#888"}}>🔍</span>
+              <input value={gifSearch} onChange={e=>searchGifs(e.target.value)} placeholder="Search GIFs, memes, stickers..."
+                style={{flex:1,background:"transparent",border:"none",color:"white",fontSize:"0.95rem",outline:"none"}} autoFocus />
+            </div>
+            <div style={{display:"flex",gap:"0.5rem",marginBottom:"0.75rem",flexWrap:"wrap"}}>
+              {["😂 Meme","🎉 Party","❤️ Love","😍 Cute","🔥 Fire","😭 Cry"].map(tag => (
+                <span key={tag} onClick={()=>searchGifs(tag.split(" ")[1])}
+                  style={{background:"#1e1e2e",borderRadius:"20px",padding:"0.25rem 0.75rem",fontSize:"0.8rem",cursor:"pointer",color:"#a78bfa"}}>{tag}</span>
+              ))}
+            </div>
+            {gifLoading ? <div style={{textAlign:"center",padding:"2rem",color:"#888"}}>Loading...</div> : (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"4px",overflowY:"auto",flex:1}}>
+                {gifs.map((gif,i) => {
+                  const url = gif.media_formats?.gif?.url || gif.media_formats?.tinygif?.url || "";
+                  return url ? <img key={i} src={url} alt="gif" onClick={()=>sendGif(url)} style={{width:"100%",height:"100px",objectFit:"cover",borderRadius:"8px",cursor:"pointer"}} /> : null;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {showWallpaperPicker && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowWallpaperPicker(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",marginBottom:"1rem"}}>🖼️ Chat Wallpaper</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"0.5rem",marginBottom:"1rem"}}>
+              {WALLPAPERS.map(w => (
+                <div key={w.id} onClick={()=>{const url=w.url||"";setWallpaper(url);localStorage.setItem("lg_wallpaper_"+groupId,url);setShowWallpaperPicker(false);}}
+                  style={{height:"70px",borderRadius:"10px",overflow:"hidden",cursor:"pointer",border:wallpaper===(w.url||"")?"2px solid #7c3aed":"2px solid transparent",
+                    background:w.url?undefined:w.color,backgroundImage:w.url?`url(${w.url})`:"none",backgroundSize:"cover",backgroundPosition:"center",
+                    display:"flex",alignItems:"flex-end",justifyContent:"center",paddingBottom:"4px"}}>
+                  <span style={{fontSize:"0.6rem",color:"white",background:"rgba(0,0,0,0.5)",borderRadius:"4px",padding:"1px 4px"}}>{w.label}</span>
+                </div>
+              ))}
+            </div>
+            <input ref={wallpaperInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+              const file=e.target.files[0];if(!file)return;const reader=new FileReader();
+              reader.onloadend=()=>{setWallpaper(reader.result);localStorage.setItem("lg_wallpaper_"+groupId,reader.result);setShowWallpaperPicker(false);};
+              reader.readAsDataURL(file);}} />
+            <button onClick={()=>wallpaperInputRef.current?.click()} style={{width:"100%",background:"#1e1e2e",border:"1px solid #333",borderRadius:"12px",color:"white",padding:"0.75rem",cursor:"pointer",fontWeight:"bold"}}>📁 Choose from Gallery</button>
+          </div>
+        </div>
+      )}
+      {showDisappearPicker && (
+        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+          <div onClick={()=>setShowDisappearPicker(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
+          <div style={{background:"#13131a",borderRadius:"20px 20px 0 0",padding:"1.25rem 1rem"}}>
+            <div style={{width:"40px",height:"4px",background:"#333",borderRadius:"2px",margin:"0 auto 1rem"}} />
+            <div style={{fontWeight:"bold",fontSize:"1rem",marginBottom:"0.5rem"}}>⏳ Disappearing Messages</div>
+            <div style={{color:"#888",fontSize:"0.82rem",marginBottom:"1rem"}}>Messages disappear locally after selected time</div>
+            {DISAPPEAR_OPTIONS.map(opt => (
+              <div key={opt.value} onClick={()=>{setDisappearTimer(opt.value);localStorage.setItem("lg_disappear_"+groupId,opt.value);setShowDisappearPicker(false);}}
+                style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"#1e1e2e",borderRadius:"12px",padding:"0.75rem 1rem",cursor:"pointer",marginBottom:"0.5rem",border:disappearTimer===opt.value?"1px solid #7c3aed":"1px solid transparent"}}>
+                <span>{opt.label}</span>
+                {disappearTimer===opt.value && <span style={{color:"#7c3aed",fontWeight:"bold"}}>✓</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {selectedMsg && (
         <div onClick={()=>setSelectedMsg(null)} style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -742,6 +958,7 @@ export default function GroupChatRoom() {
       )}
     <audio ref={musicAudioRef} />
       {showMusicPicker && <MusicPicker selectedMusic={chatMusic} onSelect={t=>{setChatMusic(t);setShowMusicPicker(false);}} onClose={()=>setShowMusicPicker(false)} />}
+      <style>{"@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}"}</style>
     </div>
   );
 }

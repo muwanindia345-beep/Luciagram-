@@ -18,6 +18,8 @@ export default function Messages() {
   const [noteAudioPlaying, setNoteAudioPlaying] = useState(null);
   const noteAudioRef = useRef(null);
   const [showNoteSheet, setShowNoteSheet] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
+  const socketRef = useRef(null);
   const { user } = useAuth();
   const navigate = useNavigate();
   const pollRef = useRef(null);
@@ -57,7 +59,21 @@ export default function Messages() {
     }).catch(()=>{});
     // Poll every 5s for new messages / notifications
     pollRef.current = setInterval(loadConversations, 5000);
-    return () => clearInterval(pollRef.current);
+    // Socket for typing indicators on list
+    const { io } = require("socket.io-client") || {};
+    try {
+      const socket = require("socket.io-client")("https://luciagram-backend.onrender.com", { transports: ["websocket"] });
+      socket.on("connect", () => socket.emit("join", user?.id));
+      socket.on("typing", (data) => {
+        setTypingUsers(prev => ({...prev, [data.senderId]: true}));
+        setTimeout(() => setTypingUsers(prev => { const n={...prev}; delete n[data.senderId]; return n; }), 3000);
+      });
+      socket.on("stop_typing", (data) => {
+        setTypingUsers(prev => { const n={...prev}; delete n[data.senderId]; return n; });
+      });
+      socketRef.current = socket;
+    } catch {}
+    return () => { clearInterval(pollRef.current); socketRef.current?.disconnect(); };
   }, []);
 
   const handleSearch = async (q) => {
@@ -117,6 +133,7 @@ export default function Messages() {
         </div>
         <div style={{display:"flex",gap:"0.75rem",alignItems:"center"}}>
           <span onClick={()=>navigate("/groupchat")} title="Groups" style={{fontSize:"1.3rem",cursor:"pointer"}}>🏢</span>
+          <span onClick={()=>{const input=document.createElement("input");input.type="file";input.accept="image/*";input.capture="environment";input.onchange=e=>{const file=e.target.files[0];if(!file)return;alert("Camera: share to a chat from the chat page 📸");};input.click();}} style={{fontSize:"1.3rem",cursor:"pointer"}}>📸</span>
           <span onClick={()=>setSearch(s=>s===""?" ":"")} style={{color:"#c084fc",cursor:"pointer",fontSize:"1.3rem"}}>✏️</span>
         </div>
       </div>
@@ -221,8 +238,8 @@ export default function Messages() {
                   <span style={{fontWeight:c.unread>0?"bold":"normal",fontSize:"0.95rem",color:c.unread>0?"white":"#ccc"}}>@{c.username}</span>
                   <span style={{color:"#555",fontSize:"0.72rem",flexShrink:0,marginLeft:"0.5rem"}}>{formatTime(c.createdAt)}</span>
                 </div>
-                <div style={{color:c.unread>0?"#a78bfa":"#666",fontSize:"0.83rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:c.unread>0?"500":"normal"}}>
-                  {formatLastMsg(c)}
+                <div style={{color:typingUsers[c.userId]?"#7c3aed":c.unread>0?"#a78bfa":"#666",fontSize:"0.83rem",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:c.unread>0?"500":"normal"}}>
+                  {typingUsers[c.userId] ? "typing..." : formatLastMsg(c)}
                 </div>
               </div>
             </div>
