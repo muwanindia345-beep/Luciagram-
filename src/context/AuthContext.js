@@ -12,6 +12,15 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem("user");
     if (token && savedUser) {
       try {
+        // Check token expiry
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        if (payload.exp * 1000 < Date.now()) {
+          // Token expired - logout
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setLoading(false);
+          return;
+        }
         setUser(JSON.parse(savedUser));
       } catch {
         localStorage.removeItem("token");
@@ -35,7 +44,7 @@ export const AuthProvider = ({ children }) => {
 
   if (loading) return <div style={{background:"#0a0a0f",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><img src="https://i.ibb.co/WWjtyhvX/file-00000000a5f0720bb84b412a53d8b399.png" alt="L" style={{width:"80px",borderRadius:"20px",animation:"pulse 1s infinite"}} /></div>;
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, setUser, login, logout }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => useContext(AuthContext);

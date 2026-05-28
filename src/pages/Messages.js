@@ -28,11 +28,12 @@ export default function Messages() {
   const loadConversations = async () => {
     try {
       const r = await API.get("/messages/conversations");
-      setConversations(r.data);
-      const unread = r.data.reduce((sum, c) => sum + (c.unread || 0), 0);
+      const convs = Array.isArray(r.data) ? r.data : [];
+      setConversations(convs);
+      const unread = convs.reduce((sum, c) => sum + (c.unread || 0), 0);
       setTotalUnread(unread);
       document.title = unread > 0 ? "(" + unread + ") Luciagram" : "Luciagram";
-      r.data.forEach(c => {
+      convs.forEach(c => {
         if (c.username && !userProfiles[c.username]) {
           API.get("/users/" + c.username).then(res => {
             setUserProfiles(prev => ({...prev, [c.username]: res.data}));

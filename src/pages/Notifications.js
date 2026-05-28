@@ -30,6 +30,7 @@ export default function Notifications() {
     socket.on("connect", () => socket.emit("join", user?.id));
     socket.on("new_notification", () => loadNotifs());
     socketRef.current = socket;
+    return () => { socket.disconnect(); };
     return () => socket.disconnect();
   }, []);
 

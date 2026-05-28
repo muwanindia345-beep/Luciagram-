@@ -248,7 +248,7 @@ const openFollowing = async () => {
           {user?.website && <div style={{color:"#c084fc",fontSize:"0.85rem",marginTop:"0.2rem"}}>{user.website}</div>}
           {user?.bio && (
             <div style={{marginTop:"0.4rem",display:"flex",flexWrap:"wrap",gap:"0.3rem"}}>
-              {user.bio.match(/#\w+/g)?.map((tag,i) => (
+              {(user.bio || "").match(/#[a-zA-Z0-9_]+/g)?.map((tag,i) => (
                 <span key={i} onClick={()=>navigate("/search?q="+tag)} style={{color:"#a78bfa",fontSize:"0.82rem",cursor:"pointer"}}>{tag}</span>
               ))}
             </div>
