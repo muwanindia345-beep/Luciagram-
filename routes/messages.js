@@ -1,6 +1,6 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Message } = require("../models");
+const { Message, User } = require("../models");
 const notifRouter = require("./notifications");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
@@ -94,6 +94,23 @@ router.get("/:userId", auth, async (req, res) => {
 });
 
 router.post("/", auth, async (req, res) => {
+  try {
+    const { User: U } = require("../models");
+    const recv = await U.findOne({ id: req.body.receiverId }).lean();
+    if (!recv) return res.status(404).json({ message: "User not found" });
+    if (recv.isSuspended) return res.status(403).json({ message: "Account suspended" });
+  } catch {}
+  try {
+    const receiver = await User.findOne({ id: req.body.receiverId }).lean();
+    if (!receiver) return res.status(404).json({ message: "User not found" });
+    if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
+    const sender = await User.findOne({ id: req.user.id }).lean();
+    if (sender?.isSuspended) return res.status(403).json({ message: "Your account has been suspended" });
+  } catch {}
+  // original handler below
+  const _unused = null;
+  try { const _skip = null; } catch {}
+router.post("/_internal_messages", auth, async (req, res) => {
   try {
     const { receiverId, receiverUsername, text, mediaUrl, mediaType, replyTo, music } = req.body;
     if (!receiverId) return res.status(400).json({ message: "receiverId required" });

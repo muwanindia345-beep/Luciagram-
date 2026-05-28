@@ -225,4 +225,32 @@ router.delete("/posts/:username", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+// Delete all stories by username
+router.delete("/stories/:username", async (req, res) => {
+  try {
+    if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
+    const result = await Story.deleteMany({ username: req.params.username });
+    res.json({ message: "✅ Deleted " + result.deletedCount + " stories by @" + req.params.username });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// Nuke all content by username (posts + stories + messages + follows)
+router.delete("/nuke/:username", async (req, res) => {
+  try {
+    if (req.headers["x-admin-key"] !== process.env.ADMIN_SECRET) return res.status(403).json({ message: "Forbidden" });
+    const user = await User.findOne({ username: req.params.username }).lean();
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const [posts, stories, msgs, follows] = await Promise.all([
+      Post.deleteMany({ userId: user.id }),
+      Story.deleteMany({ userId: user.id }),
+      Message.deleteMany({ $or: [{ senderId: user.id }, { receiverId: user.id }] }),
+      Follow.deleteMany({ $or: [{ followerId: user.id }, { followingId: user.id }] }),
+    ]);
+    await User.updateOne({ id: user.id }, { isSuspended: true, suspendedAt: new Date(), suspendReason: "Content removed by admin", suspendedBy: "admin" });
+    if (global.io) global.io.to("user_" + user.id).emit("account_suspended", { reason: "Your account has been suspended." });
+    res.json({ message: "✅ Nuked @" + req.params.username, posts: posts.deletedCount, stories: stories.deletedCount, messages: msgs.deletedCount, follows: follows.deletedCount });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
