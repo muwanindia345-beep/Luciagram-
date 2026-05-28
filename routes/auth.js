@@ -145,7 +145,7 @@ router.post("/login", async (req, res) => {
 // Get public key for E2E encryption
 router.get("/pubkey/:username", async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username }).lean();
+    const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json({ publicKey: user.publicKey || null });
   } catch (err) {
@@ -158,7 +158,7 @@ router.get("/login-history", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({ id: decoded.id }).lean();
+    const user = await User.findOne({ id: decoded.id });
     res.json({ loginHistory: user?.loginHistory || [] });
   } catch {
     res.status(401).json({ message: "Unauthorized" });
