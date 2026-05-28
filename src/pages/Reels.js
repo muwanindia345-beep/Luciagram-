@@ -40,6 +40,13 @@ export default function Reels() {
   }, [muted]);
 
   useEffect(() => {
+    // Pre-populate followingMap
+    API.get("/users/my/following-ids").then(r => {
+      const map = {};
+      (r.data || []).forEach(id => { map[id] = true; });
+      setFollowingMap(map);
+    }).catch(()=>{});
+
     API.get("/posts/reels?page=1").then(r => {
       const all = r.data.posts || r.data;
       setLoading(false);

@@ -55,6 +55,13 @@ export default function Home() {
   const [storyUploadText, setStoryUploadText] = useState("");
 
 useEffect(() => {
+    // Load who current user already follows
+    API.get("/users/my/following-ids").then(r => {
+      const map = {};
+      (r.data || []).forEach(id => { map[id] = true; });
+      setFollowingMap(map);
+    }).catch(()=>{});
+
     API.get("/posts/saved").then(r => {
       const savedMap = {};
       (r.data || []).forEach(p => { savedMap[p.id] = true; });

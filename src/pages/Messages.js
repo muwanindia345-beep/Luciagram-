@@ -46,8 +46,9 @@ export default function Messages() {
   useEffect(() => {
     loadConversations();
     API.get("/notes").then(r => {
-      setNotes(r.data);
-      r.data.forEach(n => {
+      const notes = Array.isArray(r.data) ? r.data : [];
+      setNotes(notes);
+      notes.forEach(n => {
         if (n.username && n.userId !== user?.id) {
           API.get("/users/" + n.username).then(res => {
             setUserProfiles(prev => ({...prev, [n.username]: res.data}));
