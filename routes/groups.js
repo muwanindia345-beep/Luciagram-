@@ -94,7 +94,7 @@ router.get("/:id/messages", auth, async (req, res) => {
 
 router.post("/:id/messages", auth, async (req, res) => {
   try {
-    const { text, mediaUrl, mediaType, replyTo } = req.body;
+    const { text, mediaUrl, mediaType, replyTo, music } = req.body;
     const { User } = require("../models");
     const [sender, grp] = await Promise.all([
       User.findOne({ id: req.user.id }).select("avatar").lean(),
