@@ -179,7 +179,19 @@ function makeModel(table) {
     findOneAndUpdate: async (filter, update) => {
       const existing = await makeModel(table).findOne(filter);
       if (!existing) return null;
-      return makeModel(table).findByIdAndUpdate(existing.id, update);
+      const set = update.$set || update;
+      const { data, error } = await supabase.from(table).update(toRow(set)).eq("id", existing.id).select().single();
+      if (error) throw error;
+      const row = fromRow(data);
+      if (row) {
+        row._table = table;
+        row.deleteOne = async () => { await supabase.from(table).delete().eq("id", row.id); };
+        row.save = async () => {
+          const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
+          await supabase.from(table).update(toRow(fields)).eq("id", id);
+        };
+      }
+      return row;
     },
 
     findByIdAndDelete: async (id) => {

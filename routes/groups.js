@@ -7,13 +7,37 @@ const SupaStore = require("../supastore");
 router.get("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const groups = await Group.find({
-      $or: [
-        { "members.id": userId },
-        { createdById: userId }
-      ]
-    }).sort({ updatedAt: -1 });
-    res.json(Array.isArray(groups) ? groups : []);
+    const { createClient } = require("@supabase/supabase-js");
+    const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+    // Fetch all groups where user is creator OR member (members is JSONB array)
+    const { data: allGroups, error } = await supa
+      .from("groups")
+      .select("*")
+      .or("created_by_id.eq." + userId + ",members.cs.[{\"id\":\"" + userId + "\"}]")
+      .order("updated_at", { ascending: false });
+    if (error) {
+      // Fallback: fetch all and filter manually
+      const { data: fallback } = await supa.from("groups").select("*").order("updated_at", { ascending: false });
+      const filtered = (fallback || []).filter(g =>
+        g.created_by_id === userId ||
+        (Array.isArray(g.members) && g.members.some(m => m.id === userId))
+      );
+      // camelCase convert
+      const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+      const result = filtered.map(g => {
+        const obj = {};
+        for (const [k, v] of Object.entries(g)) obj[cam(k)] = v;
+        return obj;
+      });
+      return res.json(result);
+    }
+    const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+    const result = (allGroups || []).map(g => {
+      const obj = {};
+      for (const [k, v] of Object.entries(g)) obj[cam(k)] = v;
+      return obj;
+    });
+    res.json(result);
   } catch (err) {
     console.error("Groups fetch error:", err);
     res.status(500).json({ message: err.message });
@@ -119,6 +143,9 @@ router.get("/:id/messages", auth, async (req, res) => {
 });
 
 router.post("/:id/messages", auth, async (req, res) => {
+  // Validate group exists first
+  const grpCheck = await Group.findOne({ id: req.params.id });
+  if (!grpCheck) return res.status(404).json({ message: "Group not found" });
   try {
     const { text, mediaUrl, mediaType, replyTo, music } = req.body;
     if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });

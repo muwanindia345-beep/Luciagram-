@@ -29,7 +29,7 @@ router.post("/:postId", auth, async (req, res) => {
       postId: req.params.postId,
       userId: req.user.id,
       username: req.user.username,
-      avatar: req.user.avatar || "",
+      avatar: req.user.avatar || req.user.avatarUrl || "",
       text: text.trim(),
     });
 
