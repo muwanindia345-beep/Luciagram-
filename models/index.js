@@ -127,7 +127,8 @@ function makeModel(table) {
     findOne: async (filter) => {
       let q = supabase.from(table).select("*");
       q = applyFilter(q, filter);
-      const { data } = await q.limit(1);
+      const { data, error } = await q.limit(1);
+      if (error) throw error;
       const row = fromRow(data?.[0]);
       if (row) {
         row._table = table;

@@ -232,17 +232,19 @@ router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
 
 router.get("/:username", auth, async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username }).select("-password");
+    const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
-    if (user.isSuspended) return res.status(404).json({ message: "User not found", suspended: true });
+    // Supabase snake_case + camelCase dono check karo
+    const suspended = user.isSuspended || user.is_suspended || false;
+    if (suspended) return res.status(404).json({ message: "User not found", suspended: true });
     const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
-    const isPending = !!(user.followRequests || []).find(r => r.userId === req.user.id);
-    // Always return avatar so profile pics show everywhere
-    // Hide sensitive fields for private accounts you don't follow
-    if (user.isPrivate && !isFollowing && user.id !== req.user.id) {
-      return res.json({ id: user.id, username: user.username, fullName: user.fullName, avatar: user.avatar, isPrivate: true, isVerified: user.isVerified, isFollowing, isPending });
+    const isPending = !!(user.followRequests || user.follow_requests || []).find(r => r.userId === req.user.id || r.user_id === req.user.id);
+    // Remove sensitive fields manually
+    const { password, password_hash, ...safeUser } = user;
+    if ((user.isPrivate || user.is_private) && !isFollowing && user.id !== req.user.id) {
+      return res.json({ id: user.id, username: user.username, fullName: user.fullName || user.full_name, avatar: user.avatar, isPrivate: true, isVerified: user.isVerified || user.is_verified || false, isFollowing, isPending });
     }
-    res.json({ ...user, followRequests: undefined, isFollowing, isPending });
+    res.json({ ...safeUser, followRequests: undefined, follow_requests: undefined, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
