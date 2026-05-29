@@ -22,16 +22,21 @@ class SuspendBot {
   }
 
   async checkReportThresholds() {
-    // Find all users with pending reports, group by targetUserId
-    const pipeline = [
-      { $match: { status: "pending" } },
-      { $group: { _id: "$targetUserId", count: { $sum: 1 }, username: { $first: "$targetUsername" } } },
-    ];
-    const grouped = await Report.aggregate(pipeline);
+    // Supabase me aggregate nahi hoti — manual grouping
+    const reports = await Report.find({ status: "pending" });
+    const groupMap = {};
+    for (const r of (reports || [])) {
+      const tid = r.targetUserId || r.target_user_id;
+      const tun = r.targetUsername || r.target_username;
+      if (!tid) continue;
+      if (!groupMap[tid]) groupMap[tid] = { _id: tid, count: 0, username: tun };
+      groupMap[tid].count++;
+    }
+    const grouped = Object.values(groupMap);
 
     for (const g of grouped) {
       const user = await User.findOne({ id: g._id });
-      if (!user || user.isSuspended) continue;
+      if (!user || user.isSuspended || user.is_suspended) continue;
 
       if (g.count >= this.SUSPEND_THRESHOLD) {
         // Auto-suspend
@@ -50,9 +55,9 @@ class SuspendBot {
         // Check if already warned recently (in last 24h)
         const recentWarn = user.warnings?.find(w => w.issuedBy === "SuspendBot" && (Date.now() - new Date(w.issuedAt).getTime()) < 24 * 60 * 60 * 1000);
         if (recentWarn) continue;
-        await User.updateOne({ id: g._id }, {
-          $push: { warnings: { reason: "Suspicious activity: " + g.count + " reports", issuedBy: "SuspendBot", issuedAt: new Date() } }
-        });
+        const u1 = await User.findOne({ id: g._id });
+        const w1 = u1?.warnings || u1?.warnings || [];
+        await User.updateOne({ id: g._id }, { warnings: [...w1, { reason: "Suspicious activity: " + g.count + " reports", issuedBy: "SuspendBot", issuedAt: new Date() }] });
         await this.notify(g._id, "⚠️ Warning: Your account has received multiple reports for suspicious activity. Please follow community guidelines.");
         console.log("🤖 SuspendBot: Warned @" + g.username + " (" + g.count + " reports)");
       }
@@ -61,22 +66,27 @@ class SuspendBot {
 
   async checkSpamPosting() {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-    const pipeline = [
-      { $match: { createdAt: { $gte: oneHourAgo } } },
-      { $group: { _id: "$userId", count: { $sum: 1 }, username: { $first: "$username" } } },
-      { $match: { count: { $gte: this.SPAM_POST_LIMIT } } },
-    ];
-    const spammers = await Post.aggregate(pipeline);
+    // Manual grouping instead of aggregate
+    const recentPosts = await Post.find({ createdAt: { $gte: oneHourAgo } });
+    const groupMap = {};
+    for (const p of (recentPosts || [])) {
+      const uid = p.userId || p.user_id;
+      const uname = p.username;
+      if (!uid) continue;
+      if (!groupMap[uid]) groupMap[uid] = { _id: uid, count: 0, username: uname };
+      groupMap[uid].count++;
+    }
+    const spammers = Object.values(groupMap).filter(s => s.count >= this.SPAM_POST_LIMIT);
 
     for (const s of spammers) {
       const user = await User.findOne({ id: s._id });
-      if (!user || user.isSuspended) continue;
+      if (!user || user.isSuspended || user.is_suspended) continue;
       // Issue warning
       const recentWarn = user.warnings?.find(w => w.reason?.includes("spam") && (Date.now() - new Date(w.issuedAt).getTime()) < 2 * 60 * 60 * 1000);
       if (recentWarn) continue;
-      await User.updateOne({ id: s._id }, {
-        $push: { warnings: { reason: "Spam: " + s.count + " posts in 1 hour", issuedBy: "SuspendBot", issuedAt: new Date() } }
-      });
+      const u2 = await User.findOne({ id: s._id });
+      const w2 = u2?.warnings || [];
+      await User.updateOne({ id: s._id }, { warnings: [...w2, { reason: "Spam: " + s.count + " posts in 1 hour", issuedBy: "SuspendBot", issuedAt: new Date() }] });
       await this.notify(s._id, "⚠️ Warning: Unusual posting activity detected on your account. Continued spam may lead to suspension.");
       console.log("🤖 SuspendBot: Spam warning to @" + s.username + " (" + s.count + " posts/hr)");
     }

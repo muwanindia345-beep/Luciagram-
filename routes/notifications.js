@@ -49,12 +49,18 @@ router.delete("/:id", auth, async (req, res) => {
 // Internal helper - create notification (used by other routes)
 router.createNotif = async ({ userId, fromUserId, fromUsername, fromAvatar, type, postId, postThumb, text }) => {
   try {
-    if (userId === fromUserId) return; // Don't notify yourself
+    if (!userId || userId === fromUserId) return;
     await Notification.create({
       id: uuidv4(),
-      userId, fromUserId, fromUsername, fromAvatar,
-      type, postId, postThumb, text,
-      isRead: false,
+      user_id: userId,
+      from_user_id: fromUserId,
+      from_username: fromUsername || "",
+      from_avatar: fromAvatar || "",
+      type: type || "like",
+      post_id: postId || "",
+      post_thumb: postThumb || "",
+      text: text || "",
+      is_read: false,
     });
     // Emit real-time via socket
     if (global.io) {

@@ -143,9 +143,10 @@ router.get("/:id/messages", auth, async (req, res) => {
 });
 
 router.post("/:id/messages", auth, async (req, res) => {
-  // Validate group exists first
-  const grpCheck = await Group.findOne({ id: req.params.id });
-  if (!grpCheck) return res.status(404).json({ message: "Group not found" });
+  try {
+    const grpCheck = await Group.findOne({ id: req.params.id });
+    if (!grpCheck) return res.status(404).json({ message: "Group not found" });
+  } catch {}
   try {
     const { text, mediaUrl, mediaType, replyTo, music } = req.body;
     if (!text?.trim() && !mediaUrl) return res.status(400).json({ message: "Message cannot be empty" });
