@@ -113,7 +113,16 @@ function makeModel(table) {
       q = applyFilter(q, filter);
       const { data } = await q.limit(1);
       const row = fromRow(data?.[0]);
-      if (row) row._table = table;
+      if (row) {
+        row._table = table;
+        row.deleteOne = async () => {
+          await supabase.from(table).delete().eq('id', row.id);
+        };
+        row.save = async () => {
+          const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
+          await supabase.from(table).update(toRow(fields)).eq('id', id);
+        };
+      }
       return row;
     },
 
@@ -128,7 +137,17 @@ function makeModel(table) {
       const { data, error } = await supabase.from(table).insert(toRow(doc)).select().single();
       if (error) throw error;
       const row = fromRow(data);
-      if (row) row._table = table;
+      if (row) {
+        row._table = table;
+        // Instance methods
+        row.deleteOne = async () => {
+          await supabase.from(table).delete().eq('id', row.id);
+        };
+        row.save = async () => {
+          const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
+          await supabase.from(table).update(toRow(fields)).eq('id', id);
+        };
+      }
       return row;
     },
 
@@ -185,6 +204,29 @@ function makeModel(table) {
       let q = supabase.from(table).delete();
       q = applyFilter(q, filter);
       await q;
+    },
+
+    aggregate: async (pipeline) => {
+      // Support: [{$match: {...}}, {$group: {_id: "$field", count: {$sum: 1}}}]
+      try {
+        const matchStage = pipeline.find(p => p.$match)?.$match || {};
+        const groupStage = pipeline.find(p => p.$group)?.$group;
+        let q = supabase.from(table).select("*");
+        q = applyFilter(q, matchStage);
+        const { data } = await q;
+        if (!data) return [];
+        if (!groupStage) return fromRows(data, table);
+        // Group by _id field
+        const groupField = groupStage._id?.replace("$", "") || "id";
+        const col = snk(groupField);
+        const groups = {};
+        data.forEach(row => {
+          const key = row[col] || row[groupField];
+          if (!groups[key]) groups[key] = { _id: key, count: 0 };
+          groups[key].count++;
+        });
+        return Object.values(groups);
+      } catch(e) { console.error("aggregate error:", e); return []; }
     },
 
     countDocuments: async (filter = {}) => {
