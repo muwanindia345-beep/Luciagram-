@@ -39,19 +39,35 @@ const fromRows = (rows, table) => (rows || []).map(r => {
 // Apply MongoDB-style filter to Supabase query
 function applyFilter(q, filter) {
   for (const [k, v] of Object.entries(filter)) {
+    // $or operator — Supabase or() use karo
+    if (k === "$or" && Array.isArray(v)) {
+      const orParts = v.map(cond => {
+        const entries = Object.entries(cond);
+        if (entries.length === 0) return "";
+        const [field, val] = entries[0];
+        const col = snk(field);
+        if (typeof val === "object" && val.$regex) {
+          return col + ".ilike.%" + val.$regex.replace(/[.*+?^${}()|[\]\\]/g, "") + "%";
+        }
+        return col + ".eq." + val;
+      }).filter(Boolean);
+      if (orParts.length > 0) q = q.or(orParts.join(","));
+      continue;
+    }
+
     const col = snk(k);
     if (v === null || v === undefined) {
       q = q.is(col, null);
     } else if (typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
-      // MongoDB operators
       for (const [op, val] of Object.entries(v)) {
-        if (op === "$in")  q = q.in(col, val);
-        else if (op === "$nin") q = q.not(col, "in", `(${val.map(x => `"${x}"`).join(",")})`);
-        else if (op === "$gt")  q = q.gt(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$gte") q = q.gte(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$lt")  q = q.lt(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$lte") q = q.lte(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$ne")  q = q.neq(col, val);
+        if (op === "$in")    q = q.in(col, val);
+        else if (op === "$nin")   q = q.not(col, "in", "(" + val.map(x => '"' + x + '"').join(",") + ")");
+        else if (op === "$gt")    q = q.gt(col, val instanceof Date ? val.toISOString() : val);
+        else if (op === "$gte")   q = q.gte(col, val instanceof Date ? val.toISOString() : val);
+        else if (op === "$lt")    q = q.lt(col, val instanceof Date ? val.toISOString() : val);
+        else if (op === "$lte")   q = q.lte(col, val instanceof Date ? val.toISOString() : val);
+        else if (op === "$ne")    q = q.neq(col, val);
+        else if (op === "$regex") q = q.ilike(col, "%" + String(val).replace(/[.*+?^${}()|[\]\\]/g, "") + "%");
         else if (op === "$exists" && val === false) q = q.is(col, null);
         else if (op === "$exists" && val === true)  q = q.not(col, "is", null);
       }
