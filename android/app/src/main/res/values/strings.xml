@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">LuciaGram</string>
+    <string name="title_activity_main">LuciaGram</string>
+    <string name="package_name">com.luciaorg.luciagram</string>
+    <string name="custom_url_scheme">com.luciaorg.luciagram</string>
+</resources>
