@@ -183,11 +183,11 @@ router.post("/:id/follow-request", auth, async (req, res) => {
     const alreadyRequested = currentRequests.find(r => r.userId === req.user.id || r.user_id === req.user.id);
     if (alreadyRequested) {
       const updated = currentRequests.filter(r => (r.userId || r.user_id) !== req.user.id);
-      await User.updateOne({ id: req.params.id }, { follow_requests: updated });
+      await User.updateOne({ id: req.params.id }, { followRequests: updated });
       return res.json({ status: "request_cancelled" });
     }
     const updatedRequests = [...currentRequests, { userId: req.user.id, username: req.user.username }];
-    await User.updateOne({ id: req.params.id }, { follow_requests: updatedRequests });
+    await User.updateOne({ id: req.params.id }, { followRequests: updatedRequests });
     try {
       await notifRouter.createNotif({
         userId: req.params.id,

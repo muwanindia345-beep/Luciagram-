@@ -114,8 +114,7 @@ router.post("/", auth, async (req, res) => {
       reactions: [],
       music: music || null,
     });
-    const msgObj = msg.toObject();
-    const decryptedMsg = { ...msgObj, text: decryptText(msgObj.text) };
+    const decryptedMsg = { ...msg, text: decryptText(msg.text) };
     if (global.io) {
       global.io.to("user_" + receiverId).emit("new_message", decryptedMsg);
     }
