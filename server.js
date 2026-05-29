@@ -12,7 +12,19 @@ const httpServer = http.createServer(app);
 
 app.use(helmet());
 app.use(cors({
-  origin: ["https://luciagram.onrender.com", "capacitor://localhost", "http://localhost", "http://localhost:3000"],
+  origin: function(origin, callback) {
+    const allowed = [
+      "https://luciagram.onrender.com",
+      "capacitor://localhost",
+      "http://localhost",
+      "http://localhost:3000",
+    ];
+    if (!origin || allowed.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET","POST","PUT","DELETE","PATCH"],
   allowedHeaders: ["Content-Type","Authorization"]
@@ -28,7 +40,16 @@ bot.start();
 
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
-  cors: { origin: 'https://luciagram.onrender.com', credentials: true, methods: ['GET','POST'] },
+  cors: {
+    origin: [
+      "https://luciagram.onrender.com",
+      "capacitor://localhost",
+      "http://localhost",
+      "http://localhost:3000",
+    ],
+    credentials: true,
+    methods: ['GET','POST']
+  },
   pingTimeout: 60000,
   pingInterval: 25000,
   transports: ['websocket', 'polling'],
@@ -141,7 +162,6 @@ app.use('/api/notes', noteRoutes);
 app.use('/api/music', require('./routes/music'));
 app.use('/api/reports', require('./routes/reports'));
 
-// LuciaStore Media Server
 app.get('/media/:mediaId', async (req, res) => {
   try {
     const media = await LuciaStore.retrieve(req.params.mediaId);
@@ -170,10 +190,8 @@ app.get('/', (req, res) => {
   res.json({ message: '✨ Luciagram API is running!' });
 });
 
-// Smart Keep-Alive Bot
 require('./keepalive');
 
-// SuspendBot — auto-detects suspicious activity
 const SuspendBot = require('./suspendbot');
 const suspendBot = new SuspendBot();
 suspendBot.start();
