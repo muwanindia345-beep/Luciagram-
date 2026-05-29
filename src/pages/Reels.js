@@ -132,9 +132,16 @@ export default function Reels() {
 
   const handleLike = async (postId) => {
     try {
-      const res = await API.post("/posts/" + postId + "/like");
-      setLiked(p => ({...p, [postId]: res.data.liked}));
-      setLikes(p => ({...p, [postId]: (p[postId]||0) + (res.data.liked ? 1 : -1)}));
+      setLiked(prev => {
+        const wasLiked = prev[postId];
+        const next = {...prev, [postId]: !wasLiked};
+        setLikes(c => ({...c, [postId]: (c[postId]||0) + (wasLiked ? -1 : 1)}));
+        API.post("/posts/" + postId + "/like").catch(() => {
+          setLiked(p => ({...p, [postId]: wasLiked}));
+          setLikes(c => ({...c, [postId]: (c[postId]||0) + (wasLiked ? 1 : -1)}));
+        });
+        return next;
+      });
     } catch {}
   };
 
@@ -205,15 +212,22 @@ export default function Reels() {
     }
   };
 
+  const [commentSending, setCommentSending] = useState(false);
   const sendComment = async (postId) => {
-    if (!commentText.trim()) return;
+    if (!commentText.trim() || commentSending) return;
+    setCommentSending(true);
+    const tempText = commentText;
+    setCommentText("");
     try {
-      const fullText = replyTo ? "@" + replyTo + " " + commentText.trim() : commentText.trim();
+      const fullText = replyTo ? "@" + replyTo + " " + tempText.trim() : tempText.trim();
       const res = await API.post("/comments/" + postId, { text: fullText });
       setComments(p => ({...p, [postId]: [...(p[postId]||[]), res.data]}));
-      setCommentText("");
       setReplyTo(null);
-    } catch {}
+    } catch {
+      setCommentText(tempText); // restore on error
+    } finally {
+      setCommentSending(false);
+    }
   };
 
   const openDMSheet = async (post) => {
@@ -580,7 +594,7 @@ export default function Reels() {
                 placeholder={replyTo ? "Reply to @"+replyTo+"..." : "Add a comment..."}
                 style={{flex:1,background:"#2a2a3a",border:"none",borderRadius:"20px",padding:"0.6rem 1rem",color:"white",fontSize:"0.9rem",outline:"none"}}
               />
-              <button onClick={()=>sendComment(showComments)} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:"pointer",fontSize:"1rem"}}>➤</button>
+              <button onClick={()=>sendComment(showComments)} disabled={commentSending} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"50%",width:"36px",height:"36px",color:"white",cursor:commentSending?"not-allowed":"pointer",fontSize:"1rem",opacity:commentSending?0.6:1}}>➤</button>
             </div>
           </div>
         </div>

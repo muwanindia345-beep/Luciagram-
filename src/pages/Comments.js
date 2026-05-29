@@ -40,16 +40,21 @@ export default function Comments() {
   }, [postId]);
 
   const sendComment = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() || sending) return;
     setSending(true);
+    const tempText = text;
+    setText("");
     try {
-      const fullText = replyTo ? "@" + replyTo.username + " " + text.trim() : text.trim();
+      const fullText = replyTo ? "@" + replyTo.username + " " + tempText.trim() : tempText.trim();
       const res = await API.post("/comments/" + postId, { text: fullText });
       setComments(p => [...p, res.data]);
-      setText("");
       setReplyTo(null);
-    } catch {}
-    setSending(false);
+    } catch (err) {
+      setText(tempText); // restore on error
+      alert(err.response?.data?.message || "Failed to send comment");
+    } finally {
+      setSending(false);
+    }
   };
 
   const deleteComment = async (id) => {

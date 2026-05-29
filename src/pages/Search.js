@@ -53,8 +53,11 @@ export default function Search() {
 
   const handleFollow = async (userId) => {
     try {
-      const res = await API.post("/users/" + userId + "/follow");
-      setFollowing(p => ({ ...p, [userId]: res.data.following }));
+      const res = await API.post("/users/" + userId + "/follow-request");
+      if (res.data.status === "following") setFollowing(p => ({...p, [userId]: "following"}));
+      else if (res.data.status === "unfollowed") setFollowing(p => ({...p, [userId]: false}));
+      else if (res.data.status === "requested") setFollowing(p => ({...p, [userId]: "requested"}));
+      else if (res.data.status === "request_cancelled") setFollowing(p => ({...p, [userId]: false}));
     } catch {}
   };
 

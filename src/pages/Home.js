@@ -268,11 +268,17 @@ const sendStoryViaDM = async (toUser) => {
   };
 
   const handleLike = async (postId) => {
-    const wasLiked = liked[postId];
-    setLiked(p => ({...p, [postId]: !wasLiked}));
-    setLikeCounts(p => ({...p, [postId]: (p[postId]||0) + (wasLiked ? -1 : 1)}));
-    try { await API.post("/posts/" + postId + "/like"); }
-    catch { setLiked(p => ({...p, [postId]: wasLiked})); setLikeCounts(p => ({...p, [postId]: (p[postId]||0) + (wasLiked ? 1 : -1)})); }
+    // Read current value fresh from ref to avoid stale closure
+    setLiked(prev => {
+      const wasLiked = prev[postId];
+      const next = {...prev, [postId]: !wasLiked};
+      setLikeCounts(c => ({...c, [postId]: (c[postId]||0) + (wasLiked ? -1 : 1)}));
+      API.post("/posts/" + postId + "/like").catch(() => {
+        setLiked(p => ({...p, [postId]: wasLiked}));
+        setLikeCounts(c => ({...c, [postId]: (c[postId]||0) + (wasLiked ? 1 : -1)}));
+      });
+      return next;
+    });
   };
 
   const handleDoubleTap = (postId) => {

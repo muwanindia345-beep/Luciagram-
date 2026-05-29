@@ -130,6 +130,8 @@ export default function GroupChatRoom() {
       socket.emit("join_group", groupId);
     });
     socket.on("group_message", (msg) => {
+      // Ignore if already in list (optimistic update)
+      if (msg.senderId === user?.id) return;
       if (msg.groupId === groupId)
         setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
     });
@@ -341,7 +343,7 @@ export default function GroupChatRoom() {
         replyTo: replyTo ? { id: replyTo.id, text: replyTo.text, senderUsername: replyTo.senderUsername, mediaType: replyTo.mediaType } : null,
       });
       setMessages(prev => prev.map(m => m.id === tempId ? r.data : m));
-      socketRef.current?.emit("group_message", r.data);
+      // Server already emits group_message to room — don't emit again from client
     } catch {
       setMessages(prev => prev.filter(m => m.id !== tempId));
     }
