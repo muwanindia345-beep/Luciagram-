@@ -91,6 +91,7 @@ router.post("/:id/view", auth, async (req, res) => {
     const existing = await StoryView.findOne({ storyId: req.params.id, userId: req.user.id });
     if (!existing) {
       await StoryView.create({
+        id: uuidv4(),
         storyId: req.params.id,
         userId: req.user.id,
         username: req.user.username,

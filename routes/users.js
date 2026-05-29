@@ -136,6 +136,7 @@ router.post("/:id/follow", auth, async (req, res) => {
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
     const followedUser = await User.findOne({ id: req.params.id });
     await Follow.create({
+      id: uuidv4(),
       followerId: req.user.id,
       followerUsername: req.user.username,
       followingId: req.params.id,
@@ -163,6 +164,7 @@ router.post("/:id/follow-request", auth, async (req, res) => {
       const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
       if (existing) { await existing.deleteOne(); return res.json({ status: "unfollowed" }); }
       await Follow.create({
+        id: uuidv4(),
         followerId: req.user.id,
         followerUsername: req.user.username,
         followingId: req.params.id,
@@ -208,6 +210,7 @@ router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
     await User.findByIdAndUpdate(user.id, { "followRequests": (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) });
     const requester = await User.findOne({ id: req.params.requesterId });
     await Follow.create({
+      id: uuidv4(),
       followerId: req.params.requesterId,
       followerUsername: requester?.username || "",
       followingId: req.user.id,

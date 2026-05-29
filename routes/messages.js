@@ -86,7 +86,7 @@ router.get("/:userId", auth, async (req, res) => {
       ]
     }).sort({ createdAt: 1 });
     await Message.updateMany({ senderId: req.params.userId, receiverId: req.user.id, isRead: false }, { isRead: true });
-    const decrypted = msgs.map(m => ({ ...m.toObject(), text: decryptText(m.text) }));
+    const decrypted = msgs.map(m => ({ ...m, text: decryptText(m.text) }));
     res.json(decrypted);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
