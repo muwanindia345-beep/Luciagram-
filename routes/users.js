@@ -23,8 +23,9 @@ router.get("/search", auth, async (req, res) => {
       $or: [
         { username: { $regex: escaped, $options: "i" } },
         { fullName: { $regex: escaped, $options: "i" } }
-      ]
-    }).select("-password").limit(10);
+      ],
+      isSuspended: { $ne: true }
+    }).select("id username fullName avatar isVerified isPrivate").limit(15);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
