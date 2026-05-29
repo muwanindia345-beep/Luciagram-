@@ -97,7 +97,8 @@ router.post("/:id/like", auth, async (req, res) => {
       await existing.deleteOne();
       return res.json({ liked: false });
     }
-    await Like.create({ postId: "comment_" + req.params.id, userId: req.user.id });
+    const { v4: uuidv4 } = require("uuid");
+    await Like.create({ id: uuidv4(), postId: "comment_" + req.params.id, userId: req.user.id });
     res.json({ liked: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
