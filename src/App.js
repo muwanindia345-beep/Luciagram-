@@ -27,7 +27,8 @@ function PrivateRoute({ children }) {
 function NotifBadge() {
   const [count, setCount] = React.useState(0);
   const { user } = useAuth();
-  try { const loc = useLocation(); if (loc.pathname.startsWith('/chat/') || loc.pathname.startsWith('/group/')) return null; } catch {}
+  const loc = useLocation();
+  const isHidden = loc.pathname.startsWith('/chat/') || loc.pathname.startsWith('/group/');
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -40,7 +41,7 @@ function NotifBadge() {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [user]);
-  if (count === 0) return null;
+  if (count === 0 || isHidden) return null;
   return (
     <div style={{position:"fixed",top:8,right:8,background:"linear-gradient(135deg,#7c3aed,#db2777)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold",color:"white",zIndex:9999,pointerEvents:"none"}}>
       {count > 99 ? "99+" : count}
@@ -51,8 +52,8 @@ function NotifBadge() {
 function App() {
   return (
     <AuthProvider>
-      <NotifBadge />
       <BrowserRouter>
+        <NotifBadge />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
