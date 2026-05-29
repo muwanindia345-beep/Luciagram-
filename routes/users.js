@@ -91,8 +91,8 @@ router.put("/profile", auth, async (req, res) => {
     const user = await User.findOneAndUpdate(
       { id: req.user.id },
       update,
-      { new: true }
-    ).select("-password");
+      { new: true, select: "-password" }
+    );
     // If username changed, update all posts, stories, messages, comments
     if (username && username !== oldUser.username) {
       await Promise.all([
