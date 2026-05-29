@@ -12,7 +12,7 @@ router.get("/", auth, async (req, res) => {
     const { data: allGroups, error } = await supa
       .from("groups")
       .select("*")
-      .order("updated_at", { ascending: false });
+      .order("created_at", { ascending: false });
     if (error) {
       console.error("Groups fetch error:", error);
       return res.status(500).json({ message: error.message });
