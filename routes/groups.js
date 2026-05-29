@@ -9,30 +9,20 @@ router.get("/", auth, async (req, res) => {
     const userId = req.user.id;
     const { createClient } = require("@supabase/supabase-js");
     const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-    // Fetch all groups where user is creator OR member (members is JSONB array)
     const { data: allGroups, error } = await supa
       .from("groups")
       .select("*")
-      .or("created_by_id.eq." + userId + ",members.cs.[{\"id\":\"" + userId + "\"}]")
       .order("updated_at", { ascending: false });
     if (error) {
-      // Fallback: fetch all and filter manually
-      const { data: fallback } = await supa.from("groups").select("*").order("updated_at", { ascending: false });
-      const filtered = (fallback || []).filter(g =>
-        g.created_by_id === userId ||
-        (Array.isArray(g.members) && g.members.some(m => m.id === userId))
-      );
-      // camelCase convert
-      const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
-      const result = filtered.map(g => {
-        const obj = {};
-        for (const [k, v] of Object.entries(g)) obj[cam(k)] = v;
-        return obj;
-      });
-      return res.json(result);
+      console.error("Groups fetch error:", error);
+      return res.status(500).json({ message: error.message });
     }
+    const filtered = (allGroups || []).filter(g =>
+      g.created_by_id === userId ||
+      (Array.isArray(g.members) && g.members.some(m => m.id === userId))
+    );
     const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
-    const result = (allGroups || []).map(g => {
+    const result = filtered.map(g => {
       const obj = {};
       for (const [k, v] of Object.entries(g)) obj[cam(k)] = v;
       return obj;
