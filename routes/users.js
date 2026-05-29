@@ -158,7 +158,8 @@ router.post("/:id/follow-request", auth, async (req, res) => {
     const targetUser = await User.findOne({ id: req.params.id });
     if (!targetUser) return res.status(404).json({ message: "User not found" });
 
-    if (!targetUser.isPrivate) {
+    const isPrivate = targetUser.isPrivate || targetUser.is_private || false;
+    if (!isPrivate) {
       const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
       if (existing) { await existing.deleteOne(); return res.json({ status: "unfollowed" }); }
       await Follow.create({
@@ -178,23 +179,25 @@ router.post("/:id/follow-request", auth, async (req, res) => {
       return res.json({ status: "following" });
     }
 
-    if (!targetUser.followRequests) targetUser.followRequests = [];
-    const alreadyRequested = targetUser.followRequests.find(r => r.userId === req.user.id);
+    const currentRequests = targetUser.followRequests || targetUser.follow_requests || [];
+    const alreadyRequested = currentRequests.find(r => r.userId === req.user.id || r.user_id === req.user.id);
     if (alreadyRequested) {
-      targetUser.followRequests = targetUser.followRequests.filter(r => r.userId !== req.user.id);
-      await targetUser.save();
+      const updated = currentRequests.filter(r => (r.userId || r.user_id) !== req.user.id);
+      await User.updateOne({ id: req.params.id }, { follow_requests: updated });
       return res.json({ status: "request_cancelled" });
     }
-    targetUser.followRequests.push({ userId: req.user.id, username: req.user.username });
-    await targetUser.save();
-    await notifRouter.createNotif({
-      userId: req.params.id,
-      fromUserId: req.user.id,
-      fromUsername: req.user.username,
-      fromAvatar: targetUser?.avatar || "",
-      type: "follow",
-      text: req.user.username + " requested to follow you",
-    });
+    const updatedRequests = [...currentRequests, { userId: req.user.id, username: req.user.username }];
+    await User.updateOne({ id: req.params.id }, { follow_requests: updatedRequests });
+    try {
+      await notifRouter.createNotif({
+        userId: req.params.id,
+        fromUserId: req.user.id,
+        fromUsername: req.user.username,
+        fromAvatar: req.user.avatar || "",
+        type: "follow",
+        text: req.user.username + " requested to follow you",
+      });
+    } catch {}
     res.json({ status: "requested" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

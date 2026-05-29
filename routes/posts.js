@@ -165,19 +165,23 @@ router.post("/:id/like", auth, async (req, res) => {
       return res.json({ liked: false });
     }
     await Like.create({ postId: req.params.id, userId: req.user.id });
-    const post = await Post.findOne({ id: req.params.id });
-    if (post && post.userId !== req.user.id) {
-      await notifRouter.createNotif({
-        userId: post.userId,
-        fromUserId: req.user.id,
-        fromUsername: req.user.username,
-        type: "like",
-        postId: post.id,
-        postThumb: post.mediaUrl,
-        text: req.user.username + " liked your post",
-      });
-    }
     res.json({ liked: true });
+    // Notification separately — like fail nahi hoga agar notif fail ho
+    try {
+      const post = await Post.findOne({ id: req.params.id });
+      if (post && post.userId !== req.user.id) {
+        await notifRouter.createNotif({
+          userId: post.userId,
+          fromUserId: req.user.id,
+          fromUsername: req.user.username,
+          fromAvatar: req.user.avatar || "",
+          type: "like",
+          postId: post.id,
+          postThumb: post.mediaUrl || "",
+          text: req.user.username + " liked your post",
+        });
+      }
+    } catch (notifErr) { console.error("Like notif error:", notifErr.message); }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

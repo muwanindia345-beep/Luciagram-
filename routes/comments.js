@@ -35,7 +35,7 @@ router.post("/:postId", auth, async (req, res) => {
 
     res.status(201).json(comment);
 
-    // Notifications (after response sent)
+    // Notifications — always in separate try so comment never fails
     try {
       const { Post, User } = require("../models");
       const post = await Post.findOne({ id: req.params.postId });
