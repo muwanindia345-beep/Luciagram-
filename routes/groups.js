@@ -161,7 +161,7 @@ router.post("/:id/messages", auth, async (req, res) => {
       senderId: req.user.id, senderUsername: req.user.username,
       senderAvatar: sender?.avatar || "",
       text: text || "", mediaUrl: mediaUrl || "", mediaType: mediaType || "",
-      replyTo: replyTo || null,
+      replyTo: replyTo || null, reactions: [],
     });
     await Group.updateOne({ id: req.params.id }, { updatedAt: new Date() });
     if (global.io) {

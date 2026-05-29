@@ -164,7 +164,8 @@ router.post("/:id/like", auth, async (req, res) => {
       await existing.deleteOne();
       return res.json({ liked: false });
     }
-    await Like.create({ postId: req.params.id, userId: req.user.id });
+    const { v4: uuidv4 } = require("uuid");
+    await Like.create({ id: uuidv4(), postId: req.params.id, userId: req.user.id });
     res.json({ liked: true });
     // Notification separately — like fail nahi hoga agar notif fail ho
     try {
