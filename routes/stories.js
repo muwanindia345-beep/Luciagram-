@@ -88,7 +88,6 @@ router.delete("/:id", auth, async (req, res) => {
 // Record story view
 router.post("/:id/view", auth, async (req, res) => {
   try {
-    res.json({ ok: true }); // respond first
     const existing = await StoryView.findOne({ storyId: req.params.id, userId: req.user.id });
     if (!existing) {
       await StoryView.create({
