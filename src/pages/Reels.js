@@ -330,20 +330,32 @@ export default function Reels() {
             <button onClick={()=>navigate("/upload")} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"8px",color:"white",padding:"0.5rem 1rem",cursor:"pointer",marginTop:"1rem"}}>Upload Video</button>
           </div>
         ) : posts.map((p, i) => (
-          <div key={p.id||i} style={{height:"100vh",scrollSnapAlign:"start",scrollSnapStop:"always",position:"relative",background:"#000",overflow:"hidden"}}>
+          <div key={p.id||i} style={{height:"100vh",width:"100vw",scrollSnapAlign:"start",scrollSnapStop:"always",position:"relative",background:"#000",overflow:"hidden"}}>
 
             {/* Media */}
             {p.mediaUrl ? (
-              <MediaLoader
-                mediaUrl={p.mediaUrl}
-                mediaType={p.mediaType}
-                style={{width:"100%",height:"100%",objectFit:"cover",position:"absolute"}}
+              <video
+                ref={el => { if(el) videoRefs.current[i] = el; }}
+                src={p.mediaUrl}
+                style={{
+                  position:"absolute",
+                  top:"50%",
+                  left:"50%",
+                  transform:"translate(-50%,-50%)",
+                  minWidth:"100%",
+                  minHeight:"100%",
+                  width:"100vw",
+                  height:"100vh",
+                  objectFit:"cover",
+                  objectPosition:"center",
+                }}
                 autoPlay={i===current}
                 loop={true}
                 muted={muted}
                 playsInline={true}
                 controls={false}
                 onClick={()=>{ const v = videoRefs.current[i]; if(v) v.paused ? v.play() : v.pause(); }}
+                onError={(e)=>console.log("Video error:", e)}
               />
             ) : (
               <div style={{width:"100%",height:"100%",background:gradients[i%3],position:"absolute",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"4rem"}}>🦋</div>

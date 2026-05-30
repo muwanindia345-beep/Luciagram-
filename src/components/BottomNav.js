@@ -77,10 +77,10 @@ export default function BottomNav() {
       left: 0,
       right: 0,
       height: "60px",
-      background: "rgba(10,10,15,0.85)",
-      backdropFilter: "blur(16px)",
-      WebkitBackdropFilter: "blur(16px)",
-      borderTop: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(10,10,15,0.92)",
+      backdropFilter: "blur(20px)",
+      WebkitBackdropFilter: "blur(20px)",
+      borderTop: "1px solid rgba(255,255,255,0.06)",
       display: "flex",
       justifyContent: "space-around",
       alignItems: "center",
@@ -100,15 +100,23 @@ export default function BottomNav() {
               justifyContent: "center",
               flex: 1,
               cursor: "pointer",
-              opacity: active ? 1 : 0.55,
-              transition: "opacity 0.2s",
+              opacity: active ? 1 : 0.45,
+              transition: "opacity 0.15s ease, transform 0.15s ease",
+              transform: active ? "scale(1.08)" : "scale(1)",
               gap: "3px",
-              paddingTop: "6px"
+              paddingTop: "6px",
+              WebkitTapHighlightColor: "transparent",
             }}
           >
             {tab.icon(active)}
             {active && tab.path !== "/upload" && (
-              <div style={{width:"4px",height:"4px",borderRadius:"50%",background:"white"}}/>
+              <div style={{
+                width:"4px",
+                height:"4px",
+                borderRadius:"50%",
+                background:"white",
+                transition:"all 0.2s ease"
+              }}/>
             )}
           </div>
         );
