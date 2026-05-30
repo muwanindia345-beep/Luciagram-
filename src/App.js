@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "./api";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigationType } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -50,12 +50,40 @@ function NotifBadge() {
   );
 }
 
+function PageWrapper({ children }) {
+  const location = useLocation();
+  const navType = useNavigationType();
+  const [style, setStyle] = React.useState({});
+
+  useEffect(() => {
+    const from = navType === "POP" ? "-20px" : "30px";
+    setStyle({ opacity: 0, transform: `translateX(${from})` });
+    const t = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setStyle({
+          opacity: 1,
+          transform: "translateX(0)",
+          transition: "opacity 0.22s ease, transform 0.22s cubic-bezier(0.25,0.46,0.45,0.94)"
+        });
+      });
+    });
+    return () => cancelAnimationFrame(t);
+  }, [location.pathname]);
+
+  return (
+    <div style={{ minHeight: "100vh", paddingBottom: "56px", ...style }}>
+      {children}
+    </div>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <NotifBadge />
         <BottomNav />
+        <PageWrapper>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -74,6 +102,7 @@ function App() {
           <Route path="/groupchat" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
           <Route path="/group/:groupId" element={<PrivateRoute><GroupChatRoom /></PrivateRoute>} />
         </Routes>
+        </PageWrapper>
       </BrowserRouter>
     </AuthProvider>
   );
