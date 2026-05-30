@@ -1,3 +1,4 @@
+import { HeartIcon, CommentIcon, SendIcon, BackIcon, CloseIcon, GridIcon, ReelsIcon, FlagIcon, VerifiedIcon, LockIcon, MusicIcon } from "./../components/Icons";
 import React, { useEffect, useState, useRef } from "react";
 import API from "../api";
 import { useAuth } from "../context/AuthContext";
@@ -128,13 +129,13 @@ export default function UserProfile() {
   };
 
   const followBtnLabel = () => {
-    if (followStatus === "following") return "Following ✓";
+    if (followStatus === "following") return "Unfollow";
     if (followStatus === "requested") return "Requested ⏳";
     return "Follow";
   };
 
   const followBtnStyle = () => {
-    if (followStatus === "following") return {background:"transparent", border:"1px solid #444"};
+    if (followStatus === "following") return {background:"rgba(239,68,68,0.15)", border:"1px solid rgba(239,68,68,0.5)", color:"#f87171"};
     if (followStatus === "requested") return {background:"transparent", border:"1px solid #7c3aed"};
     return {background:"linear-gradient(135deg,#7c3aed,#db2777)", border:"none"};
   };
@@ -316,17 +317,7 @@ export default function UserProfile() {
       )}
 
       {/* Bottom Nav */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
-        <span onClick={()=>navigate("/")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🏠</span>
-        <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
-        <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
-        <span onClick={()=>navigate("/reels")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🎬</span>
-        <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",cursor:"pointer",border:"2px solid #7c3aed"}}>
-          {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="p"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold"}}>{avatar(user?.username)}</div>}
-        </div>
-      </div>
-
-      {/* Post Viewer */}
+            {/* Post Viewer */}
       {selectedPost && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.97)",zIndex:200,display:"flex",flexDirection:"column"}}>
           <div style={{padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
