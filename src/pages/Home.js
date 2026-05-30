@@ -453,7 +453,7 @@ const groupedStories = stories.reduce((acc, s) => {
       </div>
 
 <div ref={loaderRef} style={{height:"20px",margin:"1rem"}}>{hasMore && <div style={{textAlign:"center",color:"#555",fontSize:"0.8rem"}}>Loading...</div>}</div>
-<div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
+<div style={{position:"fixed",bottom:0,left:0,right:0,background:"#0a0a0f",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",paddingBottom:"calc(0.75rem + env(safe-area-inset-bottom, 0px))",zIndex:100}}>
         <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>🏠</span>
         <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
         <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>

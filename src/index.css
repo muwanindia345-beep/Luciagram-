@@ -1,43 +1,15 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-/* Reels full screen fix */
 ::-webkit-scrollbar { display: none; }
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; padding: 0; background: #000; }
-
-/* Responsive DPI fix */
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html { font-size: clamp(14px, 2.5vw, 18px); }
-body { max-width: 100vw; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-img, video { max-width: 100%; height: auto; }
-
-/* Safe area for notch phones */
-.page-content { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
-
-/* Remove tap highlight on all clickable elements */
-*, *::before, *::after {
-  -webkit-tap-highlight-color: transparent !important;
-  tap-highlight-color: transparent !important;
-}
-button, a, div, span {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  outline: none;
-}
-button:focus, button:active {
-  outline: none !important;
-  background-color: inherit;
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000;
+  overflow-x: hidden;
 }
