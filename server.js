@@ -1,5 +1,4 @@
 const express = require('express');
-
 const http = require('http');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -10,46 +9,54 @@ require('dotenv').config();
 const app = express();
 const httpServer = http.createServer(app);
 
-app.use(helmet());
-app.use(cors({
-  origin: function(origin, callback) {
-    return callback(null, true); // temp: allow all
-    const allowed = [
-      "https://luciagram.onrender.com",
-      "capacitor://localhost",
-      "http://localhost",
-      "http://localhost:3000",
-    ];
-    if (!origin || allowed.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
+// ===== CORS SETUP =====
+// ALLOWED_ORIGINS env var me comma separated list rakho
+// e.g. https://luciagram.onrender.com,capacitor://localhost
+const getAllowedOrigins = () => {
+  if (process.env.ALLOWED_ORIGINS) {
+    return process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+  }
+  return ['https://luciagram.onrender.com', 'capacitor://localhost'];
+};
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin — mobile apps (APK), curl, Postman
+    if (!origin) return callback(null, true);
+    const allowed = getAllowedOrigins();
+    if (allowed.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS: ' + origin));
   },
   credentials: true,
-  methods: ["GET","POST","PUT","DELETE","PATCH"],
-  allowedHeaders: ["Content-Type","Authorization"]
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(helmet());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // preflight for all routes
 app.use(morgan('dev'));
 app.use(cookieParser());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// ===== UPTIME BOT =====
 const LuciagramUptimeBot = require('./uptimebot');
 const bot = new LuciagramUptimeBot();
 bot.start();
 
+// ===== SOCKET.IO =====
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
   cors: {
-    origin: [
-      "https://luciagram.onrender.com",
-      "capacitor://localhost",
-      "http://localhost",
-      "http://localhost:3000",
-    ],
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      const allowed = getAllowedOrigins();
+      if (allowed.includes(origin)) return callback(null, true);
+      callback(new Error('Socket CORS blocked: ' + origin));
+    },
     credentials: true,
-    methods: ['GET','POST']
+    methods: ['GET', 'POST'],
   },
   pingTimeout: 60000,
   pingInterval: 25000,
@@ -60,9 +67,7 @@ const io = new Server(httpServer, {
 io.on('connection', (socket) => {
   console.log('🔌 Socket connected:', socket.id);
 
-  socket.on('join', (userId) => {
-    socket.join('user_' + userId);
-  });
+  socket.on('join', (userId) => socket.join('user_' + userId));
 
   socket.on('send_message', (data) => {
     if (!data?.receiverId) return;
@@ -86,9 +91,7 @@ io.on('connection', (socket) => {
     socket.to('user_' + data.receiverId).emit('dm_unsend', data);
   });
 
-  socket.on('join_group', (groupId) => {
-    socket.join('group_' + groupId);
-  });
+  socket.on('join_group', (groupId) => socket.join('group_' + groupId));
 
   socket.on('group_typing', (data) => {
     socket.to('group_' + data.groupId).emit('group_typing', data);
@@ -141,27 +144,30 @@ io.on('connection', (socket) => {
 
 global.io = io;
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const postRoutes = require('./routes/posts');
-const storyRoutes = require('./routes/stories');
-const messageRoutes = require('./routes/messages');
-const commentRoutes = require('./routes/comments');
-const noteRoutes = require('./routes/notes');
-
-app.use('/api/admin', require('./routes/admin'));
+// ===== ROUTES =====
+app.use('/api/admin',         require('./routes/admin'));
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/auth', authRoutes);
-app.use('/api/settings', require('./routes/settings'));
-app.use('/api/users', userRoutes);
-app.use('/api/posts', postRoutes);
-app.use('/api/stories', storyRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/comments', commentRoutes);
-app.use('/api/groups', require('./routes/groups'));
-app.use('/api/notes', noteRoutes);
-app.use('/api/music', require('./routes/music'));
-app.use('/api/reports', require('./routes/reports'));
+app.use('/api/auth',          require('./routes/auth'));
+app.use('/api/settings',      require('./routes/settings'));
+app.use('/api/users',         require('./routes/users'));
+app.use('/api/posts',         require('./routes/posts'));
+app.use('/api/stories',       require('./routes/stories'));
+app.use('/api/messages',      require('./routes/messages'));
+app.use('/api/comments',      require('./routes/comments'));
+app.use('/api/groups',        require('./routes/groups'));
+app.use('/api/notes',         require('./routes/notes'));
+app.use('/api/music',         require('./routes/music'));
+app.use('/api/reports',       require('./routes/reports'));
+
+// ===== MEDIA =====
+app.get('/media/stats', async (req, res) => {
+  try {
+    const stats = await LuciaStore.stats();
+    res.json({ ...stats, storage: 'LuciaStore v1.0' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 app.get('/media/:mediaId', async (req, res) => {
   try {
@@ -174,15 +180,12 @@ app.get('/media/:mediaId', async (req, res) => {
   }
 });
 
-app.get('/media/stats', async (req, res) => {
-  const stats = await LuciaStore.stats();
-  res.json({ ...stats, storage: 'LuciaStore v1.0' });
-});
-
+// ===== STATUS =====
 app.get('/status', (req, res) => {
   res.json({
     app: 'Luciagram',
     version: '1.0.0',
+    allowedOrigins: getAllowedOrigins(),
     ...bot.getReport(),
   });
 });
@@ -191,13 +194,15 @@ app.get('/', (req, res) => {
   res.json({ message: '✨ Luciagram API is running!' });
 });
 
+// ===== BOTS =====
 require('./keepalive');
-
 const SuspendBot = require('./suspendbot');
 const suspendBot = new SuspendBot();
 suspendBot.start();
 
+// ===== START =====
 const PORT = process.env.PORT || 5000;
 httpServer.listen(PORT, () => {
   console.log('🚀 Luciagram server running on port ' + PORT);
+  console.log('🌐 Allowed origins:', getAllowedOrigins());
 });
