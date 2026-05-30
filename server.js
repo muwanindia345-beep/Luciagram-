@@ -20,13 +20,7 @@ const getAllowedOrigins = () => {
 };
 
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin — mobile apps (APK), curl, Postman
-    if (!origin) return callback(null, true);
-    const allowed = getAllowedOrigins();
-    if (allowed.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS: ' + origin));
-  },
+  origin: true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -49,12 +43,7 @@ bot.start();
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
   cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      const allowed = getAllowedOrigins();
-      if (allowed.includes(origin)) return callback(null, true);
-      callback(new Error('Socket CORS blocked: ' + origin));
-    },
+    origin: true,
     credentials: true,
     methods: ['GET', 'POST'],
   },
