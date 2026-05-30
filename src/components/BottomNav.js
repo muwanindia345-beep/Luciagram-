@@ -38,8 +38,8 @@ const TABS = [
     path: "/reels",
     label: "Reels",
     icon: (active) => (
-      <svg viewBox="0 0 24 24" width="26" height="26" fill={active ? "white" : "none"} stroke="white" strokeWidth="2" strokeLinecap="round">
-        <rect x="2" y="2" width="20" height="20" rx="3"/>
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="white" strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="20" height="20" rx="3" fill={active ? "rgba(255,255,255,0.15)" : "none"}/>
         <circle cx="12" cy="12" r="3"/>
         <line x1="2" y1="7" x2="22" y2="7"/>
         <line x1="2" y1="17" x2="22" y2="17"/>
@@ -60,7 +60,7 @@ const TABS = [
   }
 ];
 
-const HIDDEN_PATHS = ["/login", "/register", "/chat/", "/group/", "/comments/"];
+const HIDDEN_PATHS = ["/login", "/register", "/chat/", "/group/", "/comments/", "/reels"];
 
 export default function BottomNav() {
   const navigate = useNavigate();

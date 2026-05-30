@@ -310,7 +310,7 @@ export default function Reels() {
   const gradients = ["linear-gradient(135deg,#7c3aed,#db2777)","linear-gradient(135deg,#f59e0b,#ef4444)","linear-gradient(135deg,#10b981,#3b82f6)"];
 
   return (
-    <div style={{background:"#000",height:"100vh",overflow:"hidden",position:"relative"}}>
+    <div style={{background:"#000",height:"100vh",overflow:"hidden",position:"relative",paddingBottom:"0"}}>
 
       {/* Header */}
       <div style={{position:"fixed",top:0,left:0,right:0,zIndex:100,padding:"0.75rem 1rem",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -330,7 +330,7 @@ export default function Reels() {
             <button onClick={()=>navigate("/upload")} style={{background:"linear-gradient(135deg,#7c3aed,#db2777)",border:"none",borderRadius:"8px",color:"white",padding:"0.5rem 1rem",cursor:"pointer",marginTop:"1rem"}}>Upload Video</button>
           </div>
         ) : posts.map((p, i) => (
-          <div key={p.id||i} style={{height:"100vh",width:"100vw",scrollSnapAlign:"start",scrollSnapStop:"always",position:"relative",background:"#000",overflow:"hidden"}}>
+          <div key={p.id||i} style={{height:"100vh",width:"100vw",scrollSnapAlign:"start",scrollSnapStop:"always",position:"relative",background:"#000",overflow:"hidden",boxSizing:"border-box"}}>
 
             {/* Media */}
             {p.mediaUrl ? (
@@ -365,7 +365,7 @@ export default function Reels() {
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 25%, transparent 50%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.92) 100%)",zIndex:1,pointerEvents:"none"}} />
 
             {/* Right Actions */}
-            <div style={{position:"absolute",right:"1rem",bottom:"5.5rem",display:"flex",flexDirection:"column",alignItems:"center",gap:"1.5rem",zIndex:10}}>
+            <div style={{position:"absolute",right:"1rem",bottom:"5rem",display:"flex",flexDirection:"column",alignItems:"center",gap:"1.5rem",zIndex:10}}>
               {/* Like */}
               <div onClick={()=>handleLike(p.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem",filter:liked[p.id]?"drop-shadow(0 0 6px red)":"none"}}>{liked[p.id]?"❤️":"🤍"}</span>
@@ -388,7 +388,7 @@ export default function Reels() {
             </div>
 
             {/* Bottom Info */}
-            <div style={{position:"absolute",bottom:"4rem",left:"1rem",right:"5rem",zIndex:10}}>
+            <div style={{position:"absolute",bottom:"3.5rem",left:"1rem",right:"5rem",zIndex:10}}>
               <div style={{display:"flex",alignItems:"center",gap:"0.5rem",marginBottom:"0.5rem"}}>
                 {/* Tappable Avatar */}
                 <div onClick={()=>openProfileCard(p.username)} style={{cursor:"pointer",flexShrink:0}}>
