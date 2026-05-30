@@ -25,3 +25,19 @@ img, video { max-width: 100%; height: auto; }
 
 /* Safe area for notch phones */
 .page-content { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+
+/* Remove tap highlight on all clickable elements */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent !important;
+  tap-highlight-color: transparent !important;
+}
+button, a, div, span {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+}
+button:focus, button:active {
+  outline: none !important;
+  background-color: inherit;
+}
