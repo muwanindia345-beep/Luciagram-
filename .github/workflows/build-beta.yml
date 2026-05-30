@@ -50,12 +50,20 @@ jobs:
         id: tag
         run: echo "TAG=beta-$(date +'%Y.%m.%d')-$(echo $GITHUB_SHA | cut -c1-6)" >> $GITHUB_OUTPUT
 
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          find android/app/build/outputs/apk -name "*.apk" | head -1 | xargs -I{} cp {} output/Luciagram-${{ env.VERSION }}.apk
+          echo "APK renamed!"
+          ls output/
+
       - name: Upload to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.TAG }}
           name: "LuciaGram Beta ${{ steps.tag.outputs.TAG }}"
           prerelease: true
-          files: android/app/build/outputs/apk/debug/app-debug.apk
+          files: output/Luciagram-${{ env.VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
