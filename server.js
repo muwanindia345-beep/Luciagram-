@@ -13,6 +13,7 @@ const httpServer = http.createServer(app);
 app.use(helmet());
 app.use(cors({
   origin: function(origin, callback) {
+    return callback(null, true); // temp: allow all
     const allowed = [
       "https://luciagram.onrender.com",
       "capacitor://localhost",
