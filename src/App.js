@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Notifications from "./pages/Notifications";
 import GroupChat from "./pages/GroupChat";
 import GroupChatRoom from "./pages/GroupChatRoom";
+import BottomNav from "./components/BottomNav";
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -54,6 +55,7 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <NotifBadge />
+        <BottomNav />
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
