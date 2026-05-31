@@ -14,7 +14,7 @@ function isValidUsername(username) {
 // REGISTER
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, password, fullName } = req.body;
+    const { username, email, password, fullName, phone } = req.body;
     if (!username || !email || !password)
       return res.status(400).json({ message: "All fields required" });
     if (username.length < 3 || username.length > 20)
