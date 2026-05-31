@@ -79,10 +79,12 @@ router.get("/conversations", auth, async (req, res) => {
 
 router.get("/:userId", auth, async (req, res) => {
   try {
+    const myId = String(req.user.id);
+    const otherId = String(req.params.userId);
     const msgs = await Message.find({
       $or: [
-        { senderId: req.user.id, receiverId: req.params.userId },
-        { senderId: req.params.userId, receiverId: req.user.id }
+        { senderId: myId, receiverId: otherId },
+        { senderId: otherId, receiverId: myId }
       ]
     }).sort({ createdAt: 1 });
     await Message.updateMany({ senderId: req.params.userId, receiverId: req.user.id, isRead: false }, { isRead: true });
@@ -99,6 +101,11 @@ router.post("/", auth, async (req, res) => {
     const { User } = require("../models");
     const receiver = await User.findOne({ id: receiverId });
     if (!receiver) return res.status(404).json({ message: "User not found" });
+    const sender = await User.findOne({ id: req.user.id });
+    if (receiver.isPrivate) {
+      const isFollowing = receiver.followers?.includes(req.user.id) || sender?.following?.includes(receiverId);
+      if (!isFollowing) return res.status(403).json({ message: "Follow the user first to send a DM" });
+    }
     if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
     const msg = await Message.create({
       id: uuidv4(),
