@@ -48,14 +48,19 @@ router.post("/register", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// LOGIN
+// LOGIN — email ya username dono se
 router.post("/login", async (req, res) => {
   try {
     const { email, password, publicKey } = req.body;
     if (!email || !password)
-      return res.status(400).json({ message: "Email and password required" });
+      return res.status(400).json({ message: "Email/username and password required" });
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    // Email hai ya username — dono check karo
+    const isEmail = email.includes("@");
+    const user = isEmail
+      ? await User.findOne({ email: email.toLowerCase().trim() })
+      : await User.findOne({ username: email.trim() });
+
     if (!user) return res.status(400).json({ message: "User not found" });
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
