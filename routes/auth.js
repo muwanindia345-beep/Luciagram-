@@ -118,4 +118,77 @@ router.post("/logout", (req, res) => {
   res.json({ message: "Logged out" });
 });
 
+
+// Google OAuth2
+router.post("/google", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ message: "No token provided" });
+
+    // Verify Google token
+    const ticket = await fetch(
+      "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken
+    ).then(r => r.json());
+
+    if (ticket.error) return res.status(400).json({ message: "Invalid Google token" });
+
+    const { email, name, picture, sub: googleId } = ticket;
+
+    // Check existing user by googleId
+    let user = await User.findOne({ googleId });
+
+    // Check existing user by email
+    if (!user) user = await User.findOne({ email: email.toLowerCase() });
+
+    if (user) {
+      // Existing user — just login
+      if (!user.googleId) {
+        user.googleId = googleId;
+        if (!user.avatar && picture) user.avatar = picture;
+        await user.save();
+      }
+      const token = jwt.sign(
+        { id: user.id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      return res.json({
+        token,
+        user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar },
+        isNewUser: false
+      });
+    }
+
+    // New user — create account
+    const baseUsername = email.split("@")[0].replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 15);
+    let username = baseUsername;
+    let count = 1;
+    while (await User.findOne({ username })) {
+      username = baseUsername + count++;
+    }
+
+    const newUser = await User.create({
+      id: uuidv4(),
+      username,
+      email: email.toLowerCase(),
+      fullName: name || username,
+      avatar: picture || null,
+      googleId,
+      password: await bcrypt.hash(uuidv4(), 10), // random password
+    });
+
+    const token = jwt.sign(
+      { id: newUser.id, username: newUser.username },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.status(201).json({
+      token,
+      user: { id: newUser.id, username: newUser.username, email: newUser.email, fullName: newUser.fullName, avatar: newUser.avatar },
+      isNewUser: true
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
