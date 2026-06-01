@@ -191,4 +191,49 @@ router.post("/google", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// Google Mobile Auth
+router.post("/google-mobile", async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ message: "idToken required" });
+    
+    // Verify with Google
+    const { OAuth2Client } = require('google-auth-library');
+    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, name, picture } = payload;
+    
+    // Find or create user
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      const { v4: uuidv4 } = require('uuid');
+      const username = email.split('@')[0].replace(/[^a-z0-9._]/g, '') + Math.floor(Math.random() * 100);
+      user = await User.create({
+        id: uuidv4(),
+        username,
+        email: email.toLowerCase(),
+        password: await bcrypt.hash(uuidv4(), 10),
+        fullName: name || username,
+        avatar: picture || '',
+        isGoogleAuth: true,
+      });
+    }
+    
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+      { id: user.id, username: user.username, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar } });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
