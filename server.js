@@ -184,3 +184,20 @@ httpServer.listen(PORT, () => {
   console.log('🚀 Luciagram server running on port ' + PORT);
   console.log('🌐 Allowed origins:', getAllowedOrigins());
 });
+
+// Muwan Network packet endpoint
+app.post('/packet', (req, res) => {
+  const packet = req.body;
+  
+  if (!packet.from || !packet.to || !packet.type) {
+    return res.status(400).json({ error: 'Invalid packet' });
+  }
+
+  console.log(`[Muwan] ${packet.from} → ${packet.to} [${packet.type}]`);
+
+  res.json({
+    received: true,
+    packetId: packet.id,
+    timestamp: Date.now()
+  });
+});
