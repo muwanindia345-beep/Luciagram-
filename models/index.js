@@ -1,5 +1,5 @@
 require("dotenv").config();
-const MuwanDB = require("muwandb-js");
+const MuwanDB = require("../lib/muwandb");
 
 const db = MuwanDB.createClient(
   process.env.MUWAN_API_KEY,
