@@ -1,9 +1,9 @@
-const { createClient } = require("@supabase/supabase-js");
 require("dotenv").config();
+const MuwanDB = require("muwandb-js");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
+const db = MuwanDB.createClient(
+  process.env.MUWAN_API_KEY,
+  process.env.MUWAN_DB_PASSWORD
 );
 
 const snk = (k) => k.replace(/([A-Z])/g, "_$1").toLowerCase();
@@ -21,61 +21,56 @@ const fromRow = (row) => {
   if (!row) return null;
   const doc = {};
   for (const [k, v] of Object.entries(row)) doc[cam(k)] = v;
-  // Add deleteOne instance method
-  doc.deleteOne = async () => {
-    const table = doc._table;
-    if (table) await supabase.from(table).delete().eq("id", doc.id);
-  };
-  doc.save = async () => {}; // no-op safety
+  doc.save = async () => {};
   return doc;
 };
 
-const fromRows = (rows, table) => (rows || []).map(r => {
-  const d = fromRow(r);
-  if (d) d._table = table;
-  return d;
-});
+const fromRows = (rows) => (rows || []).map(r => fromRow(r));
 
-// Apply MongoDB-style filter to Supabase query
-function applyFilter(q, filter) {
+// Raw query helper
+async function runQuery(query) {
+  const { data, error } = await db.rawQuery(query);
+  if (error) throw new Error(error);
+  return data || [];
+}
+
+// Build WHERE clause from filter object
+function buildWhere(filter) {
+  if (!filter || Object.keys(filter).length === 0) return "";
+  const parts = [];
   for (const [k, v] of Object.entries(filter)) {
-    // $or operator — Supabase or() use karo
     if (k === "$or" && Array.isArray(v)) {
       const orParts = v.map(cond => {
-        const entries = Object.entries(cond);
-        if (entries.length === 0) return "";
-        const [field, val] = entries[0];
+        const [field, val] = Object.entries(cond)[0];
         const col = snk(field);
         if (typeof val === "object" && val.$regex) {
-          return col + ".ilike.%" + val.$regex.replace(/[.*+?^${}()|[\]\\]/g, "") + "%";
+          return `${col} LIKE '%${String(val.$regex).replace(/[.*+?^${}()|[\]\\]/g, "")}%'`;
         }
-        return col + ".eq." + val;
-      }).filter(Boolean);
-      if (orParts.length > 0) q = q.or(orParts.join(","));
+        return `${col} = '${val}'`;
+      });
+      parts.push(`(${orParts.join(" OR ")})`);
       continue;
     }
-
     const col = snk(k);
     if (v === null || v === undefined) {
-      q = q.is(col, null);
-    } else if (typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+      parts.push(`${col} IS NULL`);
+    } else if (typeof v === "object" && !Array.isArray(v)) {
       for (const [op, val] of Object.entries(v)) {
-        if (op === "$in")    q = q.in(col, val);
-        else if (op === "$nin")   q = q.not(col, "in", "(" + val.map(x => '"' + x + '"').join(",") + ")");
-        else if (op === "$gt")    q = q.gt(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$gte")   q = q.gte(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$lt")    q = q.lt(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$lte")   q = q.lte(col, val instanceof Date ? val.toISOString() : val);
-        else if (op === "$ne")    q = q.neq(col, val);
-        else if (op === "$regex") q = q.ilike(col, "%" + String(val).replace(/[.*+?^${}()|[\]\\]/g, "") + "%");
-        else if (op === "$exists" && val === false) q = q.is(col, null);
-        else if (op === "$exists" && val === true)  q = q.not(col, "is", null);
+        if (op === "$in")     parts.push(`${col} IN (${val.map(x => `'${x}'`).join(",")})`);
+        else if (op === "$nin")  parts.push(`${col} NOT IN (${val.map(x => `'${x}'`).join(",")})`);
+        else if (op === "$gt")   parts.push(`${col} > '${val}'`);
+        else if (op === "$gte")  parts.push(`${col} >= '${val}'`);
+        else if (op === "$lt")   parts.push(`${col} < '${val}'`);
+        else if (op === "$lte")  parts.push(`${col} <= '${val}'`);
+        else if (op === "$ne")   parts.push(`${col} != '${val}'`);
+        else if (op === "$regex") parts.push(`${col} LIKE '%${String(val).replace(/[.*+?^${}()|[\]\\]/g, "")}%'`);
+        else if (op === "$exists") parts.push(val ? `${col} IS NOT NULL` : `${col} IS NULL`);
       }
     } else {
-      q = q.eq(col, v instanceof Date ? v.toISOString() : v);
+      parts.push(`${col} = '${v}'`);
     }
   }
-  return q;
+  return parts.length ? " WHERE " + parts.join(" AND ") : "";
 }
 
 class QueryBuilder {
@@ -85,37 +80,35 @@ class QueryBuilder {
     this._limit = null;
     this._skip = null;
     this._sort = null;
+    this._excludeFields = [];
   }
   sort(s) { this._sort = s; return this; }
   limit(n) { this._limit = n; return this; }
   skip(n) { this._skip = n; return this; }
   select(f) {
-    if (f && typeof f === 'string') {
-      this._excludeFields = f.split(' ').filter(x => x.startsWith('-')).map(x => x.slice(1));
-      this._includeFields = f.split(' ').filter(x => !x.startsWith('-'));
+    if (f && typeof f === "string") {
+      this._excludeFields = f.split(" ").filter(x => x.startsWith("-")).map(x => x.slice(1));
     }
     return this;
   }
   async exec() {
-    let q = supabase.from(this.table).select("*");
-    q = applyFilter(q, this.filter);
+    let q = `SELECT * FROM ${this.table}`;
+    q += buildWhere(this.filter);
     if (this._sort) {
-      for (const [k, dir] of Object.entries(this._sort)) {
-        q = q.order(snk(k), { ascending: dir === 1 });
-      }
+      const sortParts = Object.entries(this._sort).map(([k, d]) => `${snk(k)} ${d === 1 ? "ASC" : "DESC"}`);
+      q += " ORDER BY " + sortParts.join(", ");
     }
     if (this._skip != null && this._limit != null) {
-      q = q.range(this._skip, this._skip + this._limit - 1);
+      q += ` LIMIT ${this._limit} OFFSET ${this._skip}`;
     } else if (this._limit) {
-      q = q.limit(this._limit);
+      q += ` LIMIT ${this._limit}`;
     }
-    const { data, error } = await q;
-    if (error) throw error;
-    const rows = fromRows(data, this.table);
-    if (this._excludeFields?.length) {
-      return rows.map(r => { const obj = {...r}; this._excludeFields.forEach(f => delete obj[f]); return obj; });
+    const rows = await runQuery(q);
+    const result = fromRows(Array.isArray(rows) ? rows : [rows]);
+    if (this._excludeFields.length) {
+      return result.map(r => { const obj = {...r}; this._excludeFields.forEach(f => delete obj[f]); return obj; });
     }
-    return rows;
+    return result;
   }
   then(res, rej) { return this.exec().then(res, rej); }
 }
@@ -125,44 +118,46 @@ function makeModel(table) {
     find: (filter = {}) => new QueryBuilder(table, filter),
 
     findOne: async (filter) => {
-      let q = supabase.from(table).select("*");
-      q = applyFilter(q, filter);
-      const { data, error } = await q.limit(1);
-      if (error) throw error;
-      const row = fromRow(data?.[0]);
+      let q = `SELECT * FROM ${table}`;
+      q += buildWhere(filter);
+      q += " LIMIT 1";
+      const rows = await runQuery(q);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      const row = fromRow(arr[0]);
       if (row) {
         row._table = table;
-        row.deleteOne = async () => {
-          await supabase.from(table).delete().eq('id', row.id);
-        };
+        row.deleteOne = async () => { await runQuery(`DELETE FROM ${table} WHERE id = '${row.id}'`); };
         row.save = async () => {
           const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
-          await supabase.from(table).update(toRow(fields)).eq('id', id);
+          const sets = Object.entries(toRow(fields)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}'`);
         };
       }
       return row;
     },
 
     findById: async (id) => {
-      const { data } = await supabase.from(table).select("*").eq("id", id).limit(1);
-      const row = fromRow(data?.[0]);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = '${id}' LIMIT 1`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      const row = fromRow(arr[0]);
       if (row) row._table = table;
       return row;
     },
 
     create: async (doc) => {
-      const { data, error } = await supabase.from(table).insert(toRow(doc)).select().single();
-      if (error) throw error;
-      const row = fromRow(data);
+      const rowData = toRow(doc);
+      const cols = Object.keys(rowData).join(", ");
+      const vals = Object.values(rowData).map(v => `'${v}'`).join(", ");
+      const rows = await runQuery(`INSERT INTO ${table} (${cols}) VALUES (${vals}) RETURNING *`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      const row = fromRow(arr[0]);
       if (row) {
         row._table = table;
-        // Instance methods
-        row.deleteOne = async () => {
-          await supabase.from(table).delete().eq('id', row.id);
-        };
+        row.deleteOne = async () => { await runQuery(`DELETE FROM ${table} WHERE id = '${row.id}'`); };
         row.save = async () => {
           const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
-          await supabase.from(table).update(toRow(fields)).eq('id', id);
+          const sets = Object.entries(toRow(fields)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}'`);
         };
       }
       return row;
@@ -170,34 +165,26 @@ function makeModel(table) {
 
     findByIdAndUpdate: async (id, update) => {
       const set = update.$set || update;
-      const { data, error } = await supabase.from(table).update(toRow(set)).eq("id", id).select().single();
-      if (error) throw error;
-      const row = fromRow(data);
-      if (row) row._table = table;
-      return row;
+      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}' RETURNING *`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      return fromRow(arr[0]);
     },
 
     findOneAndUpdate: async (filter, update) => {
       const existing = await makeModel(table).findOne(filter);
       if (!existing) return null;
       const set = update.$set || update;
-      const { data, error } = await supabase.from(table).update(toRow(set)).eq("id", existing.id).select().single();
-      if (error) throw error;
-      const row = fromRow(data);
-      if (row) {
-        row._table = table;
-        row.deleteOne = async () => { await supabase.from(table).delete().eq("id", row.id); };
-        row.save = async () => {
-          const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
-          await supabase.from(table).update(toRow(fields)).eq("id", id);
-        };
-      }
-      return row;
+      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${existing.id}' RETURNING *`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      return fromRow(arr[0]);
     },
 
     findByIdAndDelete: async (id) => {
-      const { data } = await supabase.from(table).delete().eq("id", id).select().single();
-      return fromRow(data);
+      const rows = await runQuery(`DELETE FROM ${table} WHERE id = '${id}' RETURNING *`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      return fromRow(arr[0]);
     },
 
     updateOne: async (filter, update) => {
@@ -205,47 +192,56 @@ function makeModel(table) {
       if (!existing) return null;
       const set = update.$set || update;
       const push = update.$push;
-      let finalUpdate = { ...toRow(set) };
+      let fields = { ...toRow(set) };
       if (push) {
         for (const [k, v] of Object.entries(push)) {
           const col = snk(k);
           const current = existing[k] || [];
-          finalUpdate[col] = [...current, v];
+          fields[col] = JSON.stringify([...current, v]);
         }
       }
-      const { data } = await supabase.from(table).update(finalUpdate).eq('id', existing.id).select().single();
-      return fromRow(data);
+      const sets = Object.entries(fields).map(([k, v]) => `${k} = '${v}'`).join(", ");
+      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${existing.id}' RETURNING *`);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      return fromRow(arr[0]);
     },
 
     updateMany: async (filter, update) => {
       const set = update.$set || update;
-      let q = supabase.from(table).update(toRow(set));
-      q = applyFilter(q, filter);
-      await q;
+      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+      let q = `UPDATE ${table} SET ${sets}`;
+      q += buildWhere(filter);
+      await runQuery(q);
     },
 
     deleteOne: async (filter) => {
       const doc = await makeModel(table).findOne(filter);
-      if (doc) await supabase.from(table).delete().eq("id", doc.id);
+      if (doc) await runQuery(`DELETE FROM ${table} WHERE id = '${doc.id}'`);
     },
 
     deleteMany: async (filter = {}) => {
-      let q = supabase.from(table).delete();
-      q = applyFilter(q, filter);
-      await q;
+      let q = `DELETE FROM ${table}`;
+      q += buildWhere(filter);
+      await runQuery(q);
+    },
+
+    countDocuments: async (filter = {}) => {
+      let q = `SELECT COUNT(*) FROM ${table}`;
+      q += buildWhere(filter);
+      const rows = await runQuery(q);
+      const arr = Array.isArray(rows) ? rows : [rows];
+      return arr[0]?.count || arr[0]?.["COUNT(*)"] || 0;
     },
 
     aggregate: async (pipeline) => {
-      // Support: [{$match: {...}}, {$group: {_id: "$field", count: {$sum: 1}}}]
       try {
         const matchStage = pipeline.find(p => p.$match)?.$match || {};
         const groupStage = pipeline.find(p => p.$group)?.$group;
-        let q = supabase.from(table).select("*");
-        q = applyFilter(q, matchStage);
-        const { data } = await q;
-        if (!data) return [];
-        if (!groupStage) return fromRows(data, table);
-        // Group by _id field
+        let q = `SELECT * FROM ${table}`;
+        q += buildWhere(matchStage);
+        const rows = await runQuery(q);
+        const data = Array.isArray(rows) ? rows : [rows];
+        if (!groupStage) return fromRows(data);
         const groupField = groupStage._id?.replace("$", "") || "id";
         const col = snk(groupField);
         const groups = {};
@@ -256,13 +252,6 @@ function makeModel(table) {
         });
         return Object.values(groups);
       } catch(e) { console.error("aggregate error:", e); return []; }
-    },
-
-    countDocuments: async (filter = {}) => {
-      let q = supabase.from(table).select("id", { count: "exact", head: true });
-      q = applyFilter(q, filter);
-      const { count } = await q;
-      return count || 0;
     },
   };
 }

@@ -1,73 +1,49 @@
-const { createClient } = require("@supabase/supabase-js");
+const fs = require("fs");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+const UPLOAD_DIR = path.join(__dirname, "uploads");
+if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 class SupaStore {
-  // Upload media and return public URL
   static async upload(base64Data, mediaType, userId) {
     try {
-      const { v4: uuidv4 } = require("uuid");
-      const fileId = uuidv4();
       const extMap = { video: "mp4", audio: "webm", gif: "gif", image: "jpg" };
-      const mimeMap = { video: "video/mp4", audio: "audio/webm", gif: "image/gif", image: "image/jpeg" };
       const ext = extMap[mediaType] || "jpg";
-      const mime = mimeMap[mediaType] || "image/jpeg";
-      const fileName = `${userId}/${fileId}.${ext}`;
+      const fileId = uuidv4();
+      const fileName = `${userId}_${fileId}.${ext}`;
+      const filePath = path.join(UPLOAD_DIR, fileName);
 
-      // Convert base64 to buffer
       const base64Clean = base64Data.includes(",")
         ? base64Data.split(",")[1]
         : base64Data;
-      const buffer = Buffer.from(base64Clean, "base64");
+      fs.writeFileSync(filePath, Buffer.from(base64Clean, "base64"));
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from("luciagram-media")
-        .upload(fileName, buffer, {
-          contentType: mime,
-          upsert: false,
-        });
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("luciagram-media")
-        .getPublicUrl(fileName);
-
-      console.log("✅ SupaStore: Uploaded", fileName);
-      return { url: urlData.publicUrl, fileName };
+      const url = `${process.env.BASE_URL || "http://localhost:5000"}/uploads/${fileName}`;
+      console.log("✅ SupaStore: Saved locally", fileName);
+      return { url, fileName };
     } catch (err) {
       console.error("SupaStore upload error:", err);
       throw err;
     }
   }
 
-  // Delete media by fileName
   static async delete(fileName) {
     try {
-      const { error } = await supabase.storage
-        .from("luciagram-media")
-        .remove([fileName]);
-      if (error) throw error;
+      const filePath = path.join(UPLOAD_DIR, fileName);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       console.log("🗑️ SupaStore: Deleted", fileName);
     } catch (err) {
       console.error("SupaStore delete error:", err);
     }
   }
 
-  // Get storage stats
   static async stats() {
     try {
-      const { data } = await supabase.storage
-        .from("luciagram-media")
-        .list();
-      return { totalFiles: data?.length || 0, storage: "Supabase" };
+      const files = fs.readdirSync(UPLOAD_DIR);
+      return { totalFiles: files.length, storage: "Local" };
     } catch {
-      return { totalFiles: 0, storage: "Supabase" };
+      return { totalFiles: 0, storage: "Local" };
     }
   }
 }

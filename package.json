@@ -9,7 +9,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
     "bcryptjs": "^2.4.3",
-    "cloudinary": "^1.41.0",
+    "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -20,14 +20,15 @@
     "lokijs": "^1.5.12",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "multer-storage-cloudinary": "^4.0.0",
+    "multer-storage-cloudinary": "^2.2.1",
+    "muwandb-js": "file:../muwandb-js",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",
-    "sequelize": "^6.35.0",
+    "sequelize": "^6.37.8",
     "socket.io": "^4.6.1",
     "speakeasy": "^2.0.0",
-    "uuid": "^9.0.0"
+    "uuid": "^14.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
