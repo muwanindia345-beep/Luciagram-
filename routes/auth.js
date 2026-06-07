@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
       ? await User.findOne({ email: email.toLowerCase().trim() })
       : await User.findOne({ username: email.trim() });
 
-    if (!user) return res.status(400).json({ message: "User not found" });
+    if (!user || !user.password) return res.status(400).json({ message: "User not found" });
 
     if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
       const mins = Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000);

@@ -27,21 +27,25 @@ const fromRow = (row) => {
 
 const fromRows = (rows) => (rows || []).map(r => fromRow(r));
 
-// Raw query helper
+function escVal(v) {
+  if (v === null || v === undefined) return 'NULL'
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  return `'${String(v).replace(/'/g, "''")}'`
+}
+
 async function runQuery(query) {
   const { data, error } = await db.rawQuery(query);
   if (error) throw new Error(error);
-  if (!data || typeof data === 'string') return [];
+  if (!data) return [];
   if (Array.isArray(data)) return data;
-  try {
-    const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  if (typeof data === 'string') {
+    try { const p = JSON.parse(data); return Array.isArray(p) ? p : [p]; }
+    catch { return []; }
   }
+  if (typeof data === 'object') return [data];
+  return [];
 }
 
-// Build WHERE clause from filter object
 function buildWhere(filter) {
   if (!filter || Object.keys(filter).length === 0) return "";
   const parts = [];
@@ -53,7 +57,7 @@ function buildWhere(filter) {
         if (typeof val === "object" && val.$regex) {
           return `${col} LIKE '%${String(val.$regex).replace(/[.*+?^${}()|[\]\\]/g, "")}%'`;
         }
-        return `${col} = '${val}'`;
+        return `${col} = ${escVal(val)}`;
       });
       parts.push(`(${orParts.join(" OR ")})`);
       continue;
@@ -63,18 +67,18 @@ function buildWhere(filter) {
       parts.push(`${col} IS NULL`);
     } else if (typeof v === "object" && !Array.isArray(v)) {
       for (const [op, val] of Object.entries(v)) {
-        if (op === "$in")     parts.push(`${col} IN (${val.map(x => `'${x}'`).join(",")})`);
-        else if (op === "$nin")  parts.push(`${col} NOT IN (${val.map(x => `'${x}'`).join(",")})`);
-        else if (op === "$gt")   parts.push(`${col} > '${val}'`);
-        else if (op === "$gte")  parts.push(`${col} >= '${val}'`);
-        else if (op === "$lt")   parts.push(`${col} < '${val}'`);
-        else if (op === "$lte")  parts.push(`${col} <= '${val}'`);
-        else if (op === "$ne")   parts.push(`${col} != '${val}'`);
+        if (op === "$in")     parts.push(`${col} IN (${val.map(x => escVal(x)).join(",")})`);
+        else if (op === "$nin")  parts.push(`${col} NOT IN (${val.map(x => escVal(x)).join(",")})`);
+        else if (op === "$gt")   parts.push(`${col} > ${escVal(val)}`);
+        else if (op === "$gte")  parts.push(`${col} >= ${escVal(val)}`);
+        else if (op === "$lt")   parts.push(`${col} < ${escVal(val)}`);
+        else if (op === "$lte")  parts.push(`${col} <= ${escVal(val)}`);
+        else if (op === "$ne")   parts.push(`${col} != ${escVal(val)}`);
         else if (op === "$regex") parts.push(`${col} LIKE '%${String(val).replace(/[.*+?^${}()|[\]\\]/g, "")}%'`);
         else if (op === "$exists") parts.push(val ? `${col} IS NOT NULL` : `${col} IS NULL`);
       }
     } else {
-      parts.push(`${col} = '${v}'`);
+      parts.push(`${col} = ${escVal(v)}`);
     }
   }
   return parts.length ? " WHERE " + parts.join(" AND ") : "";
@@ -133,38 +137,61 @@ function makeModel(table) {
       const row = fromRow(arr[0]);
       if (row) {
         row._table = table;
-        row.deleteOne = async () => { await runQuery(`DELETE FROM ${table} WHERE id = '${row.id}'`); };
+        row.deleteOne = async () => {
+          await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(row.id)}`);
+        };
         row.save = async () => {
           const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
-          const sets = Object.entries(toRow(fields)).map(([k, v]) => `${k} = '${v}'`).join(", ");
-          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}'`);
+          const sets = Object.entries(toRow(fields))
+            .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(id)}`);
         };
       }
       return row;
     },
 
     findById: async (id) => {
-      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = '${id}' LIMIT 1`);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
       const row = fromRow(arr[0]);
-      if (row) row._table = table;
+      if (row) {
+        row._table = table;
+        row.deleteOne = async () => {
+          await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(row.id)}`);
+        };
+        row.save = async () => {
+          const { id: rid, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
+          const sets = Object.entries(toRow(fields))
+            .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(rid)}`);
+        };
+      }
       return row;
     },
 
     create: async (doc) => {
       const rowData = toRow(doc);
-      const cols = Object.keys(rowData).join(", ");
-      const vals = Object.values(rowData).map(v => `'${v}'`).join(", ");
-      const rows = await runQuery(`INSERT INTO ${table} (${cols}) VALUES (${vals}) RETURNING *`);
+      // MuwanDB INSERT format: INSERT INTO table (col1 col2) VALUES (val1 val2)
+      const cols = Object.keys(rowData).join(" ");
+      const vals = Object.values(rowData).map(v => escVal(v)).join(" ");
+      await runQuery(`INSERT INTO ${table} (${cols}) VALUES (${vals})`);
+      // Fetch the created row
+      const id = rowData.id;
+      const rows = id
+        ? await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`)
+        : await runQuery(`SELECT * FROM ${table} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
       const row = fromRow(arr[0]);
       if (row) {
         row._table = table;
-        row.deleteOne = async () => { await runQuery(`DELETE FROM ${table} WHERE id = '${row.id}'`); };
+        row.deleteOne = async () => {
+          await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(row.id)}`);
+        };
         row.save = async () => {
-          const { id, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
-          const sets = Object.entries(toRow(fields)).map(([k, v]) => `${k} = '${v}'`).join(", ");
-          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}'`);
+          const { id: rid, deleteOne: _d, save: _s, _table: _t, ...fields } = row;
+          const sets = Object.entries(toRow(fields))
+            .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+          await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(rid)}`);
         };
       }
       return row;
@@ -172,8 +199,10 @@ function makeModel(table) {
 
     findByIdAndUpdate: async (id, update) => {
       const set = update.$set || update;
-      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
-      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${id}' RETURNING *`);
+      const sets = Object.entries(toRow(set))
+        .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+      await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(id)}`);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
       return fromRow(arr[0]);
     },
@@ -182,16 +211,20 @@ function makeModel(table) {
       const existing = await makeModel(table).findOne(filter);
       if (!existing) return null;
       const set = update.$set || update;
-      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
-      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${existing.id}' RETURNING *`);
+      const sets = Object.entries(toRow(set))
+        .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+      await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(existing.id)}`);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(existing.id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
       return fromRow(arr[0]);
     },
 
     findByIdAndDelete: async (id) => {
-      const rows = await runQuery(`DELETE FROM ${table} WHERE id = '${id}' RETURNING *`);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
-      return fromRow(arr[0]);
+      const row = fromRow(arr[0]);
+      await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(id)}`);
+      return row;
     },
 
     updateOne: async (filter, update) => {
@@ -207,15 +240,18 @@ function makeModel(table) {
           fields[col] = JSON.stringify([...current, v]);
         }
       }
-      const sets = Object.entries(fields).map(([k, v]) => `${k} = '${v}'`).join(", ");
-      const rows = await runQuery(`UPDATE ${table} SET ${sets} WHERE id = '${existing.id}' RETURNING *`);
+      const sets = Object.entries(fields)
+        .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
+      await runQuery(`UPDATE ${table} SET ${sets} WHERE id = ${escVal(existing.id)}`);
+      const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(existing.id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
       return fromRow(arr[0]);
     },
 
     updateMany: async (filter, update) => {
       const set = update.$set || update;
-      const sets = Object.entries(toRow(set)).map(([k, v]) => `${k} = '${v}'`).join(", ");
+      const sets = Object.entries(toRow(set))
+        .map(([k, v]) => `${k} = ${escVal(v)}`).join(", ");
       let q = `UPDATE ${table} SET ${sets}`;
       q += buildWhere(filter);
       await runQuery(q);
@@ -223,7 +259,7 @@ function makeModel(table) {
 
     deleteOne: async (filter) => {
       const doc = await makeModel(table).findOne(filter);
-      if (doc) await runQuery(`DELETE FROM ${table} WHERE id = '${doc.id}'`);
+      if (doc) await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(doc.id)}`);
     },
 
     deleteMany: async (filter = {}) => {
@@ -237,7 +273,7 @@ function makeModel(table) {
       q += buildWhere(filter);
       const rows = await runQuery(q);
       const arr = Array.isArray(rows) ? rows : [rows];
-      return arr[0]?.count || arr[0]?.["COUNT(*)"] || 0;
+      return Number(arr[0]?.count || arr[0]?.["COUNT(*)"] || 0);
     },
 
     aggregate: async (pipeline) => {
