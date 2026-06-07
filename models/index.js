@@ -31,7 +31,14 @@ const fromRows = (rows) => (rows || []).map(r => fromRow(r));
 async function runQuery(query) {
   const { data, error } = await db.rawQuery(query);
   if (error) throw new Error(error);
-  return data || [];
+  if (!data || typeof data === 'string') return [];
+  if (Array.isArray(data)) return data;
+  try {
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 // Build WHERE clause from filter object
