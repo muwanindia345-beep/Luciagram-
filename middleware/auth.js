@@ -1,9 +1,13 @@
 const jwt = require('jsonwebtoken');
+
 module.exports = (req, res, next) => {
-  const token = req.cookies?.token || req.headers.authorization?.split(' ')[1];
+  const token = req.cookies?.token
+    || req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+    // Muwan Auth uid → id map karo
+    if (req.user.uid && !req.user.id) req.user.id = req.user.uid;
     next();
   } catch {
     res.clearCookie('token');
