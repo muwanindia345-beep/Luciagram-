@@ -1,19 +1,42 @@
 import axios from "axios";
+import NetInfo from "@react-native-community/netinfo";
+
+const CLOUD_URL = "https://luciagram-backend.onrender.com/api";
+const LOCAL_URL = "http://localhost:8890/api";
+
+let currentBase = CLOUD_URL;
+
+NetInfo.addEventListener(state => {
+  const wasCloud = currentBase === CLOUD_URL;
+  currentBase = state.isConnected && state.isInternetReachable
+    ? CLOUD_URL
+    : LOCAL_URL;
+  if (wasCloud !== (currentBase === CLOUD_URL)) {
+    console.log(`[Muwan] Network switched → ${currentBase}`);
+  }
+});
 
 const API = axios.create({
-  baseURL: "https://luciagram-backend.onrender.com/api",
-  timeout: 60000, // Render cold start ke liye
+  timeout: 15000,
   withCredentials: true,
   headers: { "Content-Type": "application/json" }
 });
 
-// Global 401 handler — token expire hone pe auto logout
+API.interceptors.request.use(config => {
+  config.baseURL = currentBase;
+  return config;
+});
+
 API.interceptors.response.use(
   res => res,
-  err => {
+  async err => {
+    if (err.code === "ECONNREFUSED" && currentBase === LOCAL_URL) {
+      console.log("[Muwan] Local failed, falling back to cloud...");
+      currentBase = CLOUD_URL;
+      err.config.baseURL = CLOUD_URL;
+      return axios(err.config);
+    }
     if (err.response?.status === 401) {
-      // Auth context tak direct access nahi hai yahan
-      // Event dispatch karo — AuthContext sun lega
       window.dispatchEvent(new CustomEvent("auth:logout"));
     }
     return Promise.reject(err);
