@@ -1,5 +1,3 @@
-export const MUWAN_AUTH_URL = "https://luciagram-backend.onrender.com/api";
-
 import { clearSettingsCache } from '../hooks/useSettings';
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import API from "../api";
