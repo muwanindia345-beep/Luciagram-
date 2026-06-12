@@ -12,7 +12,11 @@ const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
 const toRow = (doc) => {
   const row = {};
   for (const [k, v] of Object.entries(doc)) {
-    if (v !== undefined) row[snk(k)] = v;
+    if (v !== undefined) {
+      row[snk(k)] = (Array.isArray(v) || (v && typeof v === 'object' && !(v instanceof Date)))
+        ? JSON.stringify(v)
+        : v;
+    }
   }
   return row;
 };
