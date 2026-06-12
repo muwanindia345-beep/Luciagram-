@@ -4,7 +4,7 @@ const http = require("http");
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 
-const MUWAN_AUTH_URL = process.env.MUWAN_AUTH_URL || "https://muwan-auth.onrender.com"\;
+const MUWAN_AUTH_URL = process.env.MUWAN_AUTH_URL || "https://muwan-auth.onrender.com";
 
 function muwanPost(path, body) {
   return new Promise((resolve, reject) => {
