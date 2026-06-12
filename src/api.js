@@ -1,19 +1,20 @@
 import axios from "axios";
-import NetInfo from "@react-native-community/netinfo";
 
-const CLOUD_URL = "https://luciagram-backend.onrender.com/api";
-const LOCAL_URL = "http://localhost:8890/api";
+const CLOUD_URL = "https://luciagram-backend.onrender.com/api"\;
+const LOCAL_URL = "http://localhost:8890/api"\;
 
-let currentBase = CLOUD_URL;
+let currentBase = navigator.onLine ? CLOUD_URL : LOCAL_URL;
 
-NetInfo.addEventListener(state => {
+window.addEventListener("online", () => {
   const wasCloud = currentBase === CLOUD_URL;
-  currentBase = state.isConnected && state.isInternetReachable
-    ? CLOUD_URL
-    : LOCAL_URL;
-  if (wasCloud !== (currentBase === CLOUD_URL)) {
-    console.log(`[Muwan] Network switched → ${currentBase}`);
-  }
+  currentBase = CLOUD_URL;
+  if (!wasCloud) console.log("[Muwan] Network switched → " + currentBase);
+});
+
+window.addEventListener("offline", () => {
+  const wasCloud = currentBase === CLOUD_URL;
+  currentBase = LOCAL_URL;
+  if (wasCloud) console.log("[Muwan] Network switched → " + currentBase);
 });
 
 const API = axios.create({
