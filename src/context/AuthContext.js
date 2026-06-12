@@ -3,7 +3,9 @@ import React, { createContext, useState, useContext, useEffect, useCallback } fr
 import API from "../api";
 
 const AuthContext = createContext();
-const MUWAN_AUTH_URL = "https://muwan-auth.onrender.com"\;
+
+const TOKEN_KEY = "lucia_token";
+const USER_KEY  = "lucia_user";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
@@ -18,45 +20,60 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  // App open hone pe token se user restore karo
+  // Startup pe localStorage se restore karo
   useEffect(() => {
-    const token = localStorage.getItem("muwan_token");
-    if (!token) { setLoading(false); return; }
-    fetch(`${MUWAN_AUTH_URL}/session/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token })
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.success) {
-          setUserState({ ...data.user, token });
-        } else {
-          localStorage.removeItem("muwan_token");
-        }
+    const savedToken = localStorage.getItem(TOKEN_KEY);
+    const savedUser  = localStorage.getItem(USER_KEY);
+
+    if (savedToken && savedUser) {
+      try {
+        const parsedUser = JSON.parse(savedUser);
+        setUserState(parsedUser);
+        API.defaults.headers.common["Authorization"] = `Bearer ${savedToken}`;
+      } catch {}
+    }
+
+    // Server se verify karo
+    API.get("/users/me")
+      .then(res => {
+        if (res.data) setUserState(res.data);
       })
-      .catch(() => localStorage.removeItem("muwan_token"))
+      .catch(() => {
+        // Server verify fail — localStorage bhi clear karo
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+        setUserState(null);
+      })
       .finally(() => setLoading(false));
   }, []);
 
   const login = (userData, token) => {
-    localStorage.setItem("muwan_token", token);
-    setUserState({ ...userData, token });
+    const { password, ...safe } = userData || {};
+    setUserState(safe);
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(safe));
+      API.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    }
   };
 
   const logout = () => {
     clearSettingsCache();
-    localStorage.removeItem("muwan_token");
     setUserState(null);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    delete API.defaults.headers.common["Authorization"];
     API.post("/auth/logout").catch(() => {});
   };
 
-  // Global 401 handler
   useEffect(() => {
     const handler = () => {
       clearSettingsCache();
-      localStorage.removeItem("muwan_token");
       setUserState(null);
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      delete API.defaults.headers.common["Authorization"];
+      API.post("/auth/logout").catch(() => {});
     };
     window.addEventListener("auth:logout", handler);
     return () => window.removeEventListener("auth:logout", handler);
@@ -65,7 +82,10 @@ export const AuthProvider = ({ children }) => {
   const refreshUser = useCallback(async () => {
     try {
       const res = await API.get("/users/me");
-      if (res.data) setUserState(prev => ({ ...prev, ...res.data }));
+      if (res.data) {
+        setUserState(res.data);
+        localStorage.setItem(USER_KEY, JSON.stringify(res.data));
+      }
     } catch {}
   }, []);
 
@@ -85,4 +105,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-export { MUWAN_AUTH_URL };
