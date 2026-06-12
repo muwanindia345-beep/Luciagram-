@@ -138,7 +138,7 @@ function makeModel(table) {
       q += " LIMIT 1";
       const rows = await runQuery(q);
       const arr = Array.isArray(rows) ? rows : [rows];
-      const row = fromRow(arr[0]) || fromRow(rowData);
+      const row = fromRow(arr[0]) || null;
       if (row) {
         row._table = table;
         row.deleteOne = async () => {
@@ -157,7 +157,7 @@ function makeModel(table) {
     findById: async (id) => {
       const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
-      const row = fromRow(arr[0]) || fromRow(rowData);
+      const row = fromRow(arr[0]) || null;
       if (row) {
         row._table = table;
         row.deleteOne = async () => {
@@ -185,7 +185,7 @@ function makeModel(table) {
         ? await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`)
         : await runQuery(`SELECT * FROM ${table} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
-      const row = fromRow(arr[0]) || fromRow(rowData);
+      const row = fromRow(arr[0]) || null;
       if (row) {
         row._table = table;
         row.deleteOne = async () => {
@@ -226,7 +226,7 @@ function makeModel(table) {
     findByIdAndDelete: async (id) => {
       const rows = await runQuery(`SELECT * FROM ${table} WHERE id = ${escVal(id)} LIMIT 1`);
       const arr = Array.isArray(rows) ? rows : [rows];
-      const row = fromRow(arr[0]) || fromRow(rowData);
+      const row = fromRow(arr[0]) || null;
       await runQuery(`DELETE FROM ${table} WHERE id = ${escVal(id)}`);
       return row;
     },

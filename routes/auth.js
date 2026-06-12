@@ -1,240 +1,134 @@
 const router = require("express").Router();
-const bcrypt = require("bcryptjs");
+const https = require("https");
+const http = require("http");
 const jwt = require("jsonwebtoken");
-const { v4: uuidv4 } = require("uuid");
 const { User } = require("../models");
 
-function isValidEmail(email) {
-  return email && email.includes("@") && email.includes(".") && email.length > 5;
-}
-function isValidUsername(username) {
-  return /^[a-zA-Z0-9_.]+$/.test(username);
+const MUWAN_AUTH_URL = process.env.MUWAN_AUTH_URL || "https://muwan-auth.onrender.com"\;
+
+function muwanPost(path, body) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(MUWAN_AUTH_URL + path);
+    const isHttps = url.protocol === "https:"\;
+    const payload = JSON.stringify(body);
+    const options = {
+      hostname: url.hostname,
+      port: url.port || (isHttps ? 443 : 80),
+      path: url.pathname,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": Buffer.byteLength(payload),
+      },
+    };
+    const lib = isHttps ? https : http;
+    const req = lib.request(options, (res) => {
+      let data = "";
+      res.on("data", (c) => (data += c));
+      res.on("end", () => {
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { resolve({ status: res.statusCode, body: data }); }
+      });
+    });
+    req.on("error", reject);
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error("Muwan Auth timeout")); });
+    req.write(payload);
+    req.end();
+  });
 }
 
-// REGISTER
+async function syncUser(muwanUser) {
+  const { uid, email, username, provider, picture } = muwanUser;
+  let user = await User.findOne({ id: uid });
+  if (!user) user = await User.findOne({ email: email.toLowerCase() });
+  if (!user) {
+    user = await User.create({
+      id: uid,
+      username,
+      email: email.toLowerCase(),
+      fullName: username,
+      avatar: picture || null,
+      provider: provider || "email",
+    });
+  }
+  return user;
+}
+
 router.post("/register", async (req, res) => {
   try {
-    const { username, email, password, fullName, phone } = req.body;
-    if (!username || !email || !password)
-      return res.status(400).json({ message: "All fields required" });
-    if (username.length < 3 || username.length > 20)
-      return res.status(400).json({ message: "Username must be 3-20 characters" });
-    if (!isValidUsername(username))
-      return res.status(400).json({ message: "Username can only contain letters, numbers, _ and ." });
-    if (!isValidEmail(email))
-      return res.status(400).json({ message: "Invalid email address" });
-    if (password.length < 6)
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
-    if (password.length > 100)
-      return res.status(400).json({ message: "Password too long" });
-
-    const emailLower = email.toLowerCase().trim();
-    if (await User.findOne({ email: emailLower }))
-      return res.status(400).json({ message: "Email already exists" });
-    if (await User.findOne({ username }))
-      return res.status(400).json({ message: "Username taken" });
-
-    const hashed = await bcrypt.hash(password, 10);
-    const user = await User.create({
-      id: uuidv4(), username,
-      email: emailLower,
-      password: hashed,
-      fullName: fullName || username,
-    });
-
-    if (!user) return res.status(500).json({ message: 'Account creation failed, try again' });
-    const token = jwt.sign({ id: user.id, username }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const { username, email, password } = req.body;
+    const result = await muwanPost("/auth/email/register", { username, email, password });
+    if (result.status !== 201) return res.status(result.status).json({ message: result.body.error || "Registration failed" });
+    const { token, user: muwanUser } = result.body;
+    await syncUser(muwanUser);
     res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
-    res.status(201).json({ token, user: { id: user.id, username, email: emailLower, fullName: user.fullName } });
+    res.status(201).json({ token, user: { id: muwanUser.uid, username: muwanUser.username, email: muwanUser.email } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// LOGIN — email ya username dono se
 router.post("/login", async (req, res) => {
   try {
-    const { email, password, publicKey } = req.body;
-    if (!email || !password)
-      return res.status(400).json({ message: "Email/username and password required" });
-
-    // Email hai ya username — dono check karo
-    const isEmail = email.includes("@");
-    const user = isEmail
-      ? await User.findOne({ email: email.toLowerCase().trim() })
-      : await User.findOne({ username: email.trim() });
-
-    if (!user || !user.password) return res.status(400).json({ message: "User not found" });
-
-    if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
-      const mins = Math.ceil((new Date(user.lockedUntil) - new Date()) / 60000);
-      return res.status(423).json({ message: "Account locked. Try again in " + mins + " minute(s)." });
-    }
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      const fails = (user.failedLogins || 0) + 1;
-      if (fails >= 5) {
-        await User.findByIdAndUpdate(user.id, { failedLogins: 0, lockedUntil: new Date(Date.now() + 15*60*1000) });
-        return res.status(400).json({ message: "Too many attempts. Account locked for 15 mins." });
-      }
-      await User.findByIdAndUpdate(user.id, { failedLogins: fails });
-      return res.status(400).json({ message: "Invalid password. " + (5-fails) + " attempts left." });
-    }
-
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-    const device = (req.headers["user-agent"] || "unknown").slice(0, 100);
-    const loginHistory = [{ ip, device, time: new Date() }, ...(user.loginHistory || [])].slice(0, 10);
-    await User.findByIdAndUpdate(user.id, {
-      failedLogins: 0, lockedUntil: null, loginHistory,
-      ...(publicKey ? { publicKey } : {}),
-    });
-
-    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const { email, password } = req.body;
+    const result = await muwanPost("/auth/email/login", { email, password });
+    if (result.status !== 200) return res.status(result.status).json({ message: result.body.error || "Login failed" });
+    const { token, user: muwanUser } = result.body;
+    const localUser = await syncUser(muwanUser);
     res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar, publicKey: user.publicKey } });
+    res.json({ token, user: { id: muwanUser.uid, username: localUser.username, email: localUser.email, fullName: localUser.fullName, avatar: localUser.avatar } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get public key
-router.get("/pubkey/:username", async (req, res) => {
+router.post("/google", async (req, res) => {
   try {
-    const user = await User.findOne({ username: req.params.username });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.json({ publicKey: user.publicKey || null });
+    const { idToken } = req.body;
+    const result = await muwanPost("/auth/google/android", { idToken });
+    if (result.status !== 200) return res.status(result.status).json({ message: result.body.error || "Google auth failed" });
+    const { token } = result.body;
+    const decoded = jwt.decode(token);
+    const localUser = await syncUser({ uid: decoded.uid, email: decoded.email, username: decoded.username, provider: "google" });
+    res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
+    res.json({ token, user: { id: decoded.uid, username: localUser.username, email: localUser.email, fullName: localUser.fullName, avatar: localUser.avatar } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Login history
-router.get("/login-history", async (req, res) => {
+router.post("/google-mobile", async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({ id: decoded.id });
-    res.json({ loginHistory: user?.loginHistory || [] });
-  } catch { res.status(401).json({ message: "Unauthorized" }); }
+    const { idToken } = req.body;
+    const result = await muwanPost("/auth/google/android", { idToken });
+    if (result.status !== 200) return res.status(result.status).json({ message: result.body.error || "Google auth failed" });
+    const { token } = result.body;
+    const decoded = jwt.decode(token);
+    const localUser = await syncUser({ uid: decoded.uid, email: decoded.email, username: decoded.username, provider: "google" });
+    res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
+    res.json({ token, user: { id: decoded.uid, username: localUser.username, email: localUser.email, fullName: localUser.fullName, avatar: localUser.avatar } });
+  } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Logout
 router.post("/logout", (req, res) => {
   res.clearCookie("token");
   res.json({ message: "Logged out" });
 });
 
-
-// Google OAuth2
-router.post("/google", async (req, res) => {
+router.get("/me", async (req, res) => {
   try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ message: "No token provided" });
-
-    // Verify Google token
-    const ticket = await fetch(
-      "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken
-    ).then(r => r.json());
-
-    if (ticket.error) return res.status(400).json({ message: "Invalid Google token" });
-
-    const { email, name, picture, sub: googleId } = ticket;
-
-    // Check existing user by googleId
-    let user = await User.findOne({ googleId });
-
-    // Check existing user by email
-    if (!user) user = await User.findOne({ email: email.toLowerCase() });
-
-    if (user) {
-      // Existing user — just login
-      if (!user.googleId) {
-        user.googleId = googleId;
-        if (!user.avatar && picture) user.avatar = picture;
-        await user.save();
-      }
-      const token = jwt.sign(
-        { id: user.id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
-      );
-      return res.json({
-        token,
-        user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar },
-        isNewUser: false
-      });
-    }
-
-    // New user — create account
-    const baseUsername = email.split("@")[0].replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 15);
-    let username = baseUsername;
-    let count = 1;
-    while (await User.findOne({ username })) {
-      username = baseUsername + count++;
-    }
-
-    const newUser = await User.create({
-      id: uuidv4(),
-      username,
-      email: email.toLowerCase(),
-      fullName: name || username,
-      avatar: picture || null,
-      googleId,
-      password: await bcrypt.hash(uuidv4(), 10), // random password
-    });
-
-    const token = jwt.sign(
-      { id: newUser.id, username: newUser.username },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.status(201).json({
-      token,
-      user: { id: newUser.id, username: newUser.username, email: newUser.email, fullName: newUser.fullName, avatar: newUser.avatar },
-      isNewUser: true
-    });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const uid = decoded.uid || decoded.id;
+    const user = await User.findOne({ id: uid });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar } });
+  } catch { res.status(401).json({ message: "Session expired" }); }
 });
 
-// Google Mobile Auth
-router.post("/google-mobile", async (req, res) => {
+router.get("/login-history", async (req, res) => {
   try {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ message: "idToken required" });
-    
-    // Verify with Google
-    const { OAuth2Client } = require('google-auth-library');
-    const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    const ticket = await client.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-    const payload = ticket.getPayload();
-    const { email, name, picture } = payload;
-    
-    // Find or create user
-    let user = await User.findOne({ email: email.toLowerCase() });
-    if (!user) {
-      const { v4: uuidv4 } = require('uuid');
-      const username = email.split('@')[0].replace(/[^a-z0-9._]/g, '') + Math.floor(Math.random() * 100);
-      user = await User.create({
-        id: uuidv4(),
-        username,
-        email: email.toLowerCase(),
-        password: await bcrypt.hash(uuidv4(), 10),
-        fullName: name || username,
-        avatar: picture || '',
-        isGoogleAuth: true,
-      });
-    }
-    
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign(
-      { id: user.id, username: user.username, email: user.email },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
-    
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, fullName: user.fullName, avatar: user.avatar } });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+    const token = req.headers.authorization?.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const uid = decoded.uid || decoded.id;
+    const user = await User.findOne({ id: uid });
+    res.json({ loginHistory: user?.loginHistory || [] });
+  } catch { res.status(401).json({ message: "Unauthorized" }); }
 });
 
 module.exports = router;
