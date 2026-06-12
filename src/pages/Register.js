@@ -19,7 +19,7 @@ export default function Register() {
     if (form.username.length < 3)            { setLoading(false); return setError("Username must be at least 3 characters"); }
     if (!/^[a-zA-Z0-9_.]+$/.test(form.username)) { setLoading(false); return setError("Username: letters, numbers, _ and . only"); }
     try {
-      const res = await fetch(`${MUWAN_AUTH_URL}/auth/email/register`, {
+      const res = await fetch(`${MUWAN_AUTH_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
