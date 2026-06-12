@@ -364,6 +364,11 @@ export default function Reels() {
             {/* Gradient overlay - stronger at bottom for nav */}
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom, rgba(0,0,0,0.15) 0%, transparent 25%, transparent 50%, rgba(0,0,0,0.6) 75%, rgba(0,0,0,0.92) 100%)",zIndex:1,pointerEvents:"none"}} />
 
+            {/* Progress Bar */}
+            <div style={{position:"absolute",bottom:"0",left:0,right:0,height:"3px",background:"rgba(255,255,255,0.2)",zIndex:10,pointerEvents:"none"}}>
+              <div style={{height:"100%",background:"rgba(255,255,255,0.85)",width:(i===current?progress:0)+"%",transition:"width 0.1s linear",borderRadius:"0 2px 2px 0"}} />
+            </div>
+
             {/* Right Actions */}
             <div style={{position:"absolute",right:"1rem",bottom:"5rem",display:"flex",flexDirection:"column",alignItems:"center",gap:"1.5rem",zIndex:10}}>
               {/* Like */}
@@ -380,6 +385,11 @@ export default function Reels() {
               <div onClick={()=>setShowShareMenu(p)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
                 <span style={{fontSize:"1.8rem"}}>📤</span>
                 <span style={{color:"white",fontSize:"0.75rem"}}>Share</span>
+              </div>
+              {/* Save */}
+              <div onClick={()=>handleSave(p.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",cursor:"pointer"}}>
+                <span style={{fontSize:"1.8rem",filter:saved[p.id]?"drop-shadow(0 0 6px #a78bfa)":"none"}}>{saved[p.id]?"🔖":"🏷️"}</span>
+                <span style={{color:"white",fontSize:"0.75rem"}}>{saved[p.id]?"Saved":"Save"}</span>
               </div>
               {/* Mute */}
               <div onClick={()=>setMuted(m=>!m)} style={{cursor:"pointer"}}>
