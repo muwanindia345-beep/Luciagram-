@@ -8,13 +8,13 @@ let currentBase = navigator.onLine ? CLOUD_URL : LOCAL_URL;
 window.addEventListener("online", () => {
   const wasCloud = currentBase === CLOUD_URL;
   currentBase = CLOUD_URL;
-  if (!wasCloud) console.log("[Muwan] Network switched → " + currentBase);
+  if (!wasCloud) console.log("[Muwan] Network switched -> " + currentBase);
 });
 
 window.addEventListener("offline", () => {
   const wasCloud = currentBase === CLOUD_URL;
   currentBase = LOCAL_URL;
-  if (wasCloud) console.log("[Muwan] Network switched → " + currentBase);
+  if (wasCloud) console.log("[Muwan] Network switched -> " + currentBase);
 });
 
 const API = axios.create({
