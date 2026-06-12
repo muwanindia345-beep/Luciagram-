@@ -9,7 +9,7 @@ const MUWAN_AUTH_URL = process.env.MUWAN_AUTH_URL || "https://muwan-auth.onrende
 function muwanPost(path, body) {
   return new Promise((resolve, reject) => {
     const url = new URL(MUWAN_AUTH_URL + path);
-    const isHttps = url.protocol === "https:"\;
+    const isHttps = url.protocol === "https:";
     const payload = JSON.stringify(body);
     const options = {
       hostname: url.hostname,
