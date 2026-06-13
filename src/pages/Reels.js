@@ -3,6 +3,7 @@ import API from "../api";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import MediaLoader from "../components/MediaLoader";
+import BottomNav from "../components/BottomNav";
 
 export default function Reels() {
   const [posts, setPosts] = useState([]);
@@ -622,16 +623,7 @@ export default function Reels() {
         </div>
       )}
 
-      {/* Bottom Nav */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.8)",borderTop:"1px solid #1e1e2e",display:"flex",justifyContent:"space-around",padding:"0.75rem 0",zIndex:100}}>
-        <span onClick={()=>navigate("/")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🏠</span>
-        <span onClick={()=>navigate("/search")} style={{fontSize:"1.5rem",cursor:"pointer"}}>🔍</span>
-        <div onClick={()=>navigate("/upload")} style={{width:"40px",height:"40px",borderRadius:"12px",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"1.2rem"}}>+</div>
-        <span style={{fontSize:"1.5rem",cursor:"pointer",borderBottom:"2px solid white",paddingBottom:"2px"}}>🎬</span>
-        <div onClick={()=>navigate("/profile")} style={{width:"28px",height:"28px",borderRadius:"50%",overflow:"hidden",cursor:"pointer",border:"2px solid #7c3aed"}}>
-          {user?.avatar?<img src={user.avatar} style={{width:"100%",height:"100%",objectFit:"cover"}} alt="p"/>:<div style={{width:"100%",height:"100%",background:"linear-gradient(135deg,#7c3aed,#db2777)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold"}}>{avatar(user?.username)}</div>}
-        </div>
-      </div>
+      <BottomNav />
     </div>
   );
 }

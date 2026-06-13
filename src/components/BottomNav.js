@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const HIDDEN_PATHS = ["/login", "/register", "/chat/", "/group/", "/comments/", "/reels", "/edit-profile"];
+const HIDDEN_PATHS = ["/login", "/register", "/chat/", "/group/", "/comments/", "/edit-profile"];
 
 export default function BottomNav() {
   const navigate = useNavigate();
