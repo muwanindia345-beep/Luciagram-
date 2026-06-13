@@ -142,7 +142,7 @@ app.use('/api/music',         require('./routes/music'));
 app.use('/api/reports',       require('./routes/reports'));
 
 // ✅ FIXED: Media routes — MuwanDB Media model se fetch karo
-app.get('/media/stats', async (req, res) => {
+app.get('/api/media/stats', async (req, res) => {
   try {
     const { Media } = require('./models');
     const count = await Media.countDocuments({});
@@ -152,7 +152,7 @@ app.get('/media/stats', async (req, res) => {
   }
 });
 
-app.get('/media/:mediaId', async (req, res) => {
+app.get('/api/media/:mediaId', async (req, res) => {
   try {
     const axios = require('axios');
     const result = await axios.post(process.env.MUWAN_URL + '/query', {
