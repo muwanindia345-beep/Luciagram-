@@ -131,9 +131,16 @@ router.post("/", auth, async (req, res) => {
     let mediaFileName = "";
 
     if (mediaBase64) {
-      const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
-      mediaUrl = result.url;
-      mediaFileName = result.fileName;
+      const { Media } = require("../models");
+      const mediaId = uuidv4();
+      await Media.create({
+        id: mediaId,
+        userId: req.user.id,
+        base64: mediaBase64,
+        mediaType: mediaType || "image",
+      });
+      mediaUrl = "muwandb://" + mediaId;
+      mediaFileName = mediaId;
     }
 
     if (!mediaUrl) return res.status(400).json({ message: "Media required" });
