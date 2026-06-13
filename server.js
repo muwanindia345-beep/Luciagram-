@@ -155,7 +155,7 @@ app.get('/api/media/stats', async (req, res) => {
 app.get('/api/media/:mediaId', async (req, res) => {
   try {
     const axios = require('axios');
-    const result = await axios.post(process.env.MUWAN_URL + '/query', {
+    const result = await axios.post(process.env.MUWAN_DB_URL + '/query', {
       query: `SELECT * FROM media WHERE id = '${req.params.mediaId}' LIMIT 1`,
       dbPassword: process.env.MUWAN_DB_PASSWORD
     }, {
