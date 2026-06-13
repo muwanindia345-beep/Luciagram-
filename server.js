@@ -155,12 +155,12 @@ app.get('/media/stats', async (req, res) => {
 app.get('/media/:mediaId', async (req, res) => {
   try {
     const axios = require('axios');
-    const result = await axios.post(process.env.MUWANDB_URL + '/query', {
+    const result = await axios.post(process.env.MUWAN_URL + '/query', {
       query: `SELECT * FROM media WHERE id = '${req.params.mediaId}' LIMIT 1`,
-      dbPassword: process.env.MUWANDB_PASSWORD
+      dbPassword: process.env.MUWAN_DB_PASSWORD
     }, {
       headers: {
-        'x-api-key': process.env.MUWANDB_API_KEY,
+        'x-api-key': process.env.MUWAN_API_KEY,
         'Content-Type': 'application/json'
       }
     });
