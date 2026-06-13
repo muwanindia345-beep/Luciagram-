@@ -12,7 +12,7 @@ function useMuwanMedia(mediaUrl) {
     if (mediaUrl.startsWith("muwandb://")) {
       const mediaId = mediaUrl.replace("muwandb://", "");
       setLoading(true);
-      API.get("/media/" + mediaId, { baseURL: "https://luciagram-backend.onrender.com" })
+      API.get("/media/" + mediaId)
         .then(res => {
           if (res.data?.url) setResolvedUrl(res.data.url);
           else setResolvedUrl(null);
