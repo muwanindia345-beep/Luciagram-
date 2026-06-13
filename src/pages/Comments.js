@@ -173,7 +173,7 @@ export default function Comments() {
                       @{c.username}
                     </span>
                     <div style={{display:"flex",alignItems:"center",gap:"0.5rem"}}>
-                      <span style={{fontSize:"0.7rem",color:"#555"}}>{formatTime(c.createdAt || c.created_at)}</span>
+                      <span style={{fontSize:"0.7rem",color:"#555"}}>{formatTime(c.createdAt)}</span>
                       {isMe && (
                         <span onClick={()=>deleteComment(c.id)} style={{color:"#f87171",cursor:"pointer",fontSize:"0.85rem"}}>🗑️</span>
                       )}
