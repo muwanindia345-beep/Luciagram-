@@ -16,14 +16,13 @@ router.get("/me", auth, async (req, res) => {
 
 router.get("/search", auth, async (req, res) => {
   try {
-    const q = (req.query.q || "").trim();
-    if (!q || q.length < 1) return res.json([]);
+    const q = (req.query.q || "").trim().toLowerCase();
+    if (q || q.length < 1) return res.json([]);
     if (q.length > 30) return res.status(400).json({ message: "Search query too long" });
-    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const users = await User.find({
       $or: [
-        { username: { $regex: escaped, $options: "i" } },
-        { fullName: { $regex: escaped, $options: "i" } }
+        { username: { $regex: q } },
+        { fullName: { $regex: q } }
       ],
       isSuspended: { $ne: true }
     }).select("id username fullName avatar isVerified isPrivate").limit(15);
@@ -70,9 +69,9 @@ router.get("/:id/followers", auth, async (req, res) => {
   try {
     const followers = await Follow.countDocuments({ followingId: req.params.id });
     const following = await Follow.countDocuments({ followerId: req.params.id });
-    const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
+    const isFollowing = cd luciagram-backend(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
     const targetUser = await User.findOne({ id: req.params.id });
-    const isPending = !!(targetUser?.followRequests || []).find(r => r.userId === req.user.id);
+    const isPending = cd luciagram-backend(targetUser?.followRequests || []).find(r => r.userId === req.user.id);
     res.json({ followers, following, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -89,12 +88,8 @@ router.put("/profile", auth, async (req, res) => {
     const update = { fullName, username, bio, website, avatar };
     if (song !== undefined) update.song = song;
     const oldUser = await User.findOne({ id: req.user.id });
-    await User.findOneAndUpdate(
-      { id: req.user.id },
-      update
-    );
+    await User.findOneAndUpdate({ id: req.user.id }, update);
     const user = await User.findOne({ id: req.user.id });
-    // If username changed, update all posts, stories, messages, comments
     if (username && username !== oldUser.username) {
       await Promise.all([
         Post.updateMany({ userId: req.user.id }, { username }),
@@ -104,7 +99,6 @@ router.put("/profile", auth, async (req, res) => {
         Comment.updateMany({ userId: req.user.id }, { username }),
       ]);
     }
-    // If avatar changed, update stories and posts author avatar reference
     if (avatar !== undefined && avatar !== oldUser.avatar) {
       await Story.updateMany({ userId: req.user.id }, { avatar });
     }
@@ -241,12 +235,10 @@ router.get("/:username", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
-    // Supabase snake_case + camelCase dono check karo
     const suspended = user.isSuspended || user.is_suspended || false;
     if (suspended) return res.status(404).json({ message: "User not found", suspended: true });
-    const isFollowing = !!(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
-    const isPending = !!(user.followRequests || user.follow_requests || []).find(r => r.userId === req.user.id || r.user_id === req.user.id);
-    // Remove sensitive fields manually
+    const isFollowing = cd luciagram-backend(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
+    const isPending = cd luciagram-backend(user.followRequests || user.follow_requests || []).find(r => r.userId === req.user.id || r.user_id === req.user.id);
     const { password, password_hash, ...safeUser } = user;
     if ((user.isPrivate || user.is_private) && !isFollowing && user.id !== req.user.id) {
       return res.json({ id: user.id, username: user.username, fullName: user.fullName || user.full_name, avatar: user.avatar, isPrivate: true, isVerified: user.isVerified || user.is_verified || false, isFollowing, isPending });
@@ -256,4 +248,3 @@ router.get("/:username", auth, async (req, res) => {
 });
 
 module.exports = router;
-
