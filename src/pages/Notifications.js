@@ -119,7 +119,7 @@ export default function Notifications() {
         )}
 
         {/* Group by Today */}
-        {notifs.filter(n => Date.now() - new Date(n.createdAt) < 86400000).length > 0 && (
+        {notifs.filter(n => Date.now() - new Date(n.createdAt || n.created_at) < 86400000).length > 0 && (
           <div style={{padding:"0.5rem 1rem",color:"#888",fontSize:"0.75rem",fontWeight:"bold",letterSpacing:"0.05em",borderBottom:"1px solid #1e1e2e"}}>TODAY</div>
         )}
         {notifs.map((n, i) => (
@@ -141,7 +141,7 @@ export default function Notifications() {
                 <span style={{ fontWeight: "bold" }}>@{n.fromUsername}</span>{" "}
                 <span style={{ color: "#ccc" }}>{n.text?.replace(n.fromUsername + " ", "")}</span>
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#555", marginTop: "0.2rem" }}>{formatTime(n.createdAt)}</div>
+              <div style={{ fontSize: "0.75rem", color: "#555", marginTop: "0.2rem" }}>{formatTime(n.createdAt || n.created_at)}</div>
             </div>
 
             {/* Post thumb */}

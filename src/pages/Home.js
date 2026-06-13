@@ -446,7 +446,7 @@ const groupedStories = stories.reduce((acc, s) => {
                 </div>
               )}
               <div onClick={()=>navigate("/comments/"+p.id)} style={{fontSize:"0.8rem",color:"#888",marginTop:"0.3rem",cursor:"pointer"}}>View all comments</div>
-              <div style={{fontSize:"0.75rem",color:"#555",marginTop:"0.2rem"}}>{new Date(p.createdAt).toLocaleDateString()}</div>
+              <div style={{fontSize:"0.75rem",color:"#555",marginTop:"0.2rem"}}>{new Date(p.(createdAt || created_at)).toLocaleDateString()}</div>
             </div>
           </div>
         ))}

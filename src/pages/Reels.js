@@ -593,7 +593,7 @@ export default function Reels() {
                       <span style={{color:"white",fontSize:"0.9rem",lineHeight:1.4}}>{c.text}</span>
                     </div>
                     <div style={{display:"flex",gap:"1rem",marginTop:"0.3rem",paddingLeft:"0.5rem",alignItems:"center"}}>
-                      <span style={{fontSize:"0.72rem",color:"#555"}}>{new Date(c.createdAt).toLocaleDateString()}</span>
+                      <span style={{fontSize:"0.72rem",color:"#555"}}>{new Date(c.createdAt || c.created_at).toLocaleDateString()}</span>
                       <span onClick={()=>setReplyTo(c.username)} style={{fontSize:"0.75rem",color:"#888",cursor:"pointer",fontWeight:"bold"}}>Reply</span>
                       <span onClick={()=>handleCommentLike(c.id)} style={{fontSize:"0.75rem",color:commentLikes[c.id]?.liked?"#f87171":"#888",cursor:"pointer",display:"flex",alignItems:"center",gap:"0.2rem"}}>
                         {commentLikes[c.id]?.liked ? "❤️" : "🤍"} {commentLikes[c.id]?.count > 0 ? commentLikes[c.id].count : ""}
