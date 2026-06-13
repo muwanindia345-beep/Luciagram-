@@ -154,12 +154,20 @@ app.get('/media/stats', async (req, res) => {
 
 app.get('/media/:mediaId', async (req, res) => {
   try {
-    const { Media } = require('./models');
-    const media = await Media.findOne({ id: req.params.mediaId });
-    if (!media) return res.status(404).json({ message: 'Media not found' });
-    const prefix = media.mediaType === 'video'
-      ? 'data:video/mp4;base64,'
-      : 'data:image/jpeg;base64,';
+    const axios = require('axios');
+    const result = await axios.post(process.env.MUWANDB_URL + '/query', {
+      query: `SELECT * FROM media WHERE id = '${req.params.mediaId}' LIMIT 1`,
+      dbPassword: process.env.MUWANDB_PASSWORD
+    }, {
+      headers: {
+        'x-api-key': process.env.MUWANDB_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    const rows = result.data?.data;
+    if (!rows || rows.length === 0) return res.status(404).json({ message: 'Media not found' });
+    const media = rows[0];
+    const prefix = media.mediaType === 'video' ? 'data:video/mp4;base64,' : 'data:image/jpeg;base64,';
     res.json({ url: prefix + media.base64, mediaType: media.mediaType });
   } catch (err) {
     res.status(500).json({ message: err.message });
