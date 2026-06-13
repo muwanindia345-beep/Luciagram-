@@ -141,10 +141,12 @@ app.use('/api/notes',         require('./routes/notes'));
 app.use('/api/music',         require('./routes/music'));
 app.use('/api/reports',       require('./routes/reports'));
 
+// ✅ FIXED: Media routes — MuwanDB Media model se fetch karo
 app.get('/media/stats', async (req, res) => {
   try {
-    const stats = await LuciaStore.stats();
-    res.json({ ...stats, storage: 'LuciaStore v1.0' });
+    const { Media } = require('./models');
+    const count = await Media.countDocuments({});
+    res.json({ totalFiles: count, storage: 'MuwanDB Media v1.0' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -152,10 +154,13 @@ app.get('/media/stats', async (req, res) => {
 
 app.get('/media/:mediaId', async (req, res) => {
   try {
-    const media = await LuciaStore.retrieve(req.params.mediaId);
+    const { Media } = require('./models');
+    const media = await Media.findOne({ id: req.params.mediaId });
     if (!media) return res.status(404).json({ message: 'Media not found' });
-    const prefix = media.mediaType === 'video' ? 'data:video/mp4;base64,' : 'data:image/jpeg;base64,';
-    res.json({ url: prefix + media.data, mediaType: media.mediaType });
+    const prefix = media.mediaType === 'video'
+      ? 'data:video/mp4;base64,'
+      : 'data:image/jpeg;base64,';
+    res.json({ url: prefix + media.base64, mediaType: media.mediaType });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -185,19 +190,11 @@ httpServer.listen(PORT, () => {
   console.log('🌐 Allowed origins:', getAllowedOrigins());
 });
 
-// Muwan Network packet endpoint
 app.post('/packet', (req, res) => {
   const packet = req.body;
-  
   if (!packet.from || !packet.to || !packet.type) {
     return res.status(400).json({ error: 'Invalid packet' });
   }
-
   console.log(`[Muwan] ${packet.from} → ${packet.to} [${packet.type}]`);
-
-  res.json({
-    received: true,
-    packetId: packet.id,
-    timestamp: Date.now()
-  });
+  res.json({ received: true, packetId: packet.id, timestamp: Date.now() });
 });

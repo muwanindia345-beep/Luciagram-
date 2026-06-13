@@ -1,14 +1,19 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
 const { Story, StoryView, Follow, User } = require("../models");
-const SupaStore = require("../supastore");
 const { v4: uuidv4 } = require("uuid");
 
+// ✅ Expired story cleanup — SupaStore hata diya
 setInterval(async () => {
   try {
-    const expired = await Story.find({ expiresAt: { $lt: new Date() } });
+    const expired = await Story.find({ expiresAt: { $lt: new Date().toISOString() } });
     for (const s of expired) {
-      if (s.mediaFileName) await SupaStore.delete(s.mediaFileName);
+      if (s.mediaFileName) {
+        try {
+          const { Media } = require("../models");
+          await Media.deleteOne({ id: s.mediaFileName });
+        } catch (e) { console.error("Media delete error:", e.message); }
+      }
       await s.deleteOne();
     }
     if (expired.length > 0) console.log("🗑️ Deleted", expired.length, "expired stories");
@@ -17,33 +22,42 @@ setInterval(async () => {
 
 router.get("/", auth, async (req, res) => {
   try {
-    // Get list of userIds the current user follows
     const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
-    // Include own stories too
     followingIds.push(req.user.id);
-
     const stories = await Story.find({
-      expiresAt: { $gt: new Date() },
+      expiresAt: { $gt: new Date().toISOString() },
       userId: { $in: followingIds }
     })
       .select("id userId username mediaUrl mediaType music caption expiresAt createdAt")
-      .sort({ createdAt: -1 })
-      ;
+      .sort({ createdAt: -1 });
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// ✅ FIXED: SupaStore → MuwanDB Media, createdAt add kiya
 router.post("/", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType, music } = req.body;
     let mediaUrl = "";
     let mediaFileName = "";
+
     if (mediaBase64) {
-      const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
-      mediaUrl = result.url;
-      mediaFileName = result.fileName;
+      const { Media } = require("../models");
+      const mediaId = uuidv4();
+      await Media.create({
+        id: mediaId,
+        userId: req.user.id,
+        base64: mediaBase64,
+        mediaType: mediaType || "image",
+        createdAt: new Date().toISOString(),
+      });
+      mediaUrl = "muwandb://" + mediaId;
+      mediaFileName = mediaId;
     }
+
+    if (!mediaUrl) return res.status(400).json({ message: "Media required" });
+
     const story = await Story.create({
       id: uuidv4(),
       userId: req.user.id,
@@ -51,8 +65,9 @@ router.post("/", auth, async (req, res) => {
       mediaUrl,
       mediaFileName,
       mediaType: mediaType || "image",
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       music: music || null,
+      createdAt: new Date().toISOString(), // ✅ FIX
     });
     res.status(201).json(story);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -68,7 +83,8 @@ router.post("/share", auth, async (req, res) => {
       username: req.user.username,
       mediaUrl,
       mediaType: mediaType || "video",
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(), // ✅ FIX
     });
     res.status(201).json(story);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -79,13 +95,17 @@ router.delete("/:id", auth, async (req, res) => {
     const story = await Story.findOne({ id: req.params.id });
     if (!story) return res.status(404).json({ message: "Not found" });
     if (story.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
-    if (story.mediaFileName) await SupaStore.delete(story.mediaFileName);
+    if (story.mediaFileName) {
+      try {
+        const { Media } = require("../models");
+        await Media.deleteOne({ id: story.mediaFileName });
+      } catch (e) { console.error("Media delete error:", e.message); }
+    }
     await story.deleteOne();
     res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Record story view
 router.post("/:id/view", auth, async (req, res) => {
   try {
     const existing = await StoryView.findOne({ storyId: req.params.id, userId: req.user.id });
@@ -95,13 +115,13 @@ router.post("/:id/view", auth, async (req, res) => {
         storyId: req.params.id,
         userId: req.user.id,
         username: req.user.username,
+        createdAt: new Date().toISOString(),
       });
     }
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// Get story views (only story owner can see)
 router.get("/:id/views", auth, async (req, res) => {
   try {
     const story = await Story.findOne({ id: req.params.id });
@@ -114,16 +134,13 @@ router.get("/:id/views", auth, async (req, res) => {
 
 router.get("/user/:username", auth, async (req, res) => {
   try {
-    const now = new Date();
+    const now = new Date().toISOString();
     const storyUser = await User.findOne({ username: req.params.username });
     if (!storyUser) return res.json([]);
-
-    // If private, only owner or followers can see stories
     if (storyUser.isPrivate && storyUser.id !== req.user.id) {
       const isFollowing = await Follow.findOne({ followerId: req.user.id, followingId: storyUser.id });
       if (!isFollowing) return res.json([]);
     }
-
     const stories = await Story.find({
       username: req.params.username,
       expiresAt: { $gt: now }
