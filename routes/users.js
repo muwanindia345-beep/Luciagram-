@@ -69,9 +69,9 @@ router.get("/:id/followers", auth, async (req, res) => {
   try {
     const followers = await Follow.countDocuments({ followingId: req.params.id });
     const following = await Follow.countDocuments({ followerId: req.params.id });
-    const isFollowing = cd luciagram-backend(await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
+    const isFollowing = (await Follow.findOne({ followerId: req.user.id, followingId: req.params.id }));
     const targetUser = await User.findOne({ id: req.params.id });
-    const isPending = cd luciagram-backend(targetUser?.followRequests || []).find(r => r.userId === req.user.id);
+    const isPending = (targetUser?.followRequests || []).find(r => r.userId === req.user.id);
     res.json({ followers, following, isFollowing, isPending });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -237,8 +237,8 @@ router.get("/:username", auth, async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
     const suspended = user.isSuspended || user.is_suspended || false;
     if (suspended) return res.status(404).json({ message: "User not found", suspended: true });
-    const isFollowing = cd luciagram-backend(await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
-    const isPending = cd luciagram-backend(user.followRequests || user.follow_requests || []).find(r => r.userId === req.user.id || r.user_id === req.user.id);
+    const isFollowing = (await Follow.findOne({ followerId: req.user.id, followingId: user.id }));
+    const isPending = (user.followRequests || user.follow_requests || []).find(r => r.userId === req.user.id || r.user_id === req.user.id);
     const { password, password_hash, ...safeUser } = user;
     if ((user.isPrivate || user.is_private) && !isFollowing && user.id !== req.user.id) {
       return res.json({ id: user.id, username: user.username, fullName: user.fullName || user.full_name, avatar: user.avatar, isPrivate: true, isVerified: user.isVerified || user.is_verified || false, isFollowing, isPending });
