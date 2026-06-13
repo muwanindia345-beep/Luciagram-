@@ -315,6 +315,7 @@ module.exports = {
   Group:        makeModel("groups"),
   GroupMessage: makeModel("group_messages"),
   Note:         makeModel("notes"),
+  Media:        makeModel("media"),
   StoryView:    makeModel("story_views"),
   Report:       makeModel("reports"),
 };
