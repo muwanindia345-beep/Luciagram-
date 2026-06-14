@@ -177,7 +177,7 @@ router.get("/:id/likes", auth, async (req, res) => {
   try {
     const count = await Like.countDocuments({ postId: req.params.id });
     const liked = cat > lib/bucket.js << 'EOF'
-const MUWAN_URL = process.env.MUWAN_URL || 'https://muwandb-server.onrender.com'\;
+const MUWAN_URL = process.env.MUWAN_URL || 'https://muwandb-server.onrender.com';
 const MUWAN_API_KEY = process.env.MUWAN_API_KEY;
 const MUWAN_SECRET_KEY = process.env.MUWAN_SECRET_KEY;
 const BUCKET_NAME = 'post-media';
