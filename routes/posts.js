@@ -3,6 +3,7 @@ const auth = require("../middleware/auth");
 const { Post, Like, User, Follow } = require("../models");
 const { v4: uuidv4 } = require("uuid");
 const notifRouter = require("./notifications");
+const { uploadToBucket, deleteFromBucket } = require("../lib/bucket");
 
 router.get("/feed", auth, async (req, res) => {
   try {
@@ -111,17 +112,15 @@ router.post("/", auth, async (req, res) => {
     let mediaFileName = "";
 
     if (mediaBase64) {
-      const { Media } = require("../models");
-      const mediaId = uuidv4();
-      await Media.create({
-        id: mediaId,
-        userId: req.user.id,
-        base64: mediaBase64,
-        mediaType: mediaType || "image",
-        createdAt: new Date().toISOString(),
-      });
-      mediaUrl = "muwandb://" + mediaId;
-      mediaFileName = mediaId;
+      const isVideo = mediaType === "video";
+      const ext = isVideo ? "mp4" : "jpg";
+      const result = await uploadToBucket(mediaBase64, ext);
+      if (result.error) {
+        console.error("[Bucket Upload Error]", result.error);
+        return res.status(500).json({ message: "Media upload failed: " + result.error });
+      }
+      mediaUrl = result.url;
+      mediaFileName = result.fileId;
     }
 
     if (!mediaUrl) return res.status(400).json({ message: "Media required" });
@@ -177,7 +176,67 @@ router.post("/:id/like", auth, async (req, res) => {
 router.get("/:id/likes", auth, async (req, res) => {
   try {
     const count = await Like.countDocuments({ postId: req.params.id });
-    const liked = !!(await Like.findOne({ postId: req.params.id, userId: req.user.id }));
+    const liked = cat > lib/bucket.js << 'EOF'
+const MUWAN_URL = process.env.MUWAN_URL || 'https://muwandb-server.onrender.com'\;
+const MUWAN_API_KEY = process.env.MUWAN_API_KEY;
+const MUWAN_SECRET_KEY = process.env.MUWAN_SECRET_KEY;
+const BUCKET_NAME = 'post-media';
+
+async function uploadToBucket(base64, ext = 'jpg') {
+    try {
+        const base64Data = base64.replace(/^data:[^;]+;base64,/, '');
+        const res = await fetch(`${MUWAN_URL}/bucket/${BUCKET_NAME}/upload`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': MUWAN_API_KEY
+            },
+            body: JSON.stringify({ base64: base64Data, ext })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Upload failed');
+        return {
+            fileId: data.data.fileId,
+            url: `${MUWAN_URL}${data.data.url}`,
+            error: null
+        };
+    } catch (err) {
+        return { fileId: null, url: null, error: err.message };
+    }
+}
+
+async function deleteFromBucket(fileId) {
+    try {
+        const res = await fetch(`${MUWAN_URL}/bucket/${BUCKET_NAME}/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'x-secret-key': MUWAN_SECRET_KEY }
+        });
+        const data = await res.json();
+        return { success: res.ok, error: data.error || null };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+}
+
+async function ensureBucket() {
+    try {
+        await fetch(`${MUWAN_URL}/bucket/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-secret-key': MUWAN_SECRET_KEY
+            },
+            body: JSON.stringify({ name: BUCKET_NAME })
+        });
+    } catch (err) {
+        console.warn('[Bucket] ensureBucket error:', err.message);
+    }
+}
+
+ensureBucket();
+
+module.exports = { uploadToBucket, deleteFromBucket };
+EOF(await Like.findOne({ postId: req.params.id, userId: req.user.id }));
     res.json({ count, liked });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -207,9 +266,8 @@ router.delete("/:id", auth, async (req, res) => {
     if (post.userId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
     if (post.mediaFileName) {
       try {
-        const { Media } = require("../models");
-        await Media.deleteOne({ id: post.mediaFileName });
-      } catch (e) { console.error("Media delete error:", e.message); }
+        await deleteFromBucket(post.mediaFileName);
+      } catch (e) { console.error("Bucket delete error:", e.message); }
     }
     await post.deleteOne();
     res.json({ message: "Deleted" });
