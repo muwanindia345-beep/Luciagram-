@@ -2,7 +2,7 @@ import { clearSettingsCache } from '../hooks/useSettings';
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import API from "../api";
 
-export const MUWAN_AUTH_URL = "https://luciagram-backend.onrender.com/api";
+export const MUWAN_AUTH_URL = "https://luciagram-backend.onrender.com/api"\;
 
 const AuthContext = createContext();
 
@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }) => {
     });
   }, []);
 
-  // Startup pe localStorage se restore karo
   useEffect(() => {
     const savedToken = localStorage.getItem(TOKEN_KEY);
     const savedUser  = localStorage.getItem(USER_KEY);
@@ -35,16 +34,26 @@ export const AuthProvider = ({ children }) => {
       } catch {}
     }
 
-    // Server se verify karo
+    if (!savedToken) {
+      setLoading(false);
+      return;
+    }
+
     API.get("/users/me")
       .then(res => {
-        if (res.data) setUserState(res.data);
+        if (res.data) {
+          setUserState(res.data);
+          localStorage.setItem(USER_KEY, JSON.stringify(res.data));
+        }
       })
-      .catch(() => {
-        // Server verify fail — localStorage bhi clear karo
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-        setUserState(null);
+      .catch((err) => {
+        // Sirf 401 pe logout karo — network error pe nahi
+        if (err.response?.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setUserState(null);
+        }
+        // Network error / timeout / 500 → localStorage wala user rehne do
       })
       .finally(() => setLoading(false));
   }, []);
