@@ -30,7 +30,7 @@ export default function Register() {
         })
       });
       const data = await res.json();
-      if (!res.ok) return setError(data.error || "Register failed");
+      if (!res.ok) return setError(data.message || data.error || "Register failed");
       login(data.user, data.token);
       navigate("/");
     } catch { setError("Network error — try again"); }
