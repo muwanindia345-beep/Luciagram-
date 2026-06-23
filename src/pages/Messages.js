@@ -284,7 +284,7 @@ export default function Messages() {
 
       {/* Note Editor */}
       {showNoteEditor && (
-        <div style={{position:"fixed",inset:0,zIndex:400,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
+        <div style={{position:"fixed",inset:0,zIndex:1100,display:"flex",flexDirection:"column",justifyContent:"flex-end"}}>
           <div onClick={()=>setShowNoteEditor(false)} style={{flex:1,background:"rgba(0,0,0,0.6)"}} />
           <div style={{background:"#1a1a2e",borderRadius:"20px 20px 0 0",padding:"1.5rem 1rem"}}>
             <div style={{width:"40px",height:"4px",background:"#444",borderRadius:"2px",margin:"0 auto 1rem"}} />
