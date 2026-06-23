@@ -101,4 +101,32 @@ router.post("/2fa/disable", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+// POST /api/settings — key-value save
+router.post("/", auth, async (req, res) => {
+  try {
+    const { key, value } = req.body;
+    if (!key) return res.status(400).json({ message: "Key required" });
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const settings = user.settings ? JSON.parse(user.settings) : {};
+    settings[key] = value;
+    await User.updateOne({ id: req.user.id }, { settings: JSON.stringify(settings) });
+    res.json({ message: "Setting saved", key, value });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// DELETE /api/settings/:key — key delete
+router.delete("/:key", auth, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const user = await User.findOne({ id: req.user.id });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const settings = user.settings ? JSON.parse(user.settings) : {};
+    delete settings[key];
+    await User.updateOne({ id: req.user.id }, { settings: JSON.stringify(settings) });
+    res.json({ message: "Setting removed", key });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
