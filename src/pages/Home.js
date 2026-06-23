@@ -362,7 +362,7 @@ const groupedStories = stories.reduce((acc, s) => {
         <span onClick={()=>navigate("/messages")} style={{fontSize:"1.3rem",cursor:"pointer"}}>💬</span>
       </div>
 
-      <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",padding:"0.75rem 1rem",borderBottom:"1px solid #1e1e2e",scrollbarWidth:"none"}}>
+      <div style={{overflowX:"auto",display:"flex",gap:"0.75rem",padding:"0.75rem 1rem",borderBottom:"1px solid #1e1e2e",scrollbarWidth:"none",flexShrink:0}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"0.3rem",minWidth:"64px"}}>
           <div onClick={()=>setShowStoryUpload(true)} style={{position:"relative",cursor:"pointer"}}>
             <div style={{width:"60px",height:"60px",borderRadius:"50%",overflow:"hidden",border:"2px solid #1e1e2e"}}>

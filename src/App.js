@@ -26,10 +26,9 @@ function PrivateRoute({ children }) {
 }
 
 function NotifBadge() {
-  const [count, setCount] = React.useState(0);
+  const [count, setCount] = useState(0);
   const { user } = useAuth();
-  const loc = useLocation();
-  const isHidden = loc.pathname.startsWith('/chat/') || loc.pathname.startsWith('/group/');
+
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -42,9 +41,17 @@ function NotifBadge() {
     const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [user]);
-  if (count === 0 || isHidden) return null;
+
+  if (!count) return null;
   return (
-    <div style={{position:"fixed",top:8,right:8,background:"linear-gradient(135deg,#7c3aed,#db2777)",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"0.6rem",fontWeight:"bold",color:"white",zIndex:9999,pointerEvents:"none"}}>
+    <div style={{
+      position: "fixed", top: 8, right: 8,
+      background: "linear-gradient(135deg,#7c3aed,#db2777)",
+      borderRadius: "50%", width: 20, height: 20,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: "0.6rem", fontWeight: "bold", color: "white",
+      zIndex: 9999, pointerEvents: "none"
+    }}>
       {count > 99 ? "99+" : count}
     </div>
   );
@@ -53,37 +60,32 @@ function NotifBadge() {
 function PageWrapper({ children }) {
   const location = useLocation();
   const navType = useNavigationType();
-  const [style, setStyle] = React.useState({});
+  const [cls, setCls] = useState("");
 
   useEffect(() => {
-    const from = navType === "POP" ? "-20px" : "30px";
-    setStyle({ opacity: 0, transform: `translateX(${from})` });
-    const t = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setStyle({
-          opacity: 1,
-          transform: "translateX(0)",
-          transition: "opacity 0.22s ease, transform 0.22s cubic-bezier(0.25,0.46,0.45,0.94)"
-        });
-      });
-    });
-    return () => cancelAnimationFrame(t);
+    setCls(navType === "POP" ? "page-back" : "page-enter");
+    const t = setTimeout(() => setCls(""), 250);
+    return () => clearTimeout(t);
   }, [location.pathname]);
 
   return (
-    <div style={{ minHeight: "100vh", paddingBottom: "56px", ...style }}>
+    <div className={cls} style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
       {children}
     </div>
   );
 }
 
-function App() {
+const AUTH_PATHS = ["/login", "/register"];
+
+function Layout() {
+  const location = useLocation();
+  const { user } = useAuth();
+  const isAuth = AUTH_PATHS.includes(location.pathname);
+
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <NotifBadge />
-        <BottomNav />
-        <PageWrapper>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <NotifBadge />
+      <PageWrapper>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -102,10 +104,18 @@ function App() {
           <Route path="/groupchat" element={<PrivateRoute><GroupChat /></PrivateRoute>} />
           <Route path="/group/:groupId" element={<PrivateRoute><GroupChatRoom /></PrivateRoute>} />
         </Routes>
-        </PageWrapper>
+      </PageWrapper>
+      {!isAuth && user && <BottomNav />}
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Layout />
       </BrowserRouter>
     </AuthProvider>
   );
 }
-
-export default App;
