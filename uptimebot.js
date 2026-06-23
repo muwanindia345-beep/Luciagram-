@@ -4,7 +4,7 @@ const http = require('http');
 class LuciagramUptimeBot {
   constructor() {
     this.services = [
-      { name: 'Luciagram Backend', url: 'https://luciagram-backend.onrender.com', status: 'unknown' },
+      { name: 'Luciagram Backend', url: 'https://luciagram-production.up.railway.app', status: 'unknown' },
       { name: 'Luciagram Frontend', url: 'https://luciagram.onrender.com', status: 'unknown' },
     ];
     this.pingCount = 0;
