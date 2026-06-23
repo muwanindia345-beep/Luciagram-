@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const CLOUD_URL = "https://luciagram-7s5b.onrender.com/api";
+const CLOUD_URL = "https://luciagram-production.up.railway.app/api";
 const LOCAL_URL = "http://localhost:8890/api";
 
 let currentBase = navigator.onLine ? CLOUD_URL : LOCAL_URL;
