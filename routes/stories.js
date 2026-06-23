@@ -25,12 +25,9 @@ router.get("/", auth, async (req, res) => {
     const follows = await Follow.find({ followerId: req.user.id });
     const followingIds = follows.map(f => f.followingId);
     followingIds.push(req.user.id);
-    const stories = await Story.find({
-      expiresAt: { $gt: new Date().toISOString() },
-      userId: { $in: followingIds }
-    })
-      .select("id userId username mediaUrl mediaType music caption expiresAt createdAt")
-      .sort({ createdAt: -1 });
+    const allStories = await Story.find({}).sort({ createdAt: -1 });
+    const now = new Date().toISOString();
+    const stories = allStories.filter(s => s.expiresAt > now);
     res.json(stories);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

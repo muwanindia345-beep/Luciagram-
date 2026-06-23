@@ -7,27 +7,12 @@ const SupaStore = require("../supastore");
 router.get("/", auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { createClient } = require("@supabase/supabase-js");
-    const supa = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-    const { data: allGroups, error } = await supa
-      .from("groups")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.error("Groups fetch error:", error);
-      return res.status(500).json({ message: error.message });
-    }
-    const filtered = (allGroups || []).filter(g =>
-      g.created_by_id === userId ||
+    const allGroups = await Group.find({});
+    const filtered = allGroups.filter(g =>
+      g.createdById === userId ||
       (Array.isArray(g.members) && g.members.some(m => m.id === userId))
     );
-    const cam = (k) => k.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
-    const result = filtered.map(g => {
-      const obj = {};
-      for (const [k, v] of Object.entries(g)) obj[cam(k)] = v;
-      return obj;
-    });
-    res.json(result);
+    res.json(filtered);
   } catch (err) {
     console.error("Groups fetch error:", err);
     res.status(500).json({ message: err.message });
@@ -41,7 +26,10 @@ router.post("/", auth, async (req, res) => {
     if (name.length > 50) return res.status(400).json({ message: "Group name max 50 chars" });
     let avatarUrl = "";
     if (avatarBase64) {
-      const result = await SupaStore.upload(avatarBase64, "image", req.user.id);
+      const { uploadToBucket } = require("../lib/bucket");
+      const ext = avatarBase64.includes("png") ? "png" : "jpg";
+      const result = await uploadToBucket(avatarBase64, ext);
+      if (result.error) return res.status(500).json({ message: result.error });
       avatarUrl = result.url;
     }
     const group = await Group.create({
@@ -58,7 +46,10 @@ router.post("/upload", auth, async (req, res) => {
   try {
     const { mediaBase64, mediaType } = req.body;
     if (!mediaBase64) return res.status(400).json({ message: "mediaBase64 required" });
-    const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
+    const { uploadToBucket } = require("../lib/bucket");
+    const ext = mediaType === "video" ? "mp4" : mediaType === "png" ? "png" : "jpg";
+    const result = await uploadToBucket(mediaBase64, ext);
+    if (result.error) return res.status(500).json({ message: result.error });
     res.json({ url: result.url });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

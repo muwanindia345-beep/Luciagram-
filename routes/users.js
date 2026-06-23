@@ -17,7 +17,7 @@ router.get("/me", auth, async (req, res) => {
 router.get("/search", auth, async (req, res) => {
   try {
     const q = (req.query.q || "").trim().toLowerCase();
-    if (q || q.length < 1) return res.json([]);
+    if (!q || q.length < 1) return res.json([]);
     if (q.length > 30) return res.status(400).json({ message: "Search query too long" });
     const users = await User.find({
       $or: [
