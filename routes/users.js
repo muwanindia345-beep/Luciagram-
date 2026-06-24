@@ -280,4 +280,16 @@ router.get("/:username/stats", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+
+router.get("/suggest/people", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      id: { $ne: req.user.id },
+      isSuspended: { $ne: true }
+    }).select("id username fullName avatar isVerified").limit(20);
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
