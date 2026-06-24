@@ -292,4 +292,40 @@ router.get("/suggest/people", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+
+router.get("/suggest/people", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      id: { $ne: req.user.id },
+      isSuspended: { $ne: true }
+    }).select("id username fullName avatar isVerified").limit(20);
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:username/posts", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const { Post } = require("../models");
+    const posts = await Post.find({ userId: user.id }).sort({ createdAt: -1 }).limit(50);
+    res.json(posts);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+router.get("/:username/stats", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const { Post, Follow } = require("../models");
+    const [posts, followers, following] = await Promise.all([
+      Post.countDocuments({ userId: user.id }),
+      Follow.countDocuments({ followingId: user.id }),
+      Follow.countDocuments({ followerId: user.id }),
+    ]);
+    res.json({ posts, followers, following });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
