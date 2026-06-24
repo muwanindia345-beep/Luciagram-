@@ -19,7 +19,7 @@ window.addEventListener("offline", () => {
 
 const API = axios.create({
   timeout: 15000,
-  withCredentials: true,
+  withCredentials: false,
   headers: { "Content-Type": "application/json" }
 });
 
