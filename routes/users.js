@@ -247,4 +247,37 @@ router.get("/:username", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+
+// Alias for app compatibility
+router.put("/me", auth, async (req, res) => {
+  const { fullName, bio, website } = req.body;
+  try {
+    await User.updateOne({ id: req.user.id }, { fullName, bio, website });
+    const user = await User.findOne({ id: req.user.id });
+    res.json({ user });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// User posts
+router.get("/:username/posts", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const { Post } = require("../models");
+    const posts = await Post.find({ userId: user.id });
+    res.json(posts || []);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// User stats
+router.get("/:username/stats", auth, async (req, res) => {
+  try {
+    const user = await User.findOne({ username: req.params.username });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const { Post } = require("../models");
+    const posts = await Post.find({ userId: user.id });
+    res.json({ posts: posts?.length || 0, followers: 0, following: 0 });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;
