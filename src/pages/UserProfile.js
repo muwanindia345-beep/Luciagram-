@@ -77,20 +77,35 @@ export default function UserProfile() {
   };
 
   const handleFollow = async () => {
+    // Optimistic UI — pehle UI update karo, phir API call
+    const prevStatus = followStatus;
+    const prevStats = stats;
+
+    if (followStatus === "none") {
+      setFollowStatus("following");
+      setStats(s => ({...s, followers: s.followers + 1}));
+    } else if (followStatus === "following") {
+      setFollowStatus("none");
+      setStats(s => ({...s, followers: s.followers - 1}));
+    } else if (followStatus === "requested") {
+      setFollowStatus("none");
+    }
+
     try {
       const res = await API.post("/users/" + profile.id + "/follow-request");
-      if (res.data.status === "following") {
-        setFollowStatus("following");
-        setStats(s => ({...s, followers: s.followers + 1}));
-      } else if (res.data.status === "unfollowed") {
-        setFollowStatus("none");
-        setStats(s => ({...s, followers: s.followers - 1}));
-      } else if (res.data.status === "requested") {
+      // Private account ke liye server "requested" return karta hai
+      if (res.data.status === "requested") {
         setFollowStatus("requested");
+        setStats(prevStats);
       } else if (res.data.status === "request_cancelled") {
         setFollowStatus("none");
       }
-    } catch {}
+      // "following" / "unfollowed" already optimistically set hain
+    } catch {
+      // API fail — revert karo
+      setFollowStatus(prevStatus);
+      setStats(prevStats);
+    }
   };
 
   const sendStoryReply = async () => {
