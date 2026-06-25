@@ -13,7 +13,7 @@ const getAllowedOrigins = () => {
   if (process.env.ALLOWED_ORIGINS) {
     return process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim());
   }
-  return ['https://luciagram.onrender.com', 'capacitor://localhost'];
+  return ['https://luciagram-production-5bfe.up.railway.app', 'capacitor://localhost'];
 };
 
 const corsOptions = {
