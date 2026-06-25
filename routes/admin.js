@@ -30,7 +30,7 @@ router.get("/cleanup", adminAuth, async (req, res) => {
         storiesCleaned++;
       }
     }
-    res.json({ message: "Cleanup complete, postsCleaned: cleaned, storiesCleaned, spaceSavedMB: (spaceSaved / 1024 / 1024).toFixed(2) + " MB" });
+    res.json({ message: "Cleanup complete", postsCleaned: cleaned, storiesCleaned, spaceSavedMB: (spaceSaved / 1024 / 1024).toFixed(2) + " MB" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

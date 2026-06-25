@@ -4,6 +4,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -16,8 +17,9 @@ const getAllowedOrigins = () => {
   return ['https://luciagram-production-5bfe.up.railway.app', 'capacitor://localhost'];
 };
 
+// FIX: was `origin: true` (allows ALL origins) — now uses actual whitelist
 const corsOptions = {
-  origin: true,
+  origin: getAllowedOrigins(),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -31,12 +33,11 @@ app.use(cookieParser());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-
-
 const { Server } = require('socket.io');
 const io = new Server(httpServer, {
   cors: {
-    origin: true,
+    // FIX: socket.io CORS also uses whitelist now
+    origin: getAllowedOrigins(),
     credentials: true,
     methods: ['GET', 'POST'],
   },
@@ -46,10 +47,30 @@ const io = new Server(httpServer, {
   upgradeTimeout: 30000,
 });
 
-io.on('connection', (socket) => {
-  console.log('🔌 Socket connected:', socket.id);
+// FIX: Socket.io auth middleware — unauthenticated sockets are rejected
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token
+    || socket.handshake.headers?.authorization?.split(' ')[1];
+  if (!token) return next(new Error('Unauthorized'));
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = String(decoded.uid || decoded.id);
+    next();
+  } catch {
+    next(new Error('Invalid token'));
+  }
+});
 
-  socket.on('join', (userId) => socket.join('user_' + userId));
+io.on('connection', (socket) => {
+  console.log('🔌 Socket connected:', socket.id, '| user:', socket.userId);
+
+  // Auto-join own room on connect
+  socket.join('user_' + socket.userId);
+
+  // FIX: only allow joining own room — prevents listening to other users' messages
+  socket.on('join', (userId) => {
+    if (String(userId) === socket.userId) socket.join('user_' + userId);
+  });
 
   socket.on('send_message', (data) => {
     if (!data?.receiverId) return;
@@ -95,31 +116,19 @@ io.on('connection', (socket) => {
     socket.to('group_' + data.groupId).emit('group_unsend', data);
   });
 
-  socket.on('disconnect', () => {
-    console.log('❌ Socket disconnected:', socket.id);
-  });
-
   socket.on('call:initiate', (data) => {
     if (!data?.receiverId || !data?.callerId) return;
     io.to('user_' + data.receiverId).emit('call:incoming', data);
   });
-  socket.on('call:accept', (data) => {
-    io.to('user_' + data.callerId).emit('call:accepted', data);
-  });
-  socket.on('call:reject', (data) => {
-    io.to('user_' + data.callerId).emit('call:rejected');
-  });
-  socket.on('call:end', (data) => {
-    io.to('user_' + data.receiverId).emit('call:ended');
-  });
-  socket.on('call:offer', (data) => {
-    io.to('user_' + data.receiverId).emit('call:offer', data);
-  });
-  socket.on('call:answer', (data) => {
-    io.to('user_' + data.callerId).emit('call:answer', data);
-  });
-  socket.on('call:ice', (data) => {
-    io.to('user_' + data.receiverId).emit('call:ice', data);
+  socket.on('call:accept',  (data) => { io.to('user_' + data.callerId).emit('call:accepted', data); });
+  socket.on('call:reject',  (data) => { io.to('user_' + data.callerId).emit('call:rejected'); });
+  socket.on('call:end',     (data) => { io.to('user_' + data.receiverId).emit('call:ended'); });
+  socket.on('call:offer',   (data) => { io.to('user_' + data.receiverId).emit('call:offer', data); });
+  socket.on('call:answer',  (data) => { io.to('user_' + data.callerId).emit('call:answer', data); });
+  socket.on('call:ice',     (data) => { io.to('user_' + data.receiverId).emit('call:ice', data); });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected:', socket.id);
   });
 });
 
@@ -139,7 +148,6 @@ app.use('/api/notes',         require('./routes/notes'));
 app.use('/api/music',         require('./routes/music'));
 app.use('/api/reports',       require('./routes/reports'));
 
-// ✅ FIXED: Media routes — MuwanDB Media model se fetch karo
 app.get('/api/media/stats', async (req, res) => {
   try {
     const { Media } = require('./models');
@@ -150,11 +158,14 @@ app.get('/api/media/stats', async (req, res) => {
   }
 });
 
+// FIX: sanitize mediaId to prevent SQL injection before passing to MuwanDB query
 app.get('/api/media/:mediaId', async (req, res) => {
   try {
+    const mediaId = String(req.params.mediaId).replace(/[^a-zA-Z0-9_\-]/g, '');
+    if (!mediaId) return res.status(400).json({ message: 'Invalid media ID' });
     const axios = require('axios');
     const result = await axios.post(process.env.MUWAN_DB_URL + '/query', {
-      query: `SELECT * FROM media WHERE id = '${req.params.mediaId}' LIMIT 1`,
+      query: `SELECT * FROM media WHERE id = '${mediaId}' LIMIT 1`,
       dbPassword: process.env.MUWAN_DB_PASSWORD
     }, {
       headers: {
@@ -172,26 +183,13 @@ app.get('/api/media/:mediaId', async (req, res) => {
   }
 });
 
+// FIX: removed bot.getReport() — bot was never defined, caused ReferenceError crash
 app.get('/status', (req, res) => {
-  res.json({
-    app: 'Luciagram',
-    version: '1.0.0',
-    allowedOrigins: getAllowedOrigins(),
-    ...bot.getReport(),
-  });
+  res.json({ app: 'Luciagram', version: '1.0.0', allowedOrigins: getAllowedOrigins() });
 });
 
 app.get('/', (req, res) => {
   res.json({ message: '✨ Luciagram API is running!' });
-});
-
-
-
-
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  console.log('🚀 Luciagram server running on port ' + PORT);
-  console.log('🌐 Allowed origins:', getAllowedOrigins());
 });
 
 app.post('/packet', (req, res) => {
@@ -201,4 +199,10 @@ app.post('/packet', (req, res) => {
   }
   console.log(`[Muwan] ${packet.from} → ${packet.to} [${packet.type}]`);
   res.json({ received: true, packetId: packet.id, timestamp: Date.now() });
+});
+
+const PORT = process.env.PORT || 5000;
+httpServer.listen(PORT, () => {
+  console.log('🚀 Luciagram server running on port ' + PORT);
+  console.log('🌐 Allowed origins:', getAllowedOrigins());
 });
