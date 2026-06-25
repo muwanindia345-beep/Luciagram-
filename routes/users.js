@@ -83,8 +83,8 @@ router.put("/profile", auth, async (req, res) => {
     if (username && !/^[a-zA-Z0-9_.]+$/.test(username)) return res.status(400).json({ message: "Invalid username format" });
     if (bio && bio.length > 150) return res.status(400).json({ message: "Bio max 150 characters" });
     if (website && website.length > 100) return res.status(400).json({ message: "Website URL too long" });
-    const existing = await User.findOne({ username, id: { $ne: req.user.id } });
-    if (existing) return res.status(400).json({ message: "Username taken" });
+    const existing = await User.findOne({ username });
+    if (existing && existing.id !== req.user.id) return res.status(400).json({ message: "Username taken" });
     const update = { fullName, username, bio, website, avatar };
     if (song !== undefined) update.song = song;
     const oldUser = await User.findOne({ id: req.user.id });
