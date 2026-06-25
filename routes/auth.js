@@ -49,6 +49,7 @@ async function syncUser(muwanUser) {
       fullName: username,
       avatar: picture || null,
       provider: provider || "email",
+      isSuspended: false,
     });
   }
   return user;
