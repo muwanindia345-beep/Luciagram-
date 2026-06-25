@@ -24,7 +24,7 @@ router.get("/search", auth, async (req, res) => {
         { username: { $regex: q } },
         { fullName: { $regex: q } }
       ],
-      isSuspended: { $ne: true }
+      isSuspended: false
     }).select("id username fullName avatar isVerified isPrivate").limit(15);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -34,7 +34,7 @@ router.get("/following-list", auth, async (req, res) => {
   try {
     const follows = await Follow.find({ followerId: req.user.id });
     const ids = follows.map(f => f.followingId);
-    const users = await User.find({ id: { $in: ids }, isSuspended: { $ne: true } })
+    const users = await User.find({ id: { $in: ids }, isSuspended: false })
       .select("id username avatar fullName isVerified");
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -286,7 +286,7 @@ router.get("/suggest/people", auth, async (req, res) => {
   try {
     const users = await User.find({
       id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
+      isSuspended: false
     }).select("id username fullName avatar isVerified").limit(20);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -298,7 +298,7 @@ router.get("/suggest/people", auth, async (req, res) => {
   try {
     const users = await User.find({
       id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
+      isSuspended: false
     }).select("id username fullName avatar isVerified").limit(20);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -334,7 +334,7 @@ router.get("/suggest/people", auth, async (req, res) => {
   try {
     const users = await User.find({
       id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
+      isSuspended: false
     }).select("id username fullName avatar isVerified").limit(20);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
