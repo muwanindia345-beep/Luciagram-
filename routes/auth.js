@@ -9,7 +9,7 @@ const MUWAN_AUTH_URL = process.env.MUWAN_AUTH_URL || "https://muwan-auth.onrende
 function muwanPost(path, body) {
   return new Promise((resolve, reject) => {
     const url = new URL(MUWAN_AUTH_URL + path);
-    const isHttps = url.protocol === "https:";
+    const isHttps = url.protocol === "https:"\;
     const payload = JSON.stringify(body);
     const options = {
       hostname: url.hostname,
@@ -79,26 +79,28 @@ router.post("/login", async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: was using jwt.decode() (no signature check) — replaced with jwt.verify()
 router.post("/google", async (req, res) => {
   try {
     const { idToken } = req.body;
     const result = await muwanPost("/auth/google/android", { idToken });
     if (result.status !== 200) return res.status(result.status).json({ message: result.body.error || "Google auth failed" });
     const { token } = result.body;
-    const decoded = jwt.decode(token);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const localUser = await syncUser({ uid: decoded.uid, email: decoded.email, username: decoded.username, provider: "google" });
     res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
     res.json({ token, user: { id: decoded.uid, username: localUser.username, email: localUser.email, fullName: localUser.fullName, avatar: localUser.avatar } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: same as above — jwt.decode → jwt.verify
 router.post("/google-mobile", async (req, res) => {
   try {
     const { idToken } = req.body;
     const result = await muwanPost("/auth/google/android", { idToken });
     if (result.status !== 200) return res.status(result.status).json({ message: result.body.error || "Google auth failed" });
     const { token } = result.body;
-    const decoded = jwt.decode(token);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const localUser = await syncUser({ uid: decoded.uid, email: decoded.email, username: decoded.username, provider: "google" });
     res.cookie("token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7*24*60*60*1000 });
     res.json({ token, user: { id: decoded.uid, username: localUser.username, email: localUser.email, fullName: localUser.fullName, avatar: localUser.avatar } });

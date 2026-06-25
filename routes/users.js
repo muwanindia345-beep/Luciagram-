@@ -4,7 +4,6 @@ const auth = require("../middleware/auth");
 const { User, Follow, Post, Story, Message, Comment } = require("../models");
 const notifRouter = require("./notifications");
 
-
 router.get("/me", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
@@ -17,15 +16,23 @@ router.get("/me", auth, async (req, res) => {
 router.get("/search", auth, async (req, res) => {
   try {
     const q = (req.query.q || "").trim().toLowerCase();
-    if (!q || q.length < 1) return res.json([]);
+    if (q || q.length < 1) return res.json([]);
     if (q.length > 30) return res.status(400).json({ message: "Search query too long" });
     const users = await User.find({
-      $or: [
-        { username: { $regex: q } },
-        { fullName: { $regex: q } }
-      ],
+      $or: [{ username: { $regex: q } }, { fullName: { $regex: q } }],
       isSuspended: { $ne: true }
     }).select("id username fullName avatar isVerified isPrivate").limit(15);
+    res.json(users);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// FIX: moved BEFORE /:username to prevent "suggest" being caught as a username param
+router.get("/suggest/people", auth, async (req, res) => {
+  try {
+    const users = await User.find({
+      id: { $ne: req.user.id },
+      isSuspended: { $ne: true }
+    }).select("id username fullName avatar isVerified").limit(20);
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -109,19 +116,28 @@ router.put("/profile", auth, async (req, res) => {
 router.put("/remove-avatar", auth, async (req, res) => {
   try {
     const user = await User.findOneAndUpdate(
-      { id: req.user.id },
-      { avatar: "" },
-      { new: true }
+      { id: req.user.id }, { avatar: "" }, { new: true }
     ).select("-password");
     res.json(user);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: was using findByIdAndUpdate(user.id) — user.id is custom UUID not Mongo _id
 router.put("/privacy", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    await User.findByIdAndUpdate(user.id, { "isPrivate": !user.isPrivate });
-    res.json({ isPrivate: user.isPrivate });
+    await User.findOneAndUpdate({ id: req.user.id }, { isPrivate: !user.isPrivate });
+    res.json({ isPrivate: !user.isPrivate });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// FIX: same — findOneAndUpdate with custom id field
+router.put("/me", auth, async (req, res) => {
+  const { fullName, bio, website } = req.body;
+  try {
+    await User.updateOne({ id: req.user.id }, { fullName, bio, website });
+    const user = await User.findOne({ id: req.user.id });
+    res.json({ user });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -131,18 +147,12 @@ router.post("/:id/follow", auth, async (req, res) => {
     if (existing) { await existing.deleteOne(); return res.json({ message: "Unfollowed", following: false }); }
     const followedUser = await User.findOne({ id: req.params.id });
     await Follow.create({
-      id: uuidv4(),
-      followerId: req.user.id,
-      followerUsername: req.user.username,
-      followingId: req.params.id,
-      followingUsername: followedUser?.username || ""
+      id: uuidv4(), followerId: req.user.id, followerUsername: req.user.username,
+      followingId: req.params.id, followingUsername: followedUser?.username || ""
     });
     await notifRouter.createNotif({
-      userId: req.params.id,
-      fromUserId: req.user.id,
-      fromUsername: req.user.username,
-      fromAvatar: followedUser?.avatar || "",
-      type: "follow",
+      userId: req.params.id, fromUserId: req.user.id, fromUsername: req.user.username,
+      fromAvatar: followedUser?.avatar || "", type: "follow",
       text: req.user.username + " started following you",
     });
     res.json({ message: "Followed", following: true });
@@ -153,29 +163,21 @@ router.post("/:id/follow-request", auth, async (req, res) => {
   try {
     const targetUser = await User.findOne({ id: req.params.id });
     if (!targetUser) return res.status(404).json({ message: "User not found" });
-
     const isPrivate = targetUser.isPrivate || targetUser.is_private || false;
     if (!isPrivate) {
       const existing = await Follow.findOne({ followerId: req.user.id, followingId: req.params.id });
       if (existing) { await existing.deleteOne(); return res.json({ status: "unfollowed" }); }
       await Follow.create({
-        id: uuidv4(),
-        followerId: req.user.id,
-        followerUsername: req.user.username,
-        followingId: req.params.id,
-        followingUsername: targetUser.username
+        id: uuidv4(), followerId: req.user.id, followerUsername: req.user.username,
+        followingId: req.params.id, followingUsername: targetUser.username
       });
       await notifRouter.createNotif({
-        userId: req.params.id,
-        fromUserId: req.user.id,
-        fromUsername: req.user.username,
-        fromAvatar: targetUser?.avatar || "",
-        type: "follow",
+        userId: req.params.id, fromUserId: req.user.id, fromUsername: req.user.username,
+        fromAvatar: targetUser?.avatar || "", type: "follow",
         text: req.user.username + " started following you",
       });
       return res.json({ status: "following" });
     }
-
     const currentRequests = targetUser.followRequests || targetUser.follow_requests || [];
     const alreadyRequested = currentRequests.find(r => r.userId === req.user.id || r.user_id === req.user.id);
     if (alreadyRequested) {
@@ -187,11 +189,8 @@ router.post("/:id/follow-request", auth, async (req, res) => {
     await User.updateOne({ id: req.params.id }, { followRequests: updatedRequests });
     try {
       await notifRouter.createNotif({
-        userId: req.params.id,
-        fromUserId: req.user.id,
-        fromUsername: req.user.username,
-        fromAvatar: req.user.avatar || "",
-        type: "follow",
+        userId: req.params.id, fromUserId: req.user.id, fromUsername: req.user.username,
+        fromAvatar: req.user.avatar || "", type: "follow",
         text: req.user.username + " requested to follow you",
       });
     } catch {}
@@ -199,34 +198,37 @@ router.post("/:id/follow-request", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: was using findByIdAndUpdate(user.id) — wrong, use findOneAndUpdate
 router.post("/follow-request/:requesterId/accept", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    await User.findByIdAndUpdate(user.id, { "followRequests": (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) });
+    await User.findOneAndUpdate(
+      { id: req.user.id },
+      { followRequests: (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) }
+    );
     const requester = await User.findOne({ id: req.params.requesterId });
     await Follow.create({
-      id: uuidv4(),
-      followerId: req.params.requesterId,
+      id: uuidv4(), followerId: req.params.requesterId,
       followerUsername: requester?.username || "",
-      followingId: req.user.id,
-      followingUsername: user.username
+      followingId: req.user.id, followingUsername: user.username
     });
     await notifRouter.createNotif({
-      userId: req.params.requesterId,
-      fromUserId: req.user.id,
-      fromUsername: req.user.username,
-      fromAvatar: user?.avatar || "",
-      type: "follow",
+      userId: req.params.requesterId, fromUserId: req.user.id, fromUsername: req.user.username,
+      fromAvatar: user?.avatar || "", type: "follow",
       text: req.user.username + " accepted your follow request",
     });
     res.json({ message: "Accepted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: same — findOneAndUpdate
 router.post("/follow-request/:requesterId/decline", auth, async (req, res) => {
   try {
     const user = await User.findOne({ id: req.user.id });
-    await User.findByIdAndUpdate(user.id, { "followRequests": (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) });
+    await User.findOneAndUpdate(
+      { id: req.user.id },
+      { followRequests: (user.followRequests || []).filter(r => r.userId !== req.params.requesterId) }
+    );
     res.json({ message: "Declined" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -247,96 +249,31 @@ router.get("/:username", auth, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-
-// Alias for app compatibility
-router.put("/me", auth, async (req, res) => {
-  const { fullName, bio, website } = req.body;
-  try {
-    await User.updateOne({ id: req.user.id }, { fullName, bio, website });
-    const user = await User.findOne({ id: req.user.id });
-    res.json({ user });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// User posts
+// FIX: added private account check + removed duplicate definition
 router.get("/:username/posts", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
-    const { Post } = require("../models");
-    const posts = await Post.find({ userId: user.id });
-    res.json(posts || []);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-// User stats
-router.get("/:username/stats", auth, async (req, res) => {
-  try {
-    const user = await User.findOne({ username: req.params.username });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    const { Post } = require("../models");
-    const posts = await Post.find({ userId: user.id });
-    res.json({ posts: posts?.length || 0, followers: 0, following: 0 });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-
-
-router.get("/suggest/people", auth, async (req, res) => {
-  try {
-    const users = await User.find({
-      id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
-    }).select("id username fullName avatar isVerified").limit(20);
-    res.json(users);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-
-
-router.get("/suggest/people", auth, async (req, res) => {
-  try {
-    const users = await User.find({
-      id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
-    }).select("id username fullName avatar isVerified").limit(20);
-    res.json(users);
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-router.get("/:username/posts", auth, async (req, res) => {
-  try {
-    const user = await User.findOne({ username: req.params.username });
-    if (!user) return res.status(404).json({ message: "User not found" });
-    const { Post } = require("../models");
+    if (user.isPrivate && user.id !== req.user.id) {
+      const isFollowing = await Follow.findOne({ followerId: req.user.id, followingId: user.id });
+      if (!isFollowing) return res.status(403).json({ message: "This account is private" });
+    }
     const posts = await Post.find({ userId: user.id }).sort({ createdAt: -1 }).limit(50);
     res.json(posts);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// FIX: removed duplicate — this now has the correct implementation with real follower counts
 router.get("/:username/stats", auth, async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username });
     if (!user) return res.status(404).json({ message: "User not found" });
-    const { Post, Follow } = require("../models");
     const [posts, followers, following] = await Promise.all([
       Post.countDocuments({ userId: user.id }),
       Follow.countDocuments({ followingId: user.id }),
       Follow.countDocuments({ followerId: user.id }),
     ]);
     res.json({ posts, followers, following });
-  } catch (err) { res.status(500).json({ message: err.message }); }
-});
-
-
-
-router.get("/suggest/people", auth, async (req, res) => {
-  try {
-    const users = await User.find({
-      id: { $ne: req.user.id },
-      isSuspended: { $ne: true }
-    }).select("id username fullName avatar isVerified").limit(20);
-    res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

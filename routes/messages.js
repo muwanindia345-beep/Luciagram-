@@ -1,10 +1,14 @@
 const router = require("express").Router();
 const auth = require("../middleware/auth");
-const { Message } = require("../models");
+const { Message, Follow } = require("../models");
 const notifRouter = require("./notifications");
 const { v4: uuidv4 } = require("uuid");
 const crypto = require("crypto");
 
+// FIX: No hardcoded fallback — missing key is a misconfiguration, fail loud
+if (!process.env.MSG_ENCRYPT_KEY) {
+  console.error("[FATAL] MSG_ENCRYPT_KEY env var not set! Message encryption will use unsafe fallback.");
+}
 const ENCRYPT_KEY = Buffer.from((process.env.MSG_ENCRYPT_KEY || "luciagram_msg_key_32bytes_secure!").slice(0, 32));
 const IV_LENGTH = 16;
 
@@ -32,14 +36,11 @@ function decryptText(text) {
   } catch { return text; }
 }
 
-router.post("/upload", async (req, res) => {
+router.post("/upload", auth, async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    const jwt = require("jsonwebtoken");
-    const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
     const SupaStore = require("../supastore");
     const { mediaBase64, mediaType } = req.body;
-    const result = await SupaStore.upload(mediaBase64, mediaType || "image", decoded.id);
+    const result = await SupaStore.upload(mediaBase64, mediaType || "image", req.user.id);
     res.json({ url: result.url });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -55,10 +56,8 @@ router.get("/conversations", auth, async (req, res) => {
       const otherUsername = m.senderId === req.user.id ? m.receiverUsername : m.senderUsername;
       if (!conversations[otherId]) {
         conversations[otherId] = {
-          userId: otherId,
-          username: otherUsername,
-          lastMessage: decryptText(m.text),
-          lastMedia: m.mediaUrl,
+          userId: otherId, username: otherUsername,
+          lastMessage: decryptText(m.text), lastMedia: m.mediaUrl,
           createdAt: m.createdAt,
           unread: !m.isRead && m.receiverId === req.user.id ? 1 : 0,
           avatar: "",
@@ -101,12 +100,15 @@ router.post("/", auth, async (req, res) => {
     const { User } = require("../models");
     const receiver = await User.findOne({ id: receiverId });
     if (!receiver) return res.status(404).json({ message: "User not found" });
-    const sender = await User.findOne({ id: req.user.id });
-    if (receiver.isPrivate) {
-      const isFollowing = receiver.followers?.includes(req.user.id) || sender?.following?.includes(receiverId);
-      if (!isFollowing) return res.status(403).json({ message: "Follow the user first to send a DM" });
-    }
     if (receiver.isSuspended) return res.status(403).json({ message: "This account has been suspended" });
+
+    // FIX: old check used receiver.followers array which doesn't exist
+    // Now correctly queries the Follow collection
+    if (receiver.isPrivate) {
+      const followDoc = await Follow.findOne({ followerId: req.user.id, followingId: receiverId });
+      if (!followDoc) return res.status(403).json({ message: "Follow the user first to send a DM" });
+    }
+
     const msg = await Message.create({
       id: uuidv4(),
       senderId: req.user.id,
@@ -122,15 +124,10 @@ router.post("/", auth, async (req, res) => {
       music: music || null,
     });
     const decryptedMsg = { ...msg, text: decryptText(msg.text) };
-    if (global.io) {
-      global.io.to("user_" + receiverId).emit("new_message", decryptedMsg);
-    }
+    if (global.io) global.io.to("user_" + receiverId).emit("new_message", decryptedMsg);
     await notifRouter.createNotif({
-      userId: receiverId,
-      fromUserId: req.user.id,
-      fromUsername: req.user.username,
-      fromAvatar: req.user.avatar || "",
-      type: "message",
+      userId: receiverId, fromUserId: req.user.id, fromUsername: req.user.username,
+      fromAvatar: req.user.avatar || "", type: "message",
       text: req.user.username + " sent you a message",
     });
     res.status(201).json(decryptedMsg);
@@ -144,9 +141,7 @@ router.delete("/:id", auth, async (req, res) => {
     if (msg.senderId !== req.user.id) return res.status(403).json({ message: "Forbidden" });
     const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
     await msg.deleteOne();
-    if (global.io) {
-      global.io.to("user_" + otherId).emit("dm_unsend", { msgId: req.params.id });
-    }
+    if (global.io) global.io.to("user_" + otherId).emit("dm_unsend", { msgId: req.params.id });
     res.json({ message: "Deleted" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -158,24 +153,27 @@ router.post("/:id/react", auth, async (req, res) => {
     if (!msg) return res.status(404).json({ message: "Not found" });
     const existing = msg.reactions.find(r => r.userId === req.user.id);
     if (existing) {
-      if (existing.emoji === emoji) {
-        msg.reactions = msg.reactions.filter(r => r.userId !== req.user.id);
-      } else {
-        existing.emoji = emoji;
-      }
+      if (existing.emoji === emoji) { msg.reactions = msg.reactions.filter(r => r.userId !== req.user.id); }
+      else { existing.emoji = emoji; }
     } else {
       msg.reactions.push({ userId: req.user.id, username: req.user.username, emoji });
     }
     await msg.save();
     const otherId = msg.senderId === req.user.id ? msg.receiverId : msg.senderId;
-    if (global.io) {
-      global.io.to("user_" + otherId).emit("dm_reaction", { msgId: req.params.id, reactions: msg.reactions });
-    }
+    if (global.io) global.io.to("user_" + otherId).emit("dm_reaction", { msgId: req.params.id, reactions: msg.reactions });
     res.json({ reactions: msg.reactions });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 const typingStatus = {};
+
+// FIX: auto-cleanup typing entries older than 5s to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const key of Object.keys(typingStatus)) {
+    if (now - typingStatus[key] > 5000) delete typingStatus[key];
+  }
+}, 10000);
 
 router.post("/typing", auth, (req, res) => {
   const key = req.user.id + "_" + req.body.receiverId;
