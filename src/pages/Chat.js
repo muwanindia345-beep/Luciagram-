@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import MusicPicker from "../components/MusicPicker";
 import CallScreen from "./CallScreen";
-import API from "../api";
+import API, { SOCKET_URL } from "../api";
 import { io } from "socket.io-client";
 import { useSettings } from '../hooks/useSettings';
 import { useAuth } from "../context/AuthContext";
@@ -130,7 +130,7 @@ export default function Chat() {
     if (username) {
       API.get("/users/" + username).then(r => setOtherUser(r.data)).catch(()=>{});
     }
-    const socket = io("https://luciagram-backend.onrender.com", { transports: ["websocket"] });
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
     const uid = user?.id; socket.on("connect", () => { if(uid) socket.emit("join", uid); });
     socket.on("new_message", (msg) => {
       if (msg.senderId === userId || msg.receiverId === userId) {
