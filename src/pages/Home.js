@@ -31,28 +31,38 @@ export default function Home() {
   const storyTimer = useRef(null);
   const loaderRef = React.useRef(null);
 
-  // Infinite scroll observer
+  // Infinite scroll observer — page ref se track karo, stale closure avoid karo
+  const pageRef = React.useRef(1);
+  const loadingRef = React.useRef(false);
   React.useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && hasMore && !loadingFeed) {
-        const nextPage = page + 1;
-        setPage(nextPage);
+      if (entry.isIntersecting && hasMore && !loadingRef.current) {
+        loadingRef.current = true;
+        const nextPage = pageRef.current + 1;
         API.get("/posts/feed?page=" + nextPage).then(r => {
-          const newPosts = r.data.posts || r.data;
-          setHasMore(r.data.hasMore !== false);
-          setPosts(prev => [...prev, ...(Array.isArray(newPosts) ? newPosts : [])]);
-          (Array.isArray(newPosts) ? newPosts : []).forEach(p => {
-            API.get("/posts/" + p.id + "/likes").then(res => {
-              setLikeCounts(prev => ({...prev, [p.id]: res.data.count}));
-              setLiked(prev => ({...prev, [p.id]: res.data.liked}));
-            }).catch(()=>{});
-          });
-        }).catch(()=>{});
+          const newPosts = r.data.posts || [];
+          const more = r.data.hasMore === true;
+          setHasMore(more);
+          if (newPosts.length > 0) {
+            pageRef.current = nextPage;
+            setPage(nextPage);
+            setPosts(prev => [...prev, ...newPosts]);
+            newPosts.forEach(p => {
+              API.get("/posts/" + p.id + "/likes").then(res => {
+                setLikeCounts(prev => ({...prev, [p.id]: res.data.count}));
+                setLiked(prev => ({...prev, [p.id]: res.data.liked}));
+              }).catch(()=>{});
+            });
+          } else {
+            setHasMore(false);
+          }
+          loadingRef.current = false;
+        }).catch(()=>{ loadingRef.current = false; });
       }
     }, { threshold: 0.1 });
     if (loaderRef.current) observer.observe(loaderRef.current);
     return () => observer.disconnect();
-  }, [hasMore, loadingFeed, page]);
+  }, [hasMore]);
   const storyMusicRef = useRef(null);
   const storyVideoRef = useRef(null);
   const [storyDuration, setStoryDuration] = useState(5000);
