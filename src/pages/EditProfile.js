@@ -18,6 +18,7 @@ export default function EditProfile() {
   });
   const [avatar, setAvatar] = useState(user?.avatar || null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleAvatar = (e) => {
     const file = e.target.files[0];
@@ -29,17 +30,16 @@ export default function EditProfile() {
 
   const handleSave = async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await API.put("/users/profile", { ...form, avatar });
-      // Update auth context and localStorage immediately
       const updated = { ...user, ...res.data };
       setUser(updated);
       localStorage.setItem("user", JSON.stringify(updated));
-      // Also refresh from server to get latest data
       await refreshUser();
       navigate("/profile");
     } catch (err) {
-      alert(err.response?.data?.message || "Update failed");
+      setError(err.response?.data?.message || "Update failed");
     } finally { setLoading(false); }
   };
 
@@ -60,6 +60,8 @@ export default function EditProfile() {
       </div>
 
       <div style={{maxWidth:"600px",margin:"0 auto",padding:"1.5rem 1rem"}}>
+        {error && <div style={{background:"#2a1a1a",border:"1px solid #f87171",borderRadius:"10px",padding:"0.75rem 1rem",marginBottom:"1rem",color:"#f87171",fontSize:"0.9rem",textAlign:"center"}}>{error}</div>}
+
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:"2rem"}}>
           <label style={{cursor:"pointer",position:"relative"}}>
             {avatar ? (
