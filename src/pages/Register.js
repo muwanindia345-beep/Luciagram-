@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useAuth, MUWAN_AUTH_URL } from "../context/AuthContext";
+import API from "../api";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
@@ -19,22 +20,19 @@ export default function Register() {
     if (form.username.length < 3)            { setLoading(false); return setError("Username must be at least 3 characters"); }
     if (!/^[a-zA-Z0-9_.]+$/.test(form.username)) { setLoading(false); return setError("Username: letters, numbers, _ and . only"); }
     try {
-      const res = await fetch(`${MUWAN_AUTH_URL}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: form.username,
-          email: form.email,
-          password: form.password,
-          fullName: form.fullName
-        })
+      const res = await API.post("/auth/register", {
+        username: form.username,
+        email: form.email,
+        password: form.password,
+        fullName: form.fullName
       });
-      const data = await res.json();
-      if (!res.ok) return setError(data.message || data.error || "Register failed");
+      const data = res.data;
+      if (!data.user) return setError(data.message || data.error || "Register failed");
       login(data.user, data.token);
       navigate("/");
-    } catch { setError("Network error — try again"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      setError(err.response?.data?.message || err.response?.data?.error || "Network error — try again");
+    } finally { setLoading(false); }
   };
 
   return (

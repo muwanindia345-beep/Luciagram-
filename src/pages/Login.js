@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { useAuth, MUWAN_AUTH_URL } from "../context/AuthContext";
+import API from "../api";
+import { useAuth } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
@@ -17,17 +18,17 @@ export default function Login() {
     if (!form.email.includes("@"))     { setLoading(false); return setError("Invalid email"); }
     if (form.password.length < 6)      { setLoading(false); return setError("Password must be 6+ characters"); }
     try {
-      const res = await fetch(`${MUWAN_AUTH_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, password: form.password })
+      const res = await API.post("/auth/login", {
+        email: form.email,
+        password: form.password
       });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error || "Login failed");
+      const data = res.data;
+      if (!data.user) return setError(data.error || "Login failed");
       login(data.user, data.token);
       navigate("/");
-    } catch { setError("Network error — try again"); }
-    finally { setLoading(false); }
+    } catch (err) {
+      setError(err.response?.data?.error || err.response?.data?.message || "Network error — try again");
+    } finally { setLoading(false); }
   };
 
   return (

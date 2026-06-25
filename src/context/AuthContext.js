@@ -2,7 +2,7 @@ import { clearSettingsCache } from '../hooks/useSettings';
 import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import API from "../api";
 
-export const MUWAN_AUTH_URL = "https://luciagram-7s5b.onrender.com/api";
+export const MUWAN_AUTH_URL = "https://luciagram-production.up.railway.app/api";
 
 const AuthContext = createContext();
 
