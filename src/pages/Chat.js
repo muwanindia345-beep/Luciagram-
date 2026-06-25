@@ -93,6 +93,7 @@ export default function Chat() {
   const [gifs, setGifs] = useState([]);
   const [gifLoading, setGifLoading] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(true);
 
   const themes = {
     purple: "linear-gradient(135deg,#7c3aed,#db2777)",
@@ -158,7 +159,7 @@ export default function Chat() {
     });
     socketRef.current = socket;
     return () => socket.disconnect();
-  }, [userId]);
+  }, [userId, user?.id]);
 
   // Disappearing messages cleanup
   useEffect(() => {
@@ -174,9 +175,12 @@ export default function Chat() {
 
   const loadMessages = async () => {
     try {
+      setLoadingMessages(true);
       const res = await API.get("/messages/" + userId);
       setMessages(res.data);
-    } catch {}
+    } catch {} finally {
+      setLoadingMessages(false);
+    }
   };
 
   const handleMedia = (e) => {
@@ -549,6 +553,23 @@ const sendMessage = async () => {
 
       {/* Messages */}
       <div style={{flex:1,overflowY:"auto",padding:"0.75rem 1rem",display:"flex",flexDirection:"column",gap:"0.5rem"}}>
+        {loadingMessages && (
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",paddingTop:"3rem"}}>
+            <div style={{textAlign:"center",color:"#888"}}>
+              <div style={{fontSize:"2rem",marginBottom:"0.5rem"}}>🦋</div>
+              <div style={{fontSize:"0.85rem"}}>Loading messages...</div>
+            </div>
+          </div>
+        )}
+        {!loadingMessages && messages.length === 0 && (
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",paddingTop:"3rem"}}>
+            <div style={{textAlign:"center",color:"#888"}}>
+              <div style={{fontSize:"2.5rem",marginBottom:"0.5rem"}}>💬</div>
+              <div style={{fontSize:"0.9rem",fontWeight:"bold",marginBottom:"0.3rem"}}>No messages yet</div>
+              <div style={{fontSize:"0.8rem"}}>Say hi to @{username}!</div>
+            </div>
+          </div>
+        )}
         {messages.map((m,i) => {
           const isMe = m.senderId === user?.id;
           const isAudio = m.mediaType === "audio";
