@@ -55,7 +55,7 @@ router.get("/cleanup-luciastore", adminAuth, async (req, res) => {
     let dropped = [];
     if (names.includes("mediachunks")) { await db.collection("mediachunks").drop(); dropped.push("mediachunks"); }
     if (names.includes("mediametas")) { await db.collection("mediametas").drop(); dropped.push("mediametas"); }
-    res.json({ message: "LuciaStore cleaned, droppedCollections: dropped, note: "This freed the most MongoDB space });
+    res.json({ message: "LuciaStore cleaned", droppedCollections: dropped, note: "This freed the most MongoDB space" });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
