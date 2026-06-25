@@ -59,7 +59,7 @@ function buildWhere(filter) {
         const [field, val] = Object.entries(cond)[0];
         const col = snk(field);
         if (typeof val === "object" && val.$regex) {
-          return `LOWER(${col}) LIKE LOWER('%${String(val.$regex).replace(/[.*+?^${}()|[\]\\]/g, "")}%')`;
+          return `${col} LIKE %${String(val.$regex).replace(/[.*+?^${}()|[\]\\]/g, "")}%`;
         }
         return `${col} = ${escVal(val)}`;
       });
@@ -78,7 +78,7 @@ function buildWhere(filter) {
         else if (op === "$lt")   parts.push(`${col} < ${escVal(val)}`);
         else if (op === "$lte")  parts.push(`${col} <= ${escVal(val)}`);
         else if (op === "$ne")   parts.push(`${col} != ${escVal(val)}`);
-        else if (op === "$regex") parts.push(`LOWER(${col}) LIKE LOWER('%${String(val).replace(/[.*+?^${}()|[\]\\]/g, "")}%')`);
+        else if (op === "$regex") parts.push(`${col} LIKE %${String(val).replace(/[.*+?^${}()|[\]\\]/g, "")}%`);
         else if (op === "$exists") parts.push(val ? `${col} IS NOT NULL` : `${col} IS NULL`);
       }
     } else {
